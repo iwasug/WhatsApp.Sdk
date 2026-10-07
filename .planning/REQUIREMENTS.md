@@ -111,12 +111,45 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| CONN-01 | Phase 3 | Pending |
+| CONN-02 | Phase 3 | Pending |
+| CONN-03 | Phase 3 | Pending |
+| CONN-04 | Phase 2 | Pending |
+| CONN-05 | Phase 2 | Pending |
+| STR-01 | Phase 1 | Pending |
+| STR-02 | Phase 1 | Pending |
+| MSG-01 | Phase 4 | Pending |
+| MSG-02 | Phase 4 | Pending |
+| MSG-03 | Phase 4 | Pending |
+| MSG-04 | Phase 4 | Pending |
+| MSG-05 | Phase 4 | Pending |
+| MSG-06 | Phase 4 | Pending |
+| MSG-07 | Phase 4 | Pending |
+| MED-01 | Phase 6 | Pending |
+| MED-02 | Phase 6 | Pending |
+| SAF-01 | Phase 5 | Pending |
+| SAF-02 | Phase 5 | Pending |
+| SAF-03 | Phase 5 | Pending |
+| SAF-04 | Phase 5 | Pending |
+| SAF-05 | Phase 5 | Pending |
+| SAF-06 | Phase 5 | Pending |
+| SAF-07 | Phase 5 | Pending |
+| MUL-01 | Phase 7 | Pending |
+| MUL-02 | Phase 7 | Pending |
+| MUL-03 | Phase 7 | Pending |
+| BCT-01 | Phase 8 | Pending |
+| EXT-01 | Phase 8 | Pending |
+| EXT-02 | Phase 8 | Pending |
+| EXT-03 | Phase 8 | Pending |
+| EXT-04 | Phase 8 | Pending |
+| OPS-01 | Phase 9 | Pending |
+| OPS-02 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33 ⚠️
+- Mapped to phases: 33
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-10-07*
-*Last updated: 2026-10-07 after initial definition*
+*Last updated: 2026-10-07 after roadmap creation (33/33 mapped)*
