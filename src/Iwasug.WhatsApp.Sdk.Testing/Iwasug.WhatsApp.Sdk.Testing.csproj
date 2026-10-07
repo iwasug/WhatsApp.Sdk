@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Published store-contract test kit (D-10, EF Core specification-tests style): abstract
+    xunit contract classes that hosts subclass against their own store implementations.
+
+    HARD PACKAGING RULE (Pitfall 3): this library references xunit.v3.extensibility.core
+    ONLY — never the runnable xunit.v3 packages (xunit.v3 or its core package). Those
+    inject MSBuild steps that turn this class library into an executable test project —
+    warning sign: an .exe apphost appearing in this project's output.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Iwasug.WhatsApp.Sdk.Testing</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Store-contract test kit for Iwasug.WhatsApp.Sdk — abstract contract classes hosts subclass to verify their own pluggable store implementations.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Iwa Sugriwa</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Iwasug.WhatsApp.Sdk\Iwasug.WhatsApp.Sdk.csproj" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <!-- Assertions for the contract classes: xunit.v3.extensibility.core ships only the
+         extensibility types (FactAttribute), not Assert — and referencing xunit.v3.assert
+         would be a second xunit package. Per 01-RESEARCH.md Standard Stack, AwesomeAssertions
+         provides "fluent assertions in kit + internal tests". -->
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

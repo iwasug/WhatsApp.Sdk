@@ -1,0 +1,12 @@
+#nullable enable
+Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase
+Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.ComplianceTestBase() -> void
+Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.Every_contract_class_has_a_concrete_subclass() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Get_missing_address_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.SignalSessionStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Two_accounts_isolated_same_address() -> System.Threading.Tasks.Task!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory!
+virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetConcreteSubclasses(System.Type! contractBase) -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!
+virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetContractBaseClasses() -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!

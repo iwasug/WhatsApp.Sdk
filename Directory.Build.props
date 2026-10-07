@@ -1,0 +1,23 @@
+<Project>
+  <!--
+    Central build conventions for every project in this repository (D-14 bootstrap).
+    Individual .csproj files stay thin: TFM, language, nullability, and the
+    warnings-as-errors gate live here so every later phase inherits them.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Git-height SemVer2 versioning from day one (locked stack: Nerdbank.GitVersioning).
+      The version itself lives in version.json at the repo root; no manual version
+      strings in .csproj files. PrivateAssets keeps it a build-time-only dependency.
+    -->
+    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

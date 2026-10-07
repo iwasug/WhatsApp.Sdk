@@ -1,0 +1,34 @@
+<Project>
+  <!--
+    Central package version management: every PackageReference in this repo takes its
+    version here, not in the .csproj files. Versions are the registry-verified pins
+    from .planning/phases/01-foundation-store-seam/01-RESEARCH.md (2026-10-07).
+    Note: the similarly-named "abstractions" split of the Options package does not exist
+    on nuget.org — IOptions<T> ships in Microsoft.Extensions.Options itself.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Extensions 10.0.x servicing train (runtime 10.0.12) -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
+    <!-- Testing package carries its own version line -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+
+    <!-- Test stack -->
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+
+    <!-- Public-surface tracking (A5) -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
+
+    <!-- Versioning (Development Tools: git-height SemVer2 + signed reproducible builds) -->
+    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.94" />
+  </ItemGroup>
+</Project>

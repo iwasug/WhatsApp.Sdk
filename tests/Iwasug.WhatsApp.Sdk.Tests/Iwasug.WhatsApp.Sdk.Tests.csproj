@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Internal test project: the ONLY project type in this repo that references the runnable
+    xunit.v3 package (the kit must stay a class library — Pitfall 3). D-12: this project is
+    not packable; the solution contains exactly two packable projects.
+    Deliberately NO PublicApiAnalyzers here (internal surface, not shipped).
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!--
+      xunit.v3 runs on Microsoft.Testing.Platform; on .NET 10 SDK `dotnet test` runs it in
+      the MTP mode selected by global.json's test.runner (see repo-root global.json,
+      https://aka.ms/dotnet-test-mtp-error). TestingPlatformDotnetTestSupport is NOT used:
+      the .NET 10 SDK rejects VSTest-mode MTP projects outright.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <!-- FakeTimeProvider for deterministic TTL/trim tests (consumed by plan 01-04). -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk\Iwasug.WhatsApp.Sdk.csproj" />
+    <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk.Testing\Iwasug.WhatsApp.Sdk.Testing.csproj" />
+  </ItemGroup>
+
+</Project>

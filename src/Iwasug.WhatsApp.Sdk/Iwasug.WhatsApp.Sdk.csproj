@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Main SDK package (D-13: package ID = root namespace = Iwasug.WhatsApp.Sdk).
+    TFM, LangVersion, nullable, and warnings-as-errors come from Directory.Build.props;
+    package versions come from Directory.Packages.props (central management).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Iwasug.WhatsApp.Sdk</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Unofficial WhatsApp Web multi-device protocol SDK for .NET — pluggable session persistence, multi-account ready, clean-room implementation.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Iwa Sugriwa</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <!-- Public-surface tracking from day one (A5): every public API change must be declared. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>
