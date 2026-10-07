@@ -1,0 +1,1 @@
+{"content":"QR pairing: SDK emits raw QR payload string via event; rendering is host concern - no runtime QR dependency in core. QRCoder 1.8.0 MIT pure C# for samples/docs; ZXing.Net unnecessary. Source NuGet registration (MIT, 1.8.0). Confidence HIGH.","source":"web","provider":"nuget","confidence":"HIGH","fetched_at":"2026-10-07T12:15:40.910Z","ttl":86400000,"kind":"web"}
