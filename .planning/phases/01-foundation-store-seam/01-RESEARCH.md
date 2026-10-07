@@ -504,21 +504,13 @@ The D-18 bounded-retry wrapper (SDK-owned, around durable writes) is behavior sp
 | A5 | PublicApiAnalyzers adopted at bootstrap (not strictly required until Phase 9) | Standard Stack | If skipped now, adopting later is trivial |
 | A6 | whatsmeow/Baileys behavioral descriptions (granular interfaces; per-account scoping via device-scoped instances; ErrNoRows→(nil,nil) mapping; SignalKeyStore get/set shape) are accurate as read this session from upstream source/docs pages | Architecture Patterns / Summary | Shape informed our *recommendations* only; our contract is defined by D-01..D-26, not by upstream — low blast radius |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Kit scope split: how many contract classes per store?**
-   - What we know: D-11 mandates five rule families (durability-await, failure≠missing, isolation, trimming, concurrency); EF Core models this as many small base classes.
-   - What's unclear: whether to model one abstract class per store (5 classes, rule-rich) or per rule family × store (25+ small classes).
-   - Recommendation: one contract class per store, each calling shared rule helpers — fewer classes for hosts to subclass, still enforces completeness via `ComplianceTestBase`. Planner finalizes.
+1. **Kit scope split: how many contract classes per store?** — **RESOLVED (plan 01-02 Task 3):** one contract class per store, each calling shared rule helpers (per this section's recommendation). Five kit contract classes; `ComplianceTestBase` enforces completeness reflectively.
 
-2. **Does the cache store need enumeration?**
-   - What we know: D-08 needs trim primitives; MSG-05 (Phase 4) needs lookup for quoting.
-   - What's unclear: whether Phase 1's interface needs `GetRecent(limit)`-shaped reads now or write+trim only.
-   - Recommendation: include a minimal read (SDK will need it in Phase 4; additive-safe to add later, but it shapes reference-impl state layout now).
+2. **Does the cache store need enumeration?** — **RESOLVED (plan 01-02 Task 1):** include the minimal read — `GetRecentAsync(chatJid, limit)` returning newest-first limited entries for that chat (per this section's recommendation; shapes reference-impl ordered state now, used by Phase 4 quoting later).
 
-3. **ValueTask vs Task on the factory's `CreateAsync`**
-   - What we know: TAP guidance says Task unless measured pressure; factory is called once per account (D-24) — not hot path.
-   - Recommendation: `ValueTask<T>` acceptable on factory (single-consumption safe), `Task` on store methods. Either is defensible; pick one convention repo-wide.
+3. **ValueTask vs Task on the factory's `CreateAsync`** — **RESOLVED (plan 01-01 Task 1, repo-wide convention):** `Task` on all store methods, `ValueTask<T>` only on factory `CreateAsync` (single-consumption safe, called once per account per D-24 — not a hot path).
 
 ## Environment Availability
 
