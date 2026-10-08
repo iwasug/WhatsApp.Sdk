@@ -58,7 +58,7 @@ public sealed class LoopbackRoundTripTests
 
     private sealed class CaptureLogger<T> : ILogger<T>
     {
-        internal readonly ConcurrentQueue<(LogLevel Level, string Message)> Entries = new();
+        internal readonly ConcurrentQueue<(LogLevel Level, string Message, Exception? Error)> Entries = new();
 
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull => NullScope.Instance;
@@ -70,7 +70,8 @@ public sealed class LoopbackRoundTripTests
             EventId eventId,
             TState state,
             Exception? exception,
-            Func<TState, Exception?, string> formatter) => Entries.Enqueue((logLevel, formatter(state, exception)));
+            Func<TState, Exception?, string> formatter) =>
+            Entries.Enqueue((logLevel, formatter(state, exception), exception));
 
         private sealed class NullScope : IDisposable
         {
@@ -129,11 +130,7 @@ public sealed class LoopbackRoundTripTests
 
     private static async Task<byte[]> ReceiveOrThrowAsync(IFrameTransport transport, CancellationToken cancellationToken)
     {
-        ReadOnlyMemory<byte>? frame = await transport.ReceiveAsync(cancellationToken).ConfigureAwait(false);
-        if (frame is null)
-        {
-            throw new InvalidOperationException("Peer transport closed unexpectedly.");
-        }
+        ReadOnlyMemory<byte>? frame = await transport.ReceiveAsync(cancellationToken).ConfigureAwait(false) ?? throw new InvalidOperationException("Peer transport closed unexpectedly.");
 
         return frame.Value.ToArray();
     }
@@ -161,9 +158,9 @@ public sealed class LoopbackRoundTripTests
         }
 
         KeyCreationParameters keyParameters = default;
-        using Key peerKey = Key.Create(KeyAgreementAlgorithm.X25519, keyParameters);
+        using var peerKey = Key.Create(KeyAgreementAlgorithm.X25519, keyParameters);
         byte[] peerEphemeral = peerKey.PublicKey.Export(KeyBlobFormat.RawPublicKey);
-        PublicKey clientPublic = PublicKey.Import(KeyAgreementAlgorithm.X25519, clientEphemeral, KeyBlobFormat.RawPublicKey);
+        var clientPublic = PublicKey.Import(KeyAgreementAlgorithm.X25519, clientEphemeral, KeyBlobFormat.RawPublicKey);
         var agreeParameters = new SharedSecretCreationParameters
         {
             ExportPolicy = KeyExportPolicies.AllowPlaintextExport,
@@ -184,7 +181,7 @@ public sealed class LoopbackRoundTripTests
         CryptographicOperations.ZeroMemory(initiatorWrite);
         CryptographicOperations.ZeroMemory(initiatorRead);
 
-        var messageB = new byte[4 + 32 + 2 + serverHello.Length];
+        byte[] messageB = new byte[4 + 32 + 2 + serverHello.Length];
         messageB[0] = 0x57;
         messageB[1] = 0x41;
         messageB[2] = 0x06;
@@ -201,6 +198,32 @@ public sealed class LoopbackRoundTripTests
             ClientMessageC = messageC,
             Transport = transport,
         };
+    }
+
+    private static async Task<(string Id, byte[] Body)> ReceivePeerQueryAsync(
+        IFrameTransport peer,
+        NoiseTransport noise,
+        CancellationToken cancellationToken)
+    {
+        byte[] encrypted = await ReceiveOrThrowAsync(peer, cancellationToken).ConfigureAwait(false);
+        byte[] plain = noise.Decrypt(encrypted);
+        if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
+        {
+            throw new InvalidOperationException("Peer received an unparsable query frame.");
+        }
+
+        return (id, body);
+    }
+
+    private static async Task SendPeerReplyAsync(
+        IFrameTransport peer,
+        NoiseTransport noise,
+        string id,
+        byte[] body,
+        CancellationToken cancellationToken)
+    {
+        byte[] response = QueryRouter.BuildFrame(id, body);
+        await peer.SendAsync(noise.Encrypt(response), cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task RunPeerEchoLoopAsync(
@@ -311,7 +334,7 @@ public sealed class LoopbackRoundTripTests
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
-        Task peerTask = Task.Run(async () =>
+        var peerTask = Task.Run(async () =>
         {
             LoopbackFrameTransport first = await TakePeerAsync(pairs, testToken);
             PeerHandshakeResult firstHandshake = await CompletePeerHandshakeAsync(
@@ -372,7 +395,7 @@ public sealed class LoopbackRoundTripTests
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
-        Task peerTask = Task.Run(async () =>
+        var peerTask = Task.Run(async () =>
         {
             LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
             PeerHandshakeResult handshake = await CompletePeerHandshakeAsync(
@@ -401,5 +424,329 @@ public sealed class LoopbackRoundTripTests
 
         await connection.DisposeAsync();
         await peerTask;
+    }
+
+    [Fact]
+    public async Task Drop515_during_connecting_restarts_immediately_with_counter_reset()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        await using var connection = new WaConnection(
+            NewAccount("restart"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            TracerOptions());
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport doomed = await TakePeerAsync(pairs, testToken);
+            await doomed.CloseAsync(515, testToken);
+
+            LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
+            PeerHandshakeResult handshake = await CompletePeerHandshakeAsync(
+                peer,
+                Encoding.ASCII.GetBytes("server-hello"),
+                testToken);
+            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, int.MaxValue, testToken);
+            await peer.DisposeAsync();
+        }, testToken);
+
+        await connection.ConnectAsync(testToken);
+        connection.State.Should().Be(ConnectionState.Open);
+
+        ConnectionStateChangedEventArgs[] connectings = states.Where(e => e.State == ConnectionState.Connecting).ToArray();
+        connectings.Should().HaveCount(2);
+        connectings[0].Attempt.Should().Be(0);
+        connectings[1].Attempt.Should().Be(0, "515 restarts immediately with the backoff counter reset");
+        states.Count(e => e.State == ConnectionState.Open).Should().Be(1);
+        pairs.Created.Should().Be(2);
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public async Task Drop401_during_connecting_surfaces_logged_out_without_open()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        await using var connection = new WaConnection(
+            NewAccount("early-terminal"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            TracerOptions());
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport doomed = await TakePeerAsync(pairs, testToken);
+            await doomed.CloseAsync(401, testToken);
+        }, testToken);
+
+        Func<Task> act = () => connection.ConnectAsync(testToken);
+        (await act.Should().ThrowAsync<SdkConnectionException>())
+            .Which.Message.Should().Contain("logged out");
+
+        states.Any(e => e.State == ConnectionState.Open).Should().BeFalse();
+        states.Count(e => e.State == ConnectionState.LoggedOut).Should().Be(1);
+        pairs.Created.Should().Be(1);
+        connection.State.Should().Be(ConnectionState.LoggedOut);
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public async Task Cancel_mid_handshake_aborts_with_unwrapped_cancellation_and_no_retry()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        var gotMessageA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var connection = new WaConnection(
+            NewAccount("cancel"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            TracerOptions());
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
+            await ReceiveOrThrowAsync(peer, testToken);
+            await ReceiveOrThrowAsync(peer, testToken);
+            gotMessageA.TrySetResult();
+            ReadOnlyMemory<byte>? next = await peer.ReceiveAsync(testToken);
+            next.Should().BeNull("abort disposes the attempt transport — no partial transport is retained");
+        }, testToken);
+
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(testToken);
+        Task connectTask = connection.ConnectAsync(connectCts.Token);
+        await gotMessageA.Task.WaitAsync(testToken);
+        connectCts.Cancel();
+
+        Func<Task> act = () => connectTask;
+        (await act.Should().ThrowAsync<OperationCanceledException>())
+            .Which.Should().NotBeAssignableTo<SdkException>("cancellation passes through unwrapped, never wrapped or retried");
+
+        await WaitForQueuedAsync(states, e => e.State == ConnectionState.Closing, "abort closing");
+        pairs.Created.Should().Be(1);
+        connection.State.Should().Be(ConnectionState.Closing);
+        states.Any(e => e.State == ConnectionState.Open).Should().BeFalse();
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public async Task Drop440_surfaces_without_retry_and_without_logged_out()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        await using var connection = new WaConnection(
+            NewAccount("replaced"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            TracerOptions());
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
+            PeerHandshakeResult handshake = await CompletePeerHandshakeAsync(
+                peer,
+                Encoding.ASCII.GetBytes("server-hello"),
+                testToken);
+            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, 2, testToken);
+            await peer.CloseAsync(440, testToken);
+        }, testToken);
+
+        await connection.ConnectAsync(testToken);
+        byte[] reply = await connection.SendQueryAsync(Encoding.ASCII.GetBytes("last"), testToken);
+        reply.Should().Equal(Encoding.ASCII.GetBytes("last"));
+
+        await WaitForQueuedAsync(
+            states,
+            e => e.State == ConnectionState.Closing && e.StatusCode == 440,
+            "closing with 440");
+
+        await Task.Delay(NoRetryWindow, testToken);
+        states.Any(e => e.State == ConnectionState.LoggedOut).Should().BeFalse("440 surfaces account-replaced and stops — it is not logged-out");
+        pairs.Created.Should().Be(1, "immediate reconnect would start a kick-war between devices");
+        connection.State.Should().Be(ConnectionState.Closing);
+
+        Func<Task> lateQuery = () => connection.SendQueryAsync(Encoding.ASCII.GetBytes("too-late"), testToken).AsTask();
+        (await lateQuery.Should().ThrowAsync<SdkConnectionException>())
+            .Which.Message.Should().Contain("not open");
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public async Task Handshake_rejects_dictionary_version_mismatch_fail_closed()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        var logger = new CaptureLogger<WaConnection>();
+        await using var connection = new WaConnection(
+            NewAccount("dict-mismatch"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            TracerOptions(),
+            timeProvider: null,
+            logger: logger);
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
+            await ReceiveOrThrowAsync(peer, testToken);
+            await ReceiveOrThrowAsync(peer, testToken);
+
+            KeyCreationParameters keyParameters = default;
+            using var peerKey = Key.Create(KeyAgreementAlgorithm.X25519, keyParameters);
+            byte[] peerEphemeral = peerKey.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+            byte[] hello = Encoding.ASCII.GetBytes("server-hello");
+            byte[] messageB = new byte[4 + 32 + 2 + hello.Length];
+            messageB[0] = 0x57;
+            messageB[1] = 0x41;
+            messageB[2] = 0x06;
+            messageB[3] = 0x02;
+            peerEphemeral.CopyTo(messageB.AsSpan(4));
+            BinaryPrimitives.WriteUInt16BigEndian(messageB.AsSpan(36, 2), (ushort)hello.Length);
+            hello.CopyTo(messageB.AsSpan(38));
+            await peer.SendAsync(messageB, testToken);
+
+            ReadOnlyMemory<byte>? next = await peer.ReceiveAsync(testToken);
+            next.Should().BeNull("the client aborts the handshake — no message C follows a rejected B");
+        }, testToken);
+
+        Func<Task> act = () => connection.ConnectAsync(testToken);
+        (await act.Should().ThrowAsync<SdkConnectionException>())
+            .Which.Message.Should().Contain("dictionary version mismatch");
+
+        states.Any(e => e.State == ConnectionState.Open).Should().BeFalse();
+        pairs.Created.Should().Be(1, "a protocol violation halts the loop — a hostile peer is not a network flap");
+        logger.Entries.Should().ContainSingle(e =>
+            e.Level == LogLevel.Error && e.Error is SdkConnectionException && e.Error.Message.Contains("dictionary version mismatch"));
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public async Task SendQueryAsync_times_out_when_peer_silent()
+    {
+        using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        CancellationToken testToken = testCts.Token;
+        var pairs = new PairSource();
+        var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        var logger = new CaptureLogger<WaConnection>();
+        var options = new ConnectionOptions
+        {
+            ConnectTimeoutMs = 5_000,
+            QueryTimeoutMs = 200,
+            RetryBaseDelayMs = 0,
+            RetryMaxDelayMs = 0,
+        };
+        await using var connection = new WaConnection(
+            NewAccount("quiet-peer"),
+            pairs.CreateClient,
+            new StaticPayloads("client-hello", "client-finish"),
+            options,
+            timeProvider: null,
+            logger: logger);
+        connection.StateChanged += (_, e) => states.Enqueue(e);
+
+        var peerTask = Task.Run(async () =>
+        {
+            LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
+            PeerHandshakeResult handshake = await CompletePeerHandshakeAsync(
+                peer,
+                Encoding.ASCII.GetBytes("server-hello"),
+                testToken);
+            (string probeId, byte[] probeBody) = await ReceivePeerQueryAsync(peer, handshake.Transport, testToken);
+            await SendPeerReplyAsync(peer, handshake.Transport, probeId, probeBody, testToken);
+
+            (string id, byte[] body) = await ReceivePeerQueryAsync(peer, handshake.Transport, testToken);
+            await Task.Delay(800, testToken);
+            await SendPeerReplyAsync(peer, handshake.Transport, id, body, testToken);
+
+            ReadOnlyMemory<byte>? next = await peer.ReceiveAsync(testToken);
+            next.Should().BeNull();
+        }, testToken);
+
+        await connection.ConnectAsync(testToken);
+
+        Func<Task> act = () => connection.SendQueryAsync(Encoding.ASCII.GetBytes("hello?"), testToken).AsTask();
+        (await act.Should().ThrowAsync<SdkConnectionException>())
+            .Which.Message.Should().Contain("timed out");
+        connection.State.Should().Be(ConnectionState.Open);
+
+        await WaitForQueuedAsync(
+            states,
+            e => e.State == ConnectionState.Open,
+            "open before late-reply discard");
+        await Task.Delay(900, testToken);
+        logger.Entries.Should().Contain(e =>
+            e.Level == LogLevel.Debug && e.Message.Contains("discarded"));
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
+    [Fact]
+    public void Handshake_dispose_blocks_use_and_second_dispose_is_safe()
+    {
+        var handshake = new NoiseHandshake(new StaticPayloads("hello", "finish"));
+        byte[] messageA = handshake.WriteMessageA();
+        messageA.Should().NotBeEmpty();
+
+        Assert.Throws<InvalidOperationException>(() => handshake.WriteMessageA());
+        Assert.Throws<InvalidOperationException>(() => handshake.WriteMessageC());
+        Assert.Throws<SdkConnectionException>(() => handshake.ReadMessageB(ReadOnlyMemory<byte>.Empty));
+
+        handshake.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => handshake.WriteMessageA());
+        Assert.Throws<ObjectDisposedException>(() => handshake.WriteMessageC());
+        Assert.Throws<ObjectDisposedException>(() => handshake.ReadMessageB(new byte[64]));
+        handshake.Dispose();
+    }
+
+    [Fact]
+    public void Transport_dispose_blocks_use_and_second_dispose_is_safe()
+    {
+        byte[] initiatorWrite = new byte[32];
+        byte[] initiatorRead = new byte[32];
+        RandomNumberGenerator.Fill(initiatorWrite);
+        RandomNumberGenerator.Fill(initiatorRead);
+        using var initiator = new NoiseTransport(initiatorWrite, initiatorRead);
+        using var responder = new NoiseTransport(initiatorRead, initiatorWrite);
+
+        byte[] packet = initiator.Encrypt("hello"u8.ToArray());
+        responder.Decrypt(packet).Should().Equal("hello"u8.ToArray());
+
+        byte[] tampered = (byte[])packet.Clone();
+        tampered[20] ^= 0xFF;
+        Assert.Throws<SdkTransportException>(() => responder.Decrypt(tampered));
+        Assert.Throws<SdkTransportException>(() => responder.Decrypt(new byte[10]));
+
+        initiator.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => initiator.Encrypt("x"u8.ToArray()));
+        Assert.Throws<ObjectDisposedException>(() => initiator.Decrypt(packet));
+        initiator.Dispose();
+
+        Assert.Throws<SdkFormatException>(() => new NoiseTransport(new byte[16], new byte[32]));
     }
 }

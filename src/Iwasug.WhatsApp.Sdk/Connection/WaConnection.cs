@@ -104,6 +104,8 @@ public sealed class WaConnection : IAsyncDisposable
 
     private volatile Channel? _channel;
     private volatile TaskCompletionSource? _firstOpen;
+    private readonly object _startupGate = new();
+    private CancellationTokenSource? _hostLinkedCts;
     private Task? _monitorTask;
     private ConnectionState _state = ConnectionState.Connecting;
     private int _started;
@@ -166,7 +168,7 @@ public sealed class WaConnection : IAsyncDisposable
     /// <param name="cancellationToken">
     /// Governs the wait for the first open only (StoreRegistry precedent): cancelling
     /// before open aborts the handshake and surfaces unwrapped; cancelling after open is
-    /// harmless (the registration is released on return).
+    /// harmless (the monitor observes it only until the first open resolves).
     /// </param>
     /// <returns>A task completing at the first open.</returns>
     /// <exception cref="OperationCanceledException">Cancelled before opening (never wrapped, never retried).</exception>
@@ -187,16 +189,29 @@ public sealed class WaConnection : IAsyncDisposable
 
         var firstOpen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _firstOpen = firstOpen;
-        using (cancellationToken.Register(static state => ((CancellationTokenSource)state!).Cancel(), _monitorCts))
+
+        // The monitor observes host-cancel and dispose-cancel through one linked source
+        // (synchronous, context-free cancellation with no callbacks to lose). The linked
+        // source is created and published under the startup gate (StoreRegistry
+        // _lifecycleGate precedent) so DisposeAsync can never miss it, and it lives
+        // until DisposeAsync — the host token matters only until the first open.
+        CancellationToken monitorToken;
+        lock (_startupGate)
         {
-            _monitorTask = Task.Run(MonitorLoopAsync, CancellationToken.None);
             if (Volatile.Read(ref _disposed) != 0)
             {
-                firstOpen.TrySetException(new ObjectDisposedException(nameof(WaConnection)));
+                throw new ObjectDisposedException(nameof(WaConnection));
             }
 
-            await firstOpen.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _monitorCts.Token);
+            _hostLinkedCts = linked;
+            monitorToken = linked.Token;
+            _monitorTask = Task.Run(() => MonitorLoopAsync(monitorToken), CancellationToken.None);
         }
+
+        await firstOpen.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -226,18 +241,27 @@ public sealed class WaConnection : IAsyncDisposable
             return;
         }
 
-        if (_monitorTask is not null && Task.CurrentId == _monitorTask.Id)
+        Task? monitor;
+        CancellationTokenSource? linked;
+        lock (_startupGate)
+        {
+            monitor = _monitorTask;
+            linked = _hostLinkedCts;
+            _hostLinkedCts = null;
+        }
+
+        if (monitor is not null && Task.CurrentId == monitor.Id)
         {
             throw new InvalidOperationException("DisposeAsync must not be called from a connection event handler.");
         }
 
         List<Exception>? failures = null;
         _monitorCts.Cancel();
-        if (_monitorTask is not null)
+        if (monitor is not null)
         {
             try
             {
-                await _monitorTask.ConfigureAwait(false);
+                await monitor.ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -264,6 +288,7 @@ public sealed class WaConnection : IAsyncDisposable
             (failures ??= []).Add(ex);
         }
 
+        linked?.Dispose();
         _monitorCts.Dispose();
         if (failures is not null)
         {
@@ -271,16 +296,16 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
-    private async Task MonitorLoopAsync()
+    private async Task MonitorLoopAsync(CancellationToken monitorToken)
     {
         int attempt = 0;
-        while (!_monitorCts.IsCancellationRequested)
+        while (!monitorToken.IsCancellationRequested)
         {
             Emit(ConnectionState.Connecting, statusCode: null, attempt);
             DropOutcome outcome;
             try
             {
-                int? code = await ConnectAndWatchAsync(_monitorCts.Token).ConfigureAwait(false);
+                int? code = await ConnectAndWatchAsync(monitorToken).ConfigureAwait(false);
                 await UninstallChannelAsync().ConfigureAwait(false);
                 outcome = MapDropToOutcome(code, attempt);
             }
@@ -291,11 +316,16 @@ public sealed class WaConnection : IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
+                if (_firstOpen is not null)
+                {
+                    Emit(ConnectionState.Closing, statusCode: null, attempt);
+                }
+
                 return;
             }
             catch (Exception ex)
             {
-                if (_monitorCts.IsCancellationRequested)
+                if (monitorToken.IsCancellationRequested)
                 {
                     return;
                 }
@@ -325,7 +355,7 @@ public sealed class WaConnection : IAsyncDisposable
                     {
                         try
                         {
-                            await Task.Delay(outcome.Delay, _timeProvider, _monitorCts.Token).ConfigureAwait(false);
+                            await Task.Delay(outcome.Delay, _timeProvider, monitorToken).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException)
                         {
@@ -592,11 +622,7 @@ public sealed class WaConnection : IAsyncDisposable
 
     private async ValueTask SendRoutedAsync(string id, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
-        Channel? channel = _channel;
-        if (channel is null)
-        {
-            throw new SdkConnectionException("The connection is not open: the query was not sent.");
-        }
+        Channel? channel = _channel ?? throw new SdkConnectionException("The connection is not open: the query was not sent.");
 
         byte[] frame = QueryRouter.BuildFrame(id, payload);
         byte[] encrypted;
@@ -667,7 +693,7 @@ public sealed class WaConnection : IAsyncDisposable
 
     private SdkTransportException WrapTransport(Exception ex, string operation)
     {
-        var wrapped = ex as SdkTransportException ?? new SdkTransportException($"{operation} failed.", ex);
+        SdkTransportException wrapped = ex as SdkTransportException ?? new SdkTransportException($"{operation} failed.", ex);
         _logger?.LogWarning(
             ex,
             "{Operation} failed for account {AccountId}.",
