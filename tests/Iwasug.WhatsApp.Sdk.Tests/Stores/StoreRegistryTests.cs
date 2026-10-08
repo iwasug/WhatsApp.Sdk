@@ -229,4 +229,28 @@ public sealed class StoreRegistryTests
         var second = await registry.CreateSessionAsync(account, CancellationToken.None);
         second.SignalSessions.Should().BeSameAs(goodStore);
     }
+
+    [Fact]
+    public async Task Parallel_create_calls_for_one_account_create_exactly_once()
+    {
+        var account = AccountId.Create("reg-race-A");
+        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult(Substitute.For<ISignalSessionStore>()));
+        var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
+
+        // IN-08: the once-per-account guarantee rests on the Lazy self-capture being
+        // lexical — a routine refactor could mint two sessions under a race. This test
+        // pins the guarantee: every parallel caller observes the one winning session.
+        var sessions = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ =>
+            registry.CreateSessionAsync(account, CancellationToken.None).AsTask()));
+
+        var first = sessions[0];
+        foreach (var session in sessions)
+        {
+            session.Should().BeSameAs(first);
+        }
+
+        _ = hostFactory.Received(1).CreateAsync(account, Arg.Any<CancellationToken>());
+    }
 }
