@@ -60,6 +60,7 @@ public static class BinaryNodeCodec
     private const int Binary32 = 254;
     private const int Nibble8 = 255;
     private const int PackedMax = 127;
+    internal const int MaxNestedDepth = 64;
 
     /// <summary>
     /// Renders a node to its canonical wire bytes (flag-free; framing is the
@@ -411,8 +412,13 @@ public static class BinaryNodeCodec
             _index = 0;
         }
 
-        internal BinaryNode ReadNode()
+        internal BinaryNode ReadNode(int depth = 0)
         {
+            if (depth > MaxNestedDepth)
+            {
+                throw new SdkFormatException("Encoded node exceeds the maximum nesting depth.");
+            }
+
             int listSize = ReadListSize(ReadByte());
             string header = ReadString(ReadByte());
             if (listSize == 0 || header.Length == 0)
@@ -439,10 +445,11 @@ public static class BinaryNodeCodec
                 if (tag == ListEmpty || tag == List8 || tag == List16)
                 {
                     int count = ReadListSize(tag);
-                    childList = new List<BinaryNode>(count);
+                    int initialCapacity = tag == List16 ? Math.Min(count, 32) : count;
+                    childList = new List<BinaryNode>(initialCapacity);
                     for (int i = 0; i < count; i++)
                     {
-                        childList.Add(ReadNode());
+                        childList.Add(ReadNode(depth + 1));
                     }
                 }
                 else
