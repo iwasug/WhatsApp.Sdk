@@ -12,6 +12,11 @@ From the repository root:
 dotnet test
 ```
 
+> Do NOT pass `--nologo` to `dotnet test`: on the pinned SDK (10.0.401) it exits 5
+> with "Zero tests ran" and a swallowed error (IN-10). `--nologo` remains fine for
+> `dotnet build`. Always rebuild before trusting a test count — a `--no-build` run
+> against a stale `bin/Debug` payload under-reports.
+
 Filtered runs use the xunit.v3 MTP dialect (`--filter` is VSTest-only and rejected by this
 repo's runner — see the test csproj comment):
 

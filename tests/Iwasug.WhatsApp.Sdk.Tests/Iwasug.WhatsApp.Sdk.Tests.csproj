@@ -13,6 +13,12 @@
       the MTP mode selected by global.json's test.runner (see repo-root global.json,
       https://aka.ms/dotnet-test-mtp-error). TestingPlatformDotnetTestSupport is NOT used:
       the .NET 10 SDK rejects VSTest-mode MTP projects outright.
+
+      KNOWN TOOLCHAIN QUIRK (IN-10, observed on SDK 10.0.401): passing the nologo
+      flag to `dotnet test` exits 5 with "Zero tests ran" and a swallowed error —
+      always invoke `dotnet test` WITHOUT that flag. (The flag remains fine for
+      `dotnet build`.) Re-test this quirk
+      on every SDK servicing update before removing this note.
     -->
   </PropertyGroup>
 
