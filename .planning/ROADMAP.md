@@ -60,14 +60,14 @@ Plans:
   2. Each disconnect reason produces distinct observable behavior: 401 surfaces as terminal logged-out (never retried), 428/408 retry with jittered backoff, 515 prompts immediate restart, 440 surfaces account-replaced, 411 surfaces protocol-outdated.
   3. Host observes typed per-connection state events (`connecting`/`open`/`closing`/`logged_out`) as the connection moves through its lifecycle.
 
-**Plans**: 5 plans
+**Plans**: 5/5 plans complete (verification: gaps found — see 02-VERIFICATION.md)
 
 Plans:
-- [ ] 02-01-PLAN.md — Spike + locked surface + seams, constants, pure policy table (wave 1)
-- [ ] 02-02-PLAN.md — Tracer slice: loopback header/handshake/query/drop/reconnect (wave 2)
-- [ ] 02-03-PLAN.md — Noise XX_AESGCM core: vectors, two-party proof, proto (wave 3)
-- [ ] 02-04-PLAN.md — Codec + framing + full router semantics (wave 3)
-- [ ] 02-05-PLAN.md — Reconnect lifecycle, WS transport, loopback proof, close gate (wave 4)
+- [x] 02-01-PLAN.md — Spike + locked surface + seams, constants, pure policy table (wave 1)
+- [x] 02-02-PLAN.md — Tracer slice: loopback header/handshake/query/drop/reconnect (wave 2)
+- [x] 02-03-PLAN.md — Noise XX_AESGCM core: vectors, two-party proof, proto (wave 3)
+- [x] 02-04-PLAN.md — Codec + framing + full router semantics (wave 3)
+- [x] 02-05-PLAN.md — Reconnect lifecycle, WS transport, loopback proof, close gate (wave 4)
 
 ### Phase 3: Pairing & Session Durability
 
