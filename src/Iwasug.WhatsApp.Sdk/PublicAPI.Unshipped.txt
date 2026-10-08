@@ -234,6 +234,13 @@ Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseAsync(int statusCode, System.
 Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseStatusCode.get -> int?
 Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
 Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseStatusCode.get -> int?
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.WebSocketFrameTransport(System.Uri! endpoint, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport!>? logger = null) -> void
 abstract Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
 const Iwasug.WhatsApp.Sdk.Accounts.AccountId.MaxLength = 128 -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountId.GetHashCode() -> int
