@@ -175,6 +175,14 @@ public sealed class StoreRegistry : IAsyncDisposable
     /// for a known id (it returns the cache per D-24) — the registration path is the caller
     /// that must enforce uniqueness, and it enforces it here.
     /// </summary>
+    /// <remarks>
+    /// Check-then-act by design (IN-09): this is a VALIDATION helper, not an atomic
+    /// reservation — two racing registrants can both pass and the loser must be rejected
+    /// by the registration itself. When the Phase 7 account-adding API lands, it MUST
+    /// perform the actual add atomically (a single <c>GetOrAdd</c>-style insertion whose
+    /// loser observes the winner and throws <see cref="SdkDuplicateAccountException"/>)
+    /// and treat this method as a fast pre-check only, never as the enforcement.
+    /// </remarks>
     /// <param name="accountId">The account id the caller intends to register.</param>
     /// <exception cref="SdkDuplicateAccountException">The account id already exists (D-26).</exception>
     internal void EnsureUnique(AccountId accountId)
