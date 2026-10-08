@@ -24,7 +24,7 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 /// collation, so the SDK must not fold case ("a" and "A" are distinct accounts).
 /// </para>
 /// </remarks>
-public readonly partial record struct AccountId : IComparable<AccountId>
+public readonly record struct AccountId : IComparable<AccountId>
 {
     /// <summary>Maximum length of a host-chosen account id, in characters.</summary>
     public const int MaxLength = 128;
