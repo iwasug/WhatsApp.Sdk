@@ -341,16 +341,15 @@ public sealed class StoreRegistry : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            // D-21 at the host→SDK trust boundary: the failure surfaces as an
-            // SdkStoreException to the awaiting caller AND an ILogger warning. The
-            // message names the capability, never the account value (T-01-01).
-            _logger?.LogWarning(
+            // D-21 at the host→SDK trust boundary, via the shared error surface: the
+            // failure surfaces as an SdkStoreException to the awaiting caller AND one
+            // ILogger warning naming the operation and account id — never record
+            // payloads or the inner exception's message (T-01-12).
+            throw StoreErrorSurface.LogAndWrap(
                 ex,
-                "Store factory for capability {Capability} failed while resolving account-scoped stores.",
-                capability);
-            throw new SdkStoreException(
-                $"store factory for capability '{capability}' failed to create the account-scoped store.",
-                ex);
+                _logger,
+                $"store factory for capability '{capability}'",
+                accountId);
         }
     }
 
