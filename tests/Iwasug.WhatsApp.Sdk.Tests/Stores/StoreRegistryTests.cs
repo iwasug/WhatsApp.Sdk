@@ -192,6 +192,18 @@ public sealed class StoreRegistryTests
     }
 
     [Fact]
+    public async Task CreateSessionAsync_throws_ObjectDisposedException_after_registry_disposal()
+    {
+        var registry = new StoreRegistry(new StoreRegistryOptions());
+        var account = AccountId.Create("reg-disposed-A");
+
+        await registry.DisposeAsync();
+
+        var act = async () => await registry.CreateSessionAsync(account, CancellationToken.None);
+        await act.Should().ThrowAsync<ObjectDisposedException>();
+    }
+
+    [Fact]
     public async Task Factory_failure_wraps_into_SdkStoreException_then_a_retry_succeeds()
     {
         var account = AccountId.Create("reg-retry-A");

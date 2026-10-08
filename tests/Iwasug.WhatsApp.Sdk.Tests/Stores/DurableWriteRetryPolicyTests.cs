@@ -111,6 +111,30 @@ public sealed class DurableWriteRetryPolicyTests
     }
 
     [Fact]
+    public void Constructor_throws_ArgumentOutOfRangeException_when_MaxAttempts_is_zero()
+    {
+        var act = () => new DurableWriteRetryPolicy(new RetryOptions { MaxAttempts = 0 });
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Constructor_throws_ArgumentOutOfRangeException_when_MaxDelay_is_below_BaseDelay()
+    {
+        var act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = 200, MaxDelayMs = 100 });
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Constructor_throws_ArgumentOutOfRangeException_when_BaseDelay_is_negative()
+    {
+        var act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = -1 });
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public async Task Does_not_retry_OperationCanceledException()
     {
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), new FakeTimeProvider());
