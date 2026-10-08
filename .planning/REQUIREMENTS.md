@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Store
 
 - [x] **STR-01**: Host can plug its own persistence via granular store interfaces (identity, signal sessions, prekeys, recent-message cache, safety state) namespaced per account
-- [ ] **STR-02**: SDK ships a working in-memory reference store implementation
+- [x] **STR-02**: SDK ships a working in-memory reference store implementation
 
 ### Messaging
 
@@ -117,7 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONN-04 | Phase 2 | Pending |
 | CONN-05 | Phase 2 | Pending |
 | STR-01 | Phase 1 | Complete |
-| STR-02 | Phase 1 | Pending |
+| STR-02 | Phase 1 | Complete |
 | MSG-01 | Phase 4 | Pending |
 | MSG-02 | Phase 4 | Pending |
 | MSG-03 | Phase 4 | Pending |

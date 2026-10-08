@@ -2,17 +2,17 @@
 gsd_state_version: "1.0"
 current_phase: 01
 current_phase_name: Foundation & Store Seam
-status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-10-08T07:13:58.310Z"
+status: verifying
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-10-08T07:36:17.606Z"
 last_activity: 2026-10-08
 last_activity_desc: Phase 01 execution started
-state_head: 460a1ca3eed74627bf97dac62c06cfea63a4e8b3
+state_head: 8bbae59958f478830b3954a4c08c476e08a40698
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 
 Phase: 01 (Foundation & Store Seam) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-10-08 — Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 38 min | 2 tasks | 26 files |
 | Phase 01 P03 | 26min | 2 tasks | 9 files |
 | Phase 01 P04 | 460m | 3 tasks | 10 files |
+| Phase 01 P05 | 14 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Retry backoff is clamp-AFTER-jitter: raw=Base*2^n, ±30% jitter, then clamp to [50,250]ms — every delay in bounds and growth provable under adversarial jitter (A1, 01-04)
 - [Phase 01]: StoreErrorSurface.LogAndWrap (internal) is the single D-21 wrap-and-log shape at host->SDK boundaries; registry factory failures already route through it (01-04)
 - [Phase 01]: InMemoryStoreFactory now implements IAsyncDisposable so the fallback factory joins the D-23 disposal cascade (01-04 Rule 3 deviation, anticipated by 01-02 comment)
+- [Phase 01]: Phase 01 plan 05: host-style second run (HostStyleSecondRunTests) is the executed proof of success criterion 3 - one ScratchStoreFactory drives all five kit capabilities + fault injection + completeness in one flow, zero reference-impl references (T-01-16)
+- [Phase 01]: Phase 01 plan 05: non-session store seams must bind through interface-typed factory variables - concrete factories non-session CreateAsync overloads are explicit interface implementations, var-typing silently binds the session seam
+- [Phase 01]: Phase 01 plan 05: 01-VALIDATION.md re-mapped to 12 actual task IDs (plan text 01-01-T3 was a slip for 01-01-T2; plan 01-01 has two tasks); all rows green, wave_0_complete + nyquist_compliant flipped; validate-phase owns the status: validated flip
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-08T07:13:58.267Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-10-08T07:36:17.560Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
