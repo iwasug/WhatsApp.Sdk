@@ -10,7 +10,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation & Store Seam** - Core types, granular pluggable store interfaces, in-memory reference store, repo bootstrap
+- [x] **Phase 1: Foundation & Store Seam** - Core types, granular pluggable store interfaces, in-memory reference store, repo bootstrap (completed 2026-10-08)
 - [ ] **Phase 2: Wire Protocol & Connection Resilience** - Transport, Noise handshake, node codec/router, classified auto-reconnect
 - [ ] **Phase 3: Pairing & Session Durability** - QR + pairing-code login, typed lifecycle events, restart-without-re-pair
 - [ ] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface
@@ -33,7 +33,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
   2. SDK ships a working in-memory reference store that satisfies every store interface; the test suite runs green against it with no external database dependency.
   3. Swapping the reference store for a host-provided implementation requires zero SDK code changes — the same store-contract test suite passes against both.
 
-**Plans**: 5/5 plans executed
+**Plans**: 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -166,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Store Seam | 5/5 | In Progress|  |
+| 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
 | 2. Wire Protocol & Connection Resilience | 0/TBD | Not started | - |
 | 3. Pairing & Session Durability | 0/TBD | Not started | - |
 | 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
