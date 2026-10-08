@@ -90,4 +90,12 @@ public interface ISignalSessionStoreFactory
 /// and is NOT a public contract — hosts persist these bytes opaquely and must not parse
 /// them; a format change between SDK versions requires only that the bytes round-trip.
 /// </param>
+/// <remarks>
+/// Equality is the record default: <see cref="string"/> compares by value but
+/// <paramref name="SessionState"/> compares by REFERENCE (arrays do not implement
+/// value equality). Two records holding byte-identical buffers are NOT
+/// <c>==</c>-equal unless they share the array instance — compare buffer contents
+/// (for example with <see cref="System.Linq.Enumerable.SequenceEqual{TSource}"/>)
+/// when value equality is what you mean.
+/// </remarks>
 public sealed record SignalSessionRecord(string Address, byte[] SessionState);
