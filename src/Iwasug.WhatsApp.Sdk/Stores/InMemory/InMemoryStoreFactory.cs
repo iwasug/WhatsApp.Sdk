@@ -121,12 +121,25 @@ public sealed class InMemoryStoreFactory
     /// factory after disposing its cached sessions. Disposal clears all account state and
     /// invalidates the factory — a disposed factory throws
     /// <see cref="ObjectDisposedException"/> from any later <c>CreateAsync</c> (WR-01),
-    /// rather than serving fresh, empty state; existing views keep operating on their own
-    /// references (view disposal remains view-only).
+    /// rather than serving fresh, empty state. Disposal also disposes every per-account
+    /// recent-message-cache gate known at teardown (IN-02: factory-owned resources are
+    /// released symmetrically) — views created before disposal must not be used
+    /// afterwards; the owning <see cref="StoreRegistry"/> disposes its cached sessions
+    /// before the factory, so no live view observes the teardown in the SDK-owned flow.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
         Interlocked.Exchange(ref _disposed, 1);
+
+        // IN-02: release the per-account SemaphoreSlim gates before dropping the state
+        // that owns them. A gate created concurrently with this teardown is simply not
+        // in the snapshot — it holds no unmanaged resources until its WaitHandle is
+        // touched, so the GC reclaims it harmlessly.
+        foreach (var cache in _state.Values.OfType<RecentMessageCacheState>())
+        {
+            cache.Gate.Dispose();
+        }
+
         _state.Clear();
         await Task.CompletedTask.ConfigureAwait(false);
     }
