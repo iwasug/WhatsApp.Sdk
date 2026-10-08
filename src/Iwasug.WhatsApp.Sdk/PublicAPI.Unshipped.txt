@@ -4,6 +4,14 @@ Iwasug.WhatsApp.Sdk.Accounts.AccountId.AccountId() -> void
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.CompareTo(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> int
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> bool
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Value.get -> string!
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.<Clone>$() -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Attrs.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Children.get -> System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Codec.BinaryNode!>?
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Data.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Equals(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? other) -> bool
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Tag.get -> string!
+Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Text.get -> string?
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.ConnectTimeoutMs.get -> int
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.ConnectTimeoutMs.init -> void
@@ -230,6 +238,9 @@ abstract Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.<Clone>$() -> Iwasug.W
 const Iwasug.WhatsApp.Sdk.Accounts.AccountId.MaxLength = 128 -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountId.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountId.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
@@ -277,6 +288,12 @@ override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.Create(string! value) -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Create(string! tag, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromBytes(string! tag, System.ReadOnlySpan<byte> data, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromChildren(string! tag, System.Collections.Generic.IEnumerable<Iwasug.WhatsApp.Sdk.Codec.BinaryNode!>! children, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromText(string! tag, string! text, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator !=(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator ==(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
