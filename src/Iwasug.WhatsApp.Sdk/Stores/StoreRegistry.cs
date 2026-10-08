@@ -78,6 +78,12 @@ public sealed class StoreRegistry : IAsyncDisposable
     // and no new session can be registered after the shutdown cascade begins.
     private int _disposed;
 
+    // Serializes "check flag → GetOrAdd" in CreateSessionAsync against "set flag
+    // → snapshot" in DisposeAsync so a preempted registration can never insert a
+    // live session after the shutdown drain completes (WR-01). Contention is a
+    // once-per-account call path, so a plain lock is sufficient.
+    private readonly object _lifecycleGate = new();
+
     /// <summary>
     /// Creates a registry over <paramref name="options"/>. The registry takes ownership of
     /// resolving, caching, and disposing store instances (D-23/D-24); it does not take
@@ -111,17 +117,26 @@ public sealed class StoreRegistry : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDefaultAccountId(accountId);
-        if (Volatile.Read(ref _disposed) != 0)
-            throw new ObjectDisposedException(nameof(StoreRegistry));
 
-        // The value factory may run more than once under a race; ConcurrentDictionary keeps
-        // exactly one winner, so exactly one Lazy (and therefore one creation) per account
-        // survives. The Lazy's own factory references the winning lazy through the captured
-        // local so the session can evict exactly its own entry.
-        Lazy<Task<StoreSession>> lazy = null!;
-        lazy = _sessions.GetOrAdd(
-            accountId,
-            id => new Lazy<Task<StoreSession>>(() => CreateSessionCoreAsync(id, cancellationToken, lazy)));
+        // Check-then-register is one critical section so DisposeAsync can never
+        // observe a half-registered state: either the lazy lands before the
+        // shutdown snapshot (and is drained), or the flag is already set and
+        // this throws (WR-01).
+        Lazy<Task<StoreSession>> lazy;
+        lock (_lifecycleGate)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+                throw new ObjectDisposedException(nameof(StoreRegistry));
+
+            // The value factory may run more than once under a race; ConcurrentDictionary keeps
+            // exactly one winner, so exactly one Lazy (and therefore one creation) per account
+            // survives. The Lazy's own factory references the winning lazy through the captured
+            // local so the session can evict exactly its own entry.
+            lazy = null!;
+            lazy = _sessions.GetOrAdd(
+                accountId,
+                id => new Lazy<Task<StoreSession>>(() => CreateSessionCoreAsync(id, cancellationToken, lazy)));
+        }
 
         Task<StoreSession> creation;
         try
@@ -165,48 +180,23 @@ public sealed class StoreRegistry : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        // Set the flag first: any CreateSessionAsync that observes it throws
+        // Set the flag and snapshot the session cache under the lifecycle gate:
+        // any CreateSessionAsync that observes the flag throws
         // ObjectDisposedException instead of resolving a fresh session against
-        // a disposed registry (WR-03). Sessions already in flight are drained
-        // below; a second pass catches entries inserted mid-disposal.
-        Interlocked.Exchange(ref _disposed, 1);
+        // a disposed registry (WR-03), and no new entry can be added after the
+        // snapshot — so a single drain pass is sufficient (WR-01).
+        KeyValuePair<AccountId, Lazy<Task<StoreSession>>>[] snapshot;
+        lock (_lifecycleGate)
+        {
+            Interlocked.Exchange(ref _disposed, 1);
+            snapshot = _sessions.ToArray();
+        }
 
         List<Exception>? failures = null;
 
         // Snapshot-and-evict: remove each entry before disposing its session so a racing
         // CreateSessionAsync does not resolve to a session that is being torn down.
-        foreach (var kvp in _sessions)
-        {
-            Evict(kvp.Key, kvp.Value);
-            if (!kvp.Value.IsValueCreated)
-            {
-                continue;
-            }
-
-            StoreSession? session;
-            try
-            {
-                session = await kvp.Value.Value.ConfigureAwait(false);
-            }
-            catch
-            {
-                // Creation failed; nothing was created to dispose (rollback already ran).
-                continue;
-            }
-
-            try
-            {
-                await session.DisposeAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        // Drain entries inserted by a CreateSessionAsync that passed the disposed
-        // check just before the flag was set (mid-disposal creation leak, WR-03).
-        foreach (var kvp in _sessions)
+        foreach (var kvp in snapshot)
         {
             Evict(kvp.Key, kvp.Value);
             if (!kvp.Value.IsValueCreated)
