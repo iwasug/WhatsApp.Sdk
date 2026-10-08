@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 01
 current_phase_name: Foundation & Store Seam
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-10-08T06:25:52.020Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-10-08T07:13:58.310Z"
 last_activity: 2026-10-08
 last_activity_desc: Phase 01 execution started
-state_head: a3535dbfff0b3528c6818cc6e980f71bdb5d089f
+state_head: 460a1ca3eed74627bf97dac62c06cfea63a4e8b3
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 01 (Foundation & Store Seam) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-10-08 — Phase 01 execution started
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 |------|----------|-------|-------|
 | Phase 01 P01 | 38 min | 2 tasks | 26 files |
 | Phase 01 P03 | 26min | 2 tasks | 9 files |
+| Phase 01 P04 | 460m | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 01]: StoreContractRules.AssertParallelAccessNoCrossReadsAsync: keyed + keyless overloads with REQUIRED iterations param (RS0026 forbids repeated optional params); callers pass 100
 - [Phase 01]: Fault facts pin the store PRIMITIVE contract only — cache FailWrites throws; SDK log-and-continue is Phase 4/5 policy (D-20)
 - [Phase 01]: PublicAPI.Unshipped.txt entries are mandatory for every new kit-public symbol incl. [Fact]s on public abstract contract classes (RS0016 under warnings-as-errors); harvested mechanically from build output
+- [Phase 01]: D-24 cache: ConcurrentDictionary<AccountId, Lazy<Task<StoreSession>>> with exact-pair fault eviction so failed creations never poison the cache (01-04)
+- [Phase 01]: Retry backoff is clamp-AFTER-jitter: raw=Base*2^n, ±30% jitter, then clamp to [50,250]ms — every delay in bounds and growth provable under adversarial jitter (A1, 01-04)
+- [Phase 01]: StoreErrorSurface.LogAndWrap (internal) is the single D-21 wrap-and-log shape at host->SDK boundaries; registry factory failures already route through it (01-04)
+- [Phase 01]: InMemoryStoreFactory now implements IAsyncDisposable so the fallback factory joins the D-23 disposal cascade (01-04 Rule 3 deviation, anticipated by 01-02 comment)
 
 ### Pending Todos
 
@@ -94,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-08T06:25:38.642Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-10-08T07:13:58.267Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None

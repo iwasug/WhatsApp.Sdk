@@ -33,7 +33,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
   2. SDK ships a working in-memory reference store that satisfies every store interface; the test suite runs green against it with no external database dependency.
   3. Swapping the reference store for a host-provided implementation requires zero SDK code changes — the same store-contract test suite passes against both.
 
-**Plans**: 3/5 plans executed
+**Plans**: 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -44,7 +44,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [x] 01-03-PLAN.md — Full semantic contract: fault injection, durability-await, parallel isolation rules
-- [ ] 01-04-PLAN.md — StoreRegistry composition: fallback precedence, ownership/disposal, D-18 retry, D-21 errors
+- [x] 01-04-PLAN.md — StoreRegistry composition: fallback precedence, ownership/disposal, D-18 retry, D-21 errors
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 01-05-PLAN.md — Phase close: host-style second run proof, verification gate, validation re-map
@@ -166,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Store Seam | 3/5 | In Progress|  |
+| 1. Foundation & Store Seam | 4/5 | In Progress|  |
 | 2. Wire Protocol & Connection Resilience | 0/TBD | Not started | - |
 | 3. Pairing & Session Durability | 0/TBD | Not started | - |
 | 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
