@@ -90,8 +90,10 @@ public abstract record ReconnectDecision
 /// Delay math reuses the Phase 1 clamp-after-jitter discipline (DurableWriteRetryPolicy,
 /// D-18) with the FULL-jitter formula from the AWS canonical reference (02-RESEARCH
 /// Pattern 4): <c>delay = uniform(0, min(cap, base * 2^attempt))</c>, clamped to
-/// <c>[0, cap]</c> after the draw. Delay bounds live in <see cref="ConnectionOptions"/>
-/// (<see cref="ConnectionOptions.RetryBaseDelayMs"/> /
+/// <c>[0, cap]</c> after the draw. The single math home is the <c>ComputeDelay</c>
+/// core below (deterministic given the draw);
+/// <see cref="Decide"/> supplies the <see cref="Random.Shared"/> draw. Delay bounds live
+/// in <see cref="ConnectionOptions"/> (<see cref="ConnectionOptions.RetryBaseDelayMs"/> /
 /// <see cref="ConnectionOptions.RetryMaxDelayMs"/>).
 /// </para>
 /// <para>
@@ -137,14 +139,14 @@ public static class ReconnectPolicy
             throw new ArgumentOutOfRangeException(nameof(attempt), "Attempt must not be negative.");
         }
 
-        ConnectionOptions resolved = ConnectionOptions.ValidateOptions(options);
+        var resolved = ConnectionOptions.ValidateOptions(options);
 
         return statusCode switch
         {
             401 or 403 or 411 or 419 => ReconnectDecision.Terminal.Instance,
             515 => ReconnectDecision.RestartImmediate.Instance,
             440 => ReconnectDecision.SurfaceAndStop.Instance,
-            _ => new ReconnectDecision.RetryAfter(ComputeDelay(attempt, resolved)),
+            _ => new ReconnectDecision.RetryAfter(ComputeDelay(attempt, resolved, Random.Shared.NextDouble())),
         };
     }
 
@@ -153,11 +155,103 @@ public static class ReconnectPolicy
     /// discipline (D-18): raw ceiling <c>min(cap, base * 2^attempt)</c> computed in
     /// <c>double</c> (no integer overflow at any attempt), uniform draw below it, then
     /// clamp to <c>[0, cap]</c> so the observed delay never leaves the configured bounds.
+    /// Deterministic given <paramref name="unitDraw"/> — the reconnect loop draws from
+    /// <see cref="Random.Shared"/> while unit tests supply fixed or seeded draws.
     /// </summary>
-    private static TimeSpan ComputeDelay(int attempt, ConnectionOptions options)
+    /// <param name="attempt">Zero-based count of consecutive failed attempts. Must not be negative.</param>
+    /// <param name="options">Backoff bounds (already validated by the caller).</param>
+    /// <param name="unitDraw">Uniform draw in <c>[0, 1]</c>; values outside are clamped, never trusted.</param>
+    internal static TimeSpan ComputeDelay(int attempt, ConnectionOptions options, double unitDraw)
     {
         double ceiling = Math.Min((double)options.RetryBaseDelayMs * Math.Pow(2, attempt), options.RetryMaxDelayMs);
-        double drawn = Random.Shared.NextDouble() * ceiling;
+        double drawn = Math.Clamp(unitDraw, 0.0, 1.0) * ceiling;
         return TimeSpan.FromMilliseconds(Math.Clamp(drawn, 0, options.RetryMaxDelayMs));
+    }
+}
+
+/// <summary>
+/// Full-jitter backoff calculator + attempt counter for the reconnect loop (02-05):
+/// owns the consecutive-failure depth, draws full-jitter delays, and waits them on the
+/// injected <see cref="TimeProvider"/> — the instance companion to the static
+/// <see cref="ReconnectPolicy"/> verdict table (DurableWriteRetryPolicy ctor shape).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Constructor takes <c>(ConnectionOptions? options = null, TimeProvider? timeProvider =
+/// null)</c> exactly like <see cref="Stores.Runtime.DurableWriteRetryPolicy"/> (02-PATTERNS.md):
+/// <c>null</c> resolves to spike-confirmed defaults, out-of-range bounds throw
+/// <see cref="ArgumentOutOfRangeException"/> before any delay is computed. The optional
+/// jitter seam (<c>nextUnitDraw</c>) defaults to <see cref="Random.Shared"/>; tests inject
+/// fixed draws for deterministic FakeTimeProvider proofs.
+/// </para>
+/// <para>
+/// Counter discipline (02-RESEARCH Pattern 4): the loop calls <see cref="Reset"/> on
+/// <see cref="ConnectionState.Open"/> and on 515-restart so the window restarts at the
+/// base ceiling; every retry draws at the current depth via <see cref="NextDelay"/> (or
+/// <see cref="WaitAsync"/>) and advances it. 408/428 attempts are unbounded by design —
+/// every draw stays within <c>[0, cap]</c> at any depth (double arithmetic, no overflow).
+/// </para>
+/// </remarks>
+internal sealed class ReconnectBackoff
+{
+    private readonly ConnectionOptions _options;
+    private readonly TimeProvider _timeProvider;
+    private readonly Func<double> _nextUnitDraw;
+    private int _attempt;
+
+    /// <summary>
+    /// Creates a backoff over <paramref name="options"/> bounds and the
+    /// <paramref name="timeProvider"/> clock for waits.
+    /// </summary>
+    /// <param name="options">Backoff bounds; <c>null</c> resolves to defaults.</param>
+    /// <param name="timeProvider">Clock for <see cref="WaitAsync"/>; defaults to system time.</param>
+    /// <param name="nextUnitDraw">
+    /// Uniform <c>[0, 1]</c> jitter source; <c>null</c> uses <see cref="Random.Shared"/>.
+    /// Test-only seam for deterministic proofs.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="options"/> carries out-of-range bounds (see
+    /// <see cref="ConnectionOptions"/>).
+    /// </exception>
+    internal ReconnectBackoff(ConnectionOptions? options = null, TimeProvider? timeProvider = null, Func<double>? nextUnitDraw = null)
+    {
+        _options = ConnectionOptions.ValidateOptions(options);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _nextUnitDraw = nextUnitDraw ?? Random.Shared.NextDouble;
+    }
+
+    /// <summary>Consecutive failed attempts (0 after <see cref="Reset"/>).</summary>
+    internal int Attempt => Volatile.Read(ref _attempt);
+
+    /// <summary>
+    /// Draws the full-jitter delay for the current attempt depth and advances the
+    /// counter. Always within <c>[0, <see cref="ConnectionOptions.RetryMaxDelayMs"/>]</c>.
+    /// </summary>
+    /// <returns>The delay the loop must wait before the next attempt.</returns>
+    internal TimeSpan NextDelay()
+    {
+        int attempt = Interlocked.Increment(ref _attempt) - 1;
+        return ReconnectPolicy.ComputeDelay(attempt, _options, _nextUnitDraw());
+    }
+
+    /// <summary>
+    /// Resets the failure depth to zero: the loop calls this on
+    /// <see cref="ConnectionState.Open"/> and on 515-restart.
+    /// </summary>
+    internal void Reset() => Interlocked.Exchange(ref _attempt, 0);
+
+    /// <summary>
+    /// Draws the delay for the current depth (advancing the counter, like
+    /// <see cref="NextDelay"/>) and waits it on the injected clock.
+    /// </summary>
+    /// <param name="cancellationToken">Aborts the wait (unwrapped, never retried).</param>
+    /// <returns>The delay that was waited.</returns>
+    /// <exception cref="OperationCanceledException">The wait was cancelled.</exception>
+    internal async Task<TimeSpan> WaitAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TimeSpan delay = NextDelay();
+        await Task.Delay(delay, _timeProvider, cancellationToken).ConfigureAwait(false);
+        return delay;
     }
 }
