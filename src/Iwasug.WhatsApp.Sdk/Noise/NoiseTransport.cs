@@ -5,26 +5,29 @@ using Iwasug.WhatsApp.Sdk.Errors;
 namespace Iwasug.WhatsApp.Sdk.Noise;
 
 /// <summary>
-/// Post-handshake AEAD transport (skeleton, 02-02): encrypts outbound frames and
-/// decrypts inbound frames with the two AES-GCM keys derived by
-/// <see cref="NoiseHandshake"/> — one key per direction, never shared.
+/// Post-handshake AEAD transport (02-03): encrypts outbound frames and
+/// decrypts inbound frames with the two AES-256-GCM direction keys from the
+/// spec <c>Split()</c> — one key per direction, never shared.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Nonce discipline (02-SPIKE-NOTES.md O2): a 12-byte nonce, first 8 bytes zero, last
-/// 4 bytes a big-endian counter. Send and receive counters are private instance fields
-/// starting at 0, constructed fresh per handshake, never shared, never persisted, never
-/// reused (Pitfall 4). Packets carry their nonce explicitly
-/// (<c>nonce(12) || ciphertext || tag(16)</c>) and decryption enforces strict ordering —
-/// a replayed or reordered packet fails closed instead of decrypting.
+/// Nonce discipline (02-SPIKE-NOTES.md O2, Baileys <c>TransportState</c>): a
+/// 12-byte nonce, first 8 bytes zero, last 4 bytes a big-endian counter —
+/// byte-identical to the Noise handshake-phase nonce shape for every
+/// realistic counter. Send and receive counters are private instance fields
+/// starting at 0, constructed fresh per handshake, never shared, never
+/// persisted, never reused (Pitfall 4). Packets carry their nonce explicitly
+/// (<c>nonce(12) || ciphertext || tag(16)</c>) and decryption enforces strict
+/// ordering — a replayed or reordered packet fails closed instead of
+/// decrypting. Associated data is the empty string, matching the observed
+/// transport behavior (the handshake phase binds the running hash as AD;
+/// the transport phase does not).
 /// </para>
 /// <para>
-/// Skeleton scope: the associated-data input is the empty string (02-03 binds the Noise
-/// running hash as AAD per O2) and keys arrive from the skeleton KDF
-/// (<see cref="NoiseHandshake.DeriveTransportKeys"/>), which 02-03 replaces with the
-/// spec MixKey chain proven against cacophony vectors. The
-/// <c>Encrypt</c>/<c>Decrypt</c> method shapes are the approved surface — 02-03 hardens
-/// the cryptography behind them without renaming them.
+/// Keys arrive from <see cref="NoiseSymmetricState"/>'s spec <c>Split()</c>
+/// (proven against cacophony vectors): the initiator installs (k1=write,
+/// k2=read), the responder mirrors (k2=write, k1=read). The
+/// <c>Encrypt</c>/<c>Decrypt</c> method shapes are the approved surface.
 /// </para>
 /// <para>
 /// Single-owner disposable (InMemoryStoreFactory precedent): exactly one owner holds an
@@ -196,6 +199,37 @@ public sealed class NoiseTransport : IDisposable
         CryptographicOperations.ZeroMemory(_readKey);
         _sendCounter = 0;
         _receiveCounter = 0;
+    }
+
+    /// <summary>
+    /// Proves re-handshake hygiene (T-2-03): true only once <see cref="Dispose"/>
+    /// wiped both direction keys. Live instances report false — their keys are
+    /// in use, never zeroed.
+    /// </summary>
+    internal bool IsKeysZeroized
+    {
+        get
+        {
+            if (Volatile.Read(ref _disposed) == 0)
+            {
+                return false;
+            }
+
+            return IsZero(_writeKey) && IsZero(_readKey);
+        }
+    }
+
+    private static bool IsZero(byte[] buffer)
+    {
+        foreach (byte b in buffer)
+        {
+            if (b != 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void ThrowIfDisposed()

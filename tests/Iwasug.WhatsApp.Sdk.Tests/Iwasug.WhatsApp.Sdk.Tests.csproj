@@ -43,4 +43,15 @@
     <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk.Testing\Iwasug.WhatsApp.Sdk.Testing.csproj" />
   </ItemGroup>
 
+  <!--
+    Golden fixtures (02-03): committed vector/frame data copied next to the
+    test binary. The JSON itself is never modified by tests — it is read-only
+    proof input (T-2-05: vectors imported, never self-generated).
+  -->
+  <ItemGroup>
+    <Content Include="TestData\noise-xx-aesgcm-vectors.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

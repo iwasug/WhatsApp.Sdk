@@ -31,6 +31,17 @@
   </ItemGroup>
 
   <!--
+    Handshake-payload schema (02-03): minimal hand-written .proto (provenance in
+    the file header). Grpc.Tools runs protoc at build time only; the version
+    lives in Directory.Packages.props (central management is repo law).
+    internal_access keeps the generated types out of the public surface, so this
+    plan adds no PublicAPI entries (02-04 owns PublicAPI.Unshipped.txt).
+  -->
+  <ItemGroup>
+    <Protobuf Include="Proto\handshake.proto" GrpcServices="None" OutputOptions="internal_access" />
+  </ItemGroup>
+
+  <!--
     Internal-surface unit tests (plan 01-04): StoreRegistry.EnsureUnique (D-26) and
     StoreErrorSurface (D-21) are internal by design; the test assembly is the only
     internals consumer.

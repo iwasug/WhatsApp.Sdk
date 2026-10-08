@@ -143,55 +143,17 @@ public sealed class LoopbackRoundTripTests
         byte[] header = await ReceiveOrThrowAsync(peer, cancellationToken).ConfigureAwait(false);
         header.Should().Equal([0x57, 0x41, 0x06, 0x03]);
 
+        // The peer is the responder: one production implementation speaks both
+        // sides (no KDF or envelope duplication — the script drives the
+        // internal responder role over the same spec core as the client).
         byte[] messageA = await ReceiveOrThrowAsync(peer, cancellationToken).ConfigureAwait(false);
-        if (messageA.Length < 38)
-        {
-            throw new InvalidOperationException("Peer observed malformed message A.");
-        }
-
-        messageA.AsSpan(0, 4).ToArray().Should().Equal([0x57, 0x41, 0x06, 0x03]);
-        byte[] clientEphemeral = messageA.AsSpan(4, 32).ToArray();
-        int helloLength = BinaryPrimitives.ReadUInt16BigEndian(messageA.AsSpan(36, 2));
-        if (messageA.Length != 38 + helloLength)
-        {
-            throw new InvalidOperationException("Peer observed malformed message A.");
-        }
-
-        KeyCreationParameters keyParameters = default;
-        using var peerKey = Key.Create(KeyAgreementAlgorithm.X25519, keyParameters);
-        byte[] peerEphemeral = peerKey.PublicKey.Export(KeyBlobFormat.RawPublicKey);
-        var clientPublic = PublicKey.Import(KeyAgreementAlgorithm.X25519, clientEphemeral, KeyBlobFormat.RawPublicKey);
-        var agreeParameters = new SharedSecretCreationParameters
-        {
-            ExportPolicy = KeyExportPolicies.AllowPlaintextExport,
-        };
-        byte[] sharedSecret;
-        using (SharedSecret agreement = KeyAgreementAlgorithm.X25519.Agree(peerKey, clientPublic, agreeParameters)
-            ?? throw new InvalidOperationException("Peer key agreement failed."))
-        {
-            sharedSecret = agreement.Export(SharedSecretBlobFormat.RawSharedSecret);
-        }
-
-        (byte[] initiatorWrite, byte[] initiatorRead) = NoiseHandshake.DeriveTransportKeys(
-            sharedSecret,
-            clientEphemeral,
-            peerEphemeral);
-        CryptographicOperations.ZeroMemory(sharedSecret);
-        var transport = new NoiseTransport(initiatorRead, initiatorWrite);
-        CryptographicOperations.ZeroMemory(initiatorWrite);
-        CryptographicOperations.ZeroMemory(initiatorRead);
-
-        byte[] messageB = new byte[4 + 32 + 2 + serverHello.Length];
-        messageB[0] = 0x57;
-        messageB[1] = 0x41;
-        messageB[2] = 0x06;
-        messageB[3] = 0x03;
-        peerEphemeral.CopyTo(messageB.AsSpan(4));
-        BinaryPrimitives.WriteUInt16BigEndian(messageB.AsSpan(36, 2), (ushort)serverHello.Length);
-        serverHello.CopyTo(messageB.AsSpan(38));
+        using var responder = new NoiseHandshakeResponder(serverHello);
+        responder.ReadMessageA(messageA);
+        byte[] messageB = responder.WriteMessageB();
         await peer.SendAsync(messageB, cancellationToken).ConfigureAwait(false);
 
         byte[] messageC = await ReceiveOrThrowAsync(peer, cancellationToken).ConfigureAwait(false);
+        NoiseTransport transport = responder.ReadMessageC(messageC);
         return new PeerHandshakeResult
         {
             ClientMessageA = messageA,
