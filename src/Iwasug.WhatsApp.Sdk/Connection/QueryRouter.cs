@@ -6,9 +6,9 @@ using Iwasug.WhatsApp.Sdk.Errors;
 namespace Iwasug.WhatsApp.Sdk.Connection;
 
 /// <summary>
-/// Correlated query/reply router (skeleton, 02-02): allocates a never-reused id per
-/// query, hands the framed bytes to the connection's sender, and completes the awaiting
-/// caller when the reply with the same id arrives — or fails it on timeout, drop, or
+/// Correlated query/reply router: allocates a never-reused id per query, hands the
+/// framed bytes to the connection's sender, and completes the awaiting caller when the
+/// reply with the same id arrives — or fails it on timeout, drop, closing, or
 /// disposal. Exactly one terminal outcome per query: reply, timeout, or connection-lost
 /// (the 408-lesson from production operators — no silent loss in the disconnect window).
 /// </summary>
@@ -18,9 +18,11 @@ namespace Iwasug.WhatsApp.Sdk.Connection;
 /// id and enforces timeouts — it never parses node semantics. The skeleton correlation
 /// envelope is <c>idLength(u8) || id(ASCII) || body</c>, framed by
 /// <see cref="BuildFrame"/> and parsed by <see cref="TryParseFrame"/> (both internal so
-/// the loopback peer and the connection pump share the single source of truth). 02-04
-/// replaces the envelope with binary-node id-attribute correlation; the
-/// allocate→register→send→await map and the timeout/discard rules do not change.
+/// the loopback peer and the connection pump share the single source of truth). The
+/// envelope stays through 02-04 by plan scope: Task 3 owns timeout/discard/closing
+/// semantics only, and migrating correlation onto binary-node id attributes waits
+/// for real node traffic in Phase 4, when the loopback peer and pump can move
+/// together.
 /// </para>
 /// <para>
 /// Ids are <c>q-{n}</c> from a 64-bit monotonic counter that never resets while the
@@ -48,6 +50,7 @@ public sealed class QueryRouter : IAsyncDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<byte[]>> _pending = new();
     private long _counter;
     private int _disposed;
+    private int _closing;
 
     /// <summary>
     /// Creates a router over <paramref name="sender"/>, which transmits one framed query
@@ -86,6 +89,10 @@ public sealed class QueryRouter : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
+        if (Volatile.Read(ref _closing) == 1)
+        {
+            throw new SdkConnectionException("Query was not sent because the connection is closing.");
+        }
 
         long sequence = Interlocked.Increment(ref _counter);
         string id = string.Create(CultureInfo.InvariantCulture, $"q-{sequence}");
@@ -96,7 +103,7 @@ public sealed class QueryRouter : IAsyncDisposable
         }
 
         using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Task timeout = Task.Delay(TimeSpan.FromMilliseconds(_options.QueryTimeoutMs), _timeProvider, attemptCts.Token);
+        var timeout = Task.Delay(TimeSpan.FromMilliseconds(_options.QueryTimeoutMs), _timeProvider, attemptCts.Token);
         try
         {
             await _sender(id, payload, cancellationToken).ConfigureAwait(false);
@@ -141,6 +148,22 @@ public sealed class QueryRouter : IAsyncDisposable
     }
 
     /// <summary>
+    /// Marks the connection as closing (drop path; the 02-05 pump is the trigger):
+    /// fails every pending query as connection-lost and rejects every later send
+    /// fail-fast with a typed exception, so no query hangs in the disconnect window.
+    /// Idempotent: repeated calls keep the first outcome.
+    /// </summary>
+    internal void NotifyConnectionClosing()
+    {
+        if (Interlocked.Exchange(ref _closing, 1) != 0)
+        {
+            return;
+        }
+
+        FailAllPending(new SdkConnectionException("Query did not complete: the connection is closing."));
+    }
+
+    /// <summary>
     /// Fails every pending query with <paramref name="error"/> (drop/dispose path, exact-
     /// pair removal so a concurrently delivered reply still wins its own waiter).
     /// </summary>
@@ -171,7 +194,7 @@ public sealed class QueryRouter : IAsyncDisposable
             throw new InvalidOperationException("Query id is outside the encodable range.");
         }
 
-        var frame = new byte[1 + idBytes.Length + body.Length];
+        byte[] frame = new byte[1 + idBytes.Length + body.Length];
         frame[0] = (byte)idBytes.Length;
         idBytes.CopyTo(frame, 1);
         body.CopyTo(frame.AsMemory(1 + idBytes.Length));
