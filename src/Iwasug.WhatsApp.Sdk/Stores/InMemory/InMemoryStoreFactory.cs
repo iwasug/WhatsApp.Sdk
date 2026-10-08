@@ -23,7 +23,12 @@ namespace Iwasug.WhatsApp.Sdk.Stores.InMemory;
 /// <para>
 /// Failure ≠ missing (D-19): a missing key returns <c>null</c>; this implementation has no
 /// I/O and therefore no failure mode of its own — injected failures are exercised through
-/// the test kit's fault-injection decorator (arrives with plan 01-03).
+/// the test kit's fault-injection decorator (plan 01-03).
+/// </para>
+/// <para>
+/// The factory is <see cref="IAsyncDisposable"/> (added in plan 01-04 for the D-23
+/// composition cascade): SDK composition layers that own a fallback factory dispose it
+/// after disposing their cached sessions.
 /// </para>
 /// </remarks>
 public sealed class InMemoryStoreFactory
@@ -31,7 +36,8 @@ public sealed class InMemoryStoreFactory
       IIdentityStoreFactory,
       IPreKeyStoreFactory,
       IRecentMessageCacheStoreFactory,
-      ISafetyStateStoreFactory
+      ISafetyStateStoreFactory,
+      IAsyncDisposable
 {
     private const string SignalSessionCapability = "signal-session";
     private const string IdentityCapability = "identity";
@@ -96,6 +102,20 @@ public sealed class InMemoryStoreFactory
         var state = GetOrAdd(accountId, SafetyStateCapability, () => new SafetyStateRow());
 
         return ValueTask.FromResult<ISafetyStateStore>(new InMemorySafetyStateStore((SafetyStateRow)state));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Factory-level disposal is part of the D-23 cascade wired by plan 01-04: the owning
+    /// <see cref="StoreRegistry"/> (or any SDK composition layer) disposes the fallback
+    /// factory after disposing its cached sessions. Disposal clears all account state — a
+    /// disposed factory serves fresh, empty state to any new session, and existing views
+    /// keep operating on their own references (view disposal remains view-only).
+    /// </remarks>
+    public async ValueTask DisposeAsync()
+    {
+        _state.Clear();
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     private object GetOrAdd(AccountId accountId, string capability, Func<object> factory)
