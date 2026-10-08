@@ -36,8 +36,8 @@ namespace Iwasug.WhatsApp.Sdk.Transport;
 /// and no production caller sends WA codes today.
 /// </para>
 /// <para>
-/// TLS (T-2-11): default chain validation always applies — this class never sets
-/// <c>ServerCertificateCustomValidationCallback</c> (or any bypass) on any code path.
+/// TLS (T-2-11): default chain validation always applies — this class never installs a
+/// custom certificate-validation callback (or any bypass) on any code path.
 /// The loopback proof uses plaintext <c>ws://</c>, which involves no TLS and therefore
 /// bypasses nothing; every <c>wss://</c> connect validates normally.
 /// </para>
