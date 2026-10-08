@@ -54,17 +54,26 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// <para>
 /// Connect flow per attempt: fresh transport from the factory → spike-confirmed WA
 /// header (<see cref="NoiseProtocol"/>) → fresh <see cref="NoiseHandshake"/> (fresh
-/// ephemeral, never reused) → one opaque liveness-probe query through
-/// <see cref="QueryRouter"/> (proves framing, id-correlation, and the fresh AEAD keys
-/// end-to-end; the probe's content is ignored) → <see cref="ConnectionState.Open"/>.
+/// ephemeral, never reused) → fresh <see cref="QueryRouter"/> bound to the attempt's
+/// channel → one opaque liveness-probe query through the router (proves framing,
+/// id-correlation, and the fresh AEAD keys end-to-end; the probe's content is ignored)
+/// → <see cref="ConnectionState.Open"/> (which resets the backoff counter and records
+/// the transcript hash for the store seam).
 /// </para>
 /// <para>
-/// Drop path: the pump's EOF carries the peer's close code into
-/// <see cref="ReconnectPolicy.Decide"/> — <c>RetryAfter</c> waits the full-jitter delay
-/// on the injected <see cref="TimeProvider"/>, <c>RestartImmediate</c> (515) resets the
-/// attempt counter with no delay, <c>Terminal</c> (401/403/411/419) emits
+/// Drop path (02-05 close gate): the uninstall latches the attempt's router via
+/// <see cref="QueryRouter.NotifyConnectionClosing"/> — in-flight queries fail as
+/// connection-lost and late sends on that router fail fast — then the pump's EOF code
+/// flows into <see cref="ReconnectPolicy.Decide"/> with the backoff's current depth:
+/// <c>RetryAfter</c> waits the backoff's full-jitter draw on the injected
+/// <see cref="TimeProvider"/>, <c>RestartImmediate</c> (515) resets the counter with no
+/// delay, <c>Terminal</c> (401/403/411/419) emits
 /// <see cref="ConnectionState.LoggedOut"/> exactly once (Interlocked guard) and stops,
 /// <c>SurfaceAndStop</c> (440) stops in <c>Closing</c> without retrying (no kick-war).
+/// Every attempt runs through the single-flight <see cref="ReconnectAttemptGate"/> so
+/// concurrent triggers collapse onto one socket+handshake. 408 carries its sub-cause in
+/// distinct logs (attempt-timeout vs socket-error vs probe class — same policy, distinct
+/// diagnostics per Pitfall 2).
 /// Peer-protocol violations (dict-version mismatch and friends) halt the loop without
 /// retry — a hostile peer is not a network flap. Every transition flows through the
 /// single-writer monitor loop; handler exceptions are logged and swallowed so host bugs
@@ -99,10 +108,12 @@ public sealed class WaConnection : IAsyncDisposable
     private readonly ConnectionOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<WaConnection>? _logger;
-    private readonly QueryRouter _router;
+    private readonly ReconnectBackoff _backoff;
+    private readonly ReconnectAttemptGate _reconnectGate = new();
     private readonly CancellationTokenSource _monitorCts = new();
 
     private volatile Channel? _channel;
+    private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
     private CancellationTokenSource? _hostLinkedCts;
@@ -153,7 +164,7 @@ public sealed class WaConnection : IAsyncDisposable
         _options = ConnectionOptions.ValidateOptions(options);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _logger = logger;
-        _router = new QueryRouter(SendRoutedAsync, _options, _timeProvider);
+        _backoff = new ReconnectBackoff(_options, _timeProvider);
     }
 
     /// <summary>Current host-observable state (written by the monitor loop only).</summary>
@@ -215,6 +226,21 @@ public sealed class WaConnection : IAsyncDisposable
     }
 
     /// <summary>
+    /// The handshake transcript hash of the latest successful handshake (both parties
+    /// agree it once the exchange completes). Public-channel value, never secret — the
+    /// minimal Phase 1 store-seam proof round-trips these bytes; full credential
+    /// persistence and resume-without-repair are Phase 3 scope.
+    /// </summary>
+    internal byte[]? LastHandshakeHash
+    {
+        get
+        {
+            byte[]? hash = Volatile.Read(ref _lastHandshakeHash);
+            return hash is null ? null : (byte[])hash.Clone();
+        }
+    }
+
+    /// <summary>
     /// Sends one opaque query over the open connection and awaits its correlated reply.
     /// Fails fast (never queues, never silently drops) when the connection is not open.
     /// </summary>
@@ -230,7 +256,23 @@ public sealed class WaConnection : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        return await _router.SendQueryAsync(payload, cancellationToken).ConfigureAwait(false);
+        Channel? channel = _channel;
+        if (channel is null)
+        {
+            throw new SdkConnectionException("The connection is not open: the query was not sent.");
+        }
+
+        try
+        {
+            return await channel.Router.SendQueryAsync(payload, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException ex) when (channel != _channel)
+        {
+            // The attempt turned over mid-send: the query never reached the new channel,
+            // so it fails fast as not-open (same class as the pre-send check above).
+            // (A plain volatile read — itself atomic — is the correct comparison here.)
+            throw new SdkConnectionException("The connection is not open: the query was not sent.", ex);
+        }
     }
 
     /// <inheritdoc />
@@ -279,15 +321,6 @@ public sealed class WaConnection : IAsyncDisposable
             (failures ??= []).Add(ex);
         }
 
-        try
-        {
-            await _router.DisposeAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            (failures ??= []).Add(ex);
-        }
-
         linked?.Dispose();
         _monitorCts.Dispose();
         if (failures is not null)
@@ -298,16 +331,21 @@ public sealed class WaConnection : IAsyncDisposable
 
     private async Task MonitorLoopAsync(CancellationToken monitorToken)
     {
-        int attempt = 0;
         while (!monitorToken.IsCancellationRequested)
         {
-            Emit(ConnectionState.Connecting, statusCode: null, attempt);
+            Emit(ConnectionState.Connecting, statusCode: null, _backoff.Attempt);
             DropOutcome outcome;
             try
             {
-                int? code = await ConnectAndWatchAsync(monitorToken).ConfigureAwait(false);
+                (int? Code, bool Opened) attempt =
+                    await _reconnectGate.RunAsync(() => ConnectAndWatchAsync(monitorToken), monitorToken).ConfigureAwait(false);
                 await UninstallChannelAsync().ConfigureAwait(false);
-                outcome = MapDropToOutcome(code, attempt);
+                if (attempt.Opened)
+                {
+                    _backoff.Reset();
+                }
+
+                outcome = MapDropToOutcome(attempt.Code);
             }
             catch (ProtocolHaltException ex)
             {
@@ -318,7 +356,7 @@ public sealed class WaConnection : IAsyncDisposable
             {
                 if (_firstOpen is not null)
                 {
-                    Emit(ConnectionState.Closing, statusCode: null, attempt);
+                    Emit(ConnectionState.Closing, statusCode: null, _backoff.Attempt);
                 }
 
                 return;
@@ -331,7 +369,7 @@ public sealed class WaConnection : IAsyncDisposable
                 }
 
                 _logger?.LogError(ex, "Connection loop fault for account {AccountId}.", _accountId.Value);
-                outcome = DropOutcome.Retry(TimeSpan.Zero, attempt + 1, 408);
+                outcome = DropOutcome.Retry(408);
             }
 
             switch (outcome.Kind)
@@ -339,28 +377,36 @@ public sealed class WaConnection : IAsyncDisposable
                 case DropOutcomeKind.Terminal:
                     if (Interlocked.CompareExchange(ref _loggedOut, 1, 0) == 0)
                     {
-                        Emit(ConnectionState.LoggedOut, outcome.Code, attempt);
+                        Emit(ConnectionState.LoggedOut, outcome.Code, _backoff.Attempt);
                     }
 
                     CompleteFirstOpen(new SdkConnectionException("Connection terminated: the account is logged out."));
                     return;
                 case DropOutcomeKind.Stopped:
-                    Emit(ConnectionState.Closing, outcome.Code, attempt);
+                    Emit(ConnectionState.Closing, outcome.Code, _backoff.Attempt);
                     CompleteFirstOpen(new SdkConnectionException("Connection stopped: the session state needs host action."));
                     return;
+                case DropOutcomeKind.Restart:
+                    // 515 restarts with the counter reset and no delay: it must not
+                    // consume attempt depth (the backoff draw below always advances).
+                    _backoff.Reset();
+                    Emit(ConnectionState.Closing, outcome.Code, _backoff.Attempt);
+                    break;
                 default:
-                    Emit(ConnectionState.Closing, outcome.Code, attempt);
-                    attempt = outcome.NextAttempt;
-                    if (outcome.Delay > TimeSpan.Zero)
+                    Emit(ConnectionState.Closing, outcome.Code, _backoff.Attempt);
+                    try
                     {
-                        try
-                        {
-                            await Task.Delay(outcome.Delay, _timeProvider, monitorToken).ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            return;
-                        }
+                        TimeSpan waited = await _backoff.WaitAsync(monitorToken).ConfigureAwait(false);
+                        _logger?.LogInformation(
+                            "Reconnecting for account {AccountId}: status code {StatusCode}, backoff {Delay}, attempt {Attempt}.",
+                            _accountId.Value,
+                            outcome.Code,
+                            waited,
+                            _backoff.Attempt);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
                     }
 
                     break;
@@ -368,7 +414,7 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
-    private DropOutcome MapDropToOutcome(int? code, int attempt)
+    private DropOutcome MapDropToOutcome(int? code)
     {
         int answered = code ?? 408;
         if (code is not null && !KnownCodes.Contains(code.Value))
@@ -379,7 +425,7 @@ public sealed class WaConnection : IAsyncDisposable
                 _accountId.Value);
         }
 
-        ReconnectDecision decision = ReconnectPolicy.Decide(answered, attempt, _options);
+        ReconnectDecision decision = ReconnectPolicy.Decide(answered, _backoff.Attempt, _options);
         switch (decision)
         {
             case ReconnectDecision.Terminal:
@@ -399,15 +445,11 @@ public sealed class WaConnection : IAsyncDisposable
                     "Immediate restart for account {AccountId}: status code {StatusCode}, attempt counter reset.",
                     _accountId.Value,
                     answered);
-                return DropOutcome.Retry(TimeSpan.Zero, 0, answered);
+                return DropOutcome.Restart(answered);
             default:
-                var retry = (ReconnectDecision.RetryAfter)decision;
-                _logger?.LogInformation(
-                    "Reconnect scheduled for account {AccountId}: status code {StatusCode}, delay {Delay}.",
-                    _accountId.Value,
-                    answered,
-                    retry.Delay);
-                return DropOutcome.Retry(retry.Delay, attempt + 1, answered);
+                // The authoritative delay comes from the backoff's own draw in the loop
+                // above; RetryAfter.Delay serves direct Decide consumers.
+                return DropOutcome.Retry(answered);
         }
     }
 
@@ -417,11 +459,11 @@ public sealed class WaConnection : IAsyncDisposable
             error,
             "Handshake rejected for account {AccountId}: stopping without retry.",
             _accountId.Value);
-        Emit(ConnectionState.Closing, statusCode: null, 0);
+        Emit(ConnectionState.Closing, statusCode: null, _backoff.Attempt);
         CompleteFirstOpen(error);
     }
 
-    private async Task<int?> ConnectAndWatchAsync(CancellationToken monitorToken)
+    private async Task<(int? Code, bool Opened)> ConnectAndWatchAsync(CancellationToken monitorToken)
     {
         IFrameTransport? transport = null;
         NoiseHandshake? handshake = null;
@@ -443,7 +485,7 @@ public sealed class WaConnection : IAsyncDisposable
             }
             catch (SdkConnectionException) when (transport.CloseStatusCode is not null)
             {
-                return transport.CloseStatusCode;
+                return (transport.CloseStatusCode, false);
             }
 
             ReadOnlyMemory<byte>? messageB;
@@ -453,12 +495,23 @@ public sealed class WaConnection : IAsyncDisposable
             }
             catch (SdkTransportException)
             {
-                return transport.CloseStatusCode ?? 408;
+                _logger?.LogInformation(
+                    "Handshake read failed for account {AccountId}: recycling as 408 (socket-error class, distinct from attempt-timeout 408).",
+                    _accountId.Value);
+                return (transport.CloseStatusCode ?? 408, false);
             }
 
             if (messageB is null)
             {
-                return transport.CloseStatusCode ?? 408;
+                int nullCode = transport.CloseStatusCode ?? 408;
+                if (transport.CloseStatusCode is null)
+                {
+                    _logger?.LogInformation(
+                        "Handshake stream ended without a close code for account {AccountId}: recycling as 408 (socket-error class).",
+                        _accountId.Value);
+                }
+
+                return (nullCode, false);
             }
 
             try
@@ -470,32 +523,48 @@ public sealed class WaConnection : IAsyncDisposable
                 throw new ProtocolHaltException(ex);
             }
 
+            byte[] messageC = handshake.WriteMessageC();
+            byte[] transcriptHash = handshake.HandshakeHash;
             try
             {
-                await transport.SendAsync(handshake.WriteMessageC(), attemptToken).ConfigureAwait(false);
+                await transport.SendAsync(messageC, attemptToken).ConfigureAwait(false);
             }
             catch (SdkConnectionException) when (transport.CloseStatusCode is not null)
             {
-                return transport.CloseStatusCode;
+                return (transport.CloseStatusCode, false);
             }
 
             handshake.Dispose();
             handshake = null;
 
-            var channel = new Channel(transport, noise);
+            // The router is per-attempt: the drop path latches it via
+            // NotifyConnectionClosing (fail-fast + connection-lost failures) while the
+            // next attempt mints a fresh one — a latched router never leaks into a new
+            // attempt. The sender closure captures the channel variable (assigned just
+            // below, before any send can flow) so each router always drives its own
+            // channel even across handoffs.
+            Channel? current = null;
+            ValueTask RouteViaCurrent(string id, ReadOnlyMemory<byte> payload, CancellationToken ct) =>
+                SendRoutedAsync(
+                    current ?? throw new InvalidOperationException("Query router used before its channel was published."),
+                    id,
+                    payload,
+                    ct);
+            var router = new QueryRouter(RouteViaCurrent, _options, _timeProvider);
+            current = new Channel(transport, noise, router);
             transport = null;
             noise = null;
-            _channel = channel;
+            _channel = current;
 
-            Task<int?> watch = WatchAsync(channel, monitorToken);
+            Task<int?> watch = WatchAsync(current, monitorToken);
             Task<byte[]> probe;
             try
             {
-                probe = _router.SendQueryAsync(ProbeBody, attemptToken).AsTask();
+                probe = router.SendQueryAsync(ProbeBody, attemptToken).AsTask();
             }
             catch (SdkException)
             {
-                return await AbortChannelAsync(channel).ConfigureAwait(false);
+                return await AbortChannelAsync(current).ConfigureAwait(false);
             }
 
             Task winner = await Task.WhenAny(probe, watch).ConfigureAwait(false);
@@ -511,7 +580,7 @@ public sealed class WaConnection : IAsyncDisposable
                 {
                 }
 
-                return dropCode;
+                return (dropCode, false);
             }
 
             try
@@ -520,12 +589,14 @@ public sealed class WaConnection : IAsyncDisposable
             }
             catch (SdkException)
             {
-                return await AbortChannelAsync(channel).ConfigureAwait(false);
+                return await AbortChannelAsync(current).ConfigureAwait(false);
             }
 
-            Emit(ConnectionState.Open, statusCode: null, 0);
+            Emit(ConnectionState.Open, statusCode: null, _backoff.Attempt);
             CompleteFirstOpenOk();
-            return await watch.ConfigureAwait(false);
+            Volatile.Write(ref _lastHandshakeHash, transcriptHash);
+            int? finalCode = await watch.ConfigureAwait(false);
+            return (finalCode, true);
         }
         catch (OperationCanceledException)
         {
@@ -534,7 +605,10 @@ public sealed class WaConnection : IAsyncDisposable
                 throw;
             }
 
-            return 408;
+            _logger?.LogInformation(
+                "Connect attempt exceeded the configured timeout for account {AccountId}: recycling as 408 (attempt-timeout class, distinct from socket-error 408).",
+                _accountId.Value);
+            return (408, false);
         }
         finally
         {
@@ -548,11 +622,15 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
-    private async Task<int> AbortChannelAsync(Channel channel)
+    private async Task<(int? Code, bool Opened)> AbortChannelAsync(Channel channel)
     {
         int? code = channel.Transport.CloseStatusCode;
+        _logger?.LogInformation(
+            "Probe query failed for account {AccountId}: recycling as status code {StatusCode} (probe class — query-timeout-or-drop, distinct from socket-error 408).",
+            _accountId.Value,
+            code ?? 408);
         await UninstallChannelAsync().ConfigureAwait(false);
-        return code ?? 408;
+        return (code ?? 408, false);
     }
 
     private async Task<int?> WatchAsync(Channel channel, CancellationToken monitorToken)
@@ -608,7 +686,7 @@ public sealed class WaConnection : IAsyncDisposable
                 continue;
             }
 
-            if (!_router.TryDeliver(id, body))
+            if (!channel.Router.TryDeliver(id, body))
             {
                 _logger?.LogDebug(
                     "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
@@ -620,10 +698,8 @@ public sealed class WaConnection : IAsyncDisposable
         throw new OperationCanceledException(monitorToken);
     }
 
-    private async ValueTask SendRoutedAsync(string id, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+    private async ValueTask SendRoutedAsync(Channel channel, string id, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
-        Channel? channel = _channel ?? throw new SdkConnectionException("The connection is not open: the query was not sent.");
-
         byte[] frame = QueryRouter.BuildFrame(id, payload);
         byte[] encrypted;
         try
@@ -665,9 +741,13 @@ public sealed class WaConnection : IAsyncDisposable
             return;
         }
 
-        _router.FailAllPending(new SdkConnectionException("Query did not complete: the connection dropped."));
+        // Drop trigger for the 02-04 closing contract: pending queries fail fast as
+        // connection-lost (typed SdkConnectionException) and later sends on this
+        // attempt's router fail fast too — while the next attempt mints a fresh router.
+        channel.Router.NotifyConnectionClosing();
         channel.Noise.Dispose();
         await channel.Transport.DisposeAsync().ConfigureAwait(false);
+        await channel.Router.DisposeAsync().ConfigureAwait(false);
     }
 
     private IFrameTransport CreateTransportSafely()
@@ -764,15 +844,18 @@ public sealed class WaConnection : IAsyncDisposable
 
     private sealed class Channel
     {
-        internal Channel(IFrameTransport transport, NoiseTransport noise)
+        internal Channel(IFrameTransport transport, NoiseTransport noise, QueryRouter router)
         {
             Transport = transport;
             Noise = noise;
+            Router = router;
         }
 
         internal IFrameTransport Transport { get; }
 
         internal NoiseTransport Noise { get; }
+
+        internal QueryRouter Router { get; }
     }
 
     private sealed class ProtocolHaltException : Exception
@@ -789,32 +872,95 @@ public sealed class WaConnection : IAsyncDisposable
     private enum DropOutcomeKind
     {
         Retry,
+        Restart,
         Terminal,
         Stopped,
     }
 
     private sealed class DropOutcome
     {
-        private DropOutcome(DropOutcomeKind kind, TimeSpan delay, int nextAttempt, int? code)
+        private DropOutcome(DropOutcomeKind kind, int? code)
         {
             Kind = kind;
-            Delay = delay;
-            NextAttempt = nextAttempt;
             Code = code;
         }
 
         internal DropOutcomeKind Kind { get; }
 
-        internal TimeSpan Delay { get; }
-
-        internal int NextAttempt { get; }
-
         internal int? Code { get; }
 
-        internal static DropOutcome Retry(TimeSpan delay, int nextAttempt, int? code) =>
-            new(DropOutcomeKind.Retry, delay, nextAttempt, code);
+        internal static DropOutcome Retry(int? code) =>
+            new(DropOutcomeKind.Retry, code);
+
+        internal static DropOutcome Restart(int? code) =>
+            new(DropOutcomeKind.Restart, code);
 
         internal static DropOutcome Stop(DropOutcomeKind kind, int? code) =>
-            new(kind, TimeSpan.Zero, 0, code);
+            new(kind, code);
     }
+}
+
+/// <summary>
+/// Single-flight gate for reconnect attempts (02-05): concurrent triggers collapse onto
+/// the one in-flight attempt instead of multiplying sockets and handshakes. D-24
+/// Lazy-Task memoization — the first caller starts the attempt, concurrent callers
+/// attach to its task; a completed attempt (success or fault) evicts, so the next
+/// trigger starts fresh instead of observing a poisoned result.
+/// </summary>
+/// <remarks>
+/// The monitor loop is the only trigger today (single caller), so the collapse is
+/// structural insurance for future trigger paths — and it is directly unit-proven
+/// (parallel-drop facts in ConnectionStateTests). A caller that cancels while attached
+/// observes its own cancellation without disturbing the attempt other callers await.
+/// </remarks>
+internal sealed class ReconnectAttemptGate
+{
+    private readonly object _gate = new();
+    private Task? _inFlight;
+
+    /// <summary>
+    /// Runs <paramref name="attempt"/> unless one is already in flight, in which case
+    /// the caller awaits the shared attempt. Each caller still observes its own
+    /// <paramref name="callerToken"/> cancellation.
+    /// </summary>
+    /// <typeparam name="T">The attempt's result type.</typeparam>
+    /// <param name="attempt">The reconnect attempt (started at most once per flight).</param>
+    /// <param name="callerToken">The caller's cancellation (unwrapped, attempt-safe).</param>
+    /// <returns>The attempt's result.</returns>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    internal async Task<T> RunAsync<T>(Func<Task<T>> attempt, CancellationToken callerToken)
+    {
+        ArgumentNullException.ThrowIfNull(attempt);
+
+        Task<T> shared;
+        lock (_gate)
+        {
+            if (_inFlight is Task<T> running && !running.IsCompleted)
+            {
+                shared = running;
+            }
+            else
+            {
+                shared = (Task<T>)(_inFlight = RunInnerAsync(attempt));
+            }
+        }
+
+        if (callerToken.CanBeCanceled)
+        {
+            using var attached = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+            Task waiter = Task.Delay(Timeout.Infinite, attached.Token);
+            Task winner = await Task.WhenAny(shared, waiter).ConfigureAwait(false);
+            if (ReferenceEquals(winner, waiter))
+            {
+                callerToken.ThrowIfCancellationRequested();
+            }
+
+            attached.Cancel();
+        }
+
+        return await shared.ConfigureAwait(false);
+    }
+
+    private static async Task<T> RunInnerAsync<T>(Func<Task<T>> attempt) =>
+        await attempt().ConfigureAwait(false);
 }
