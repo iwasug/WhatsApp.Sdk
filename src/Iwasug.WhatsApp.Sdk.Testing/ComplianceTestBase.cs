@@ -62,7 +62,17 @@ public abstract class ComplianceTestBase
     [Fact]
     public void Every_contract_class_has_a_concrete_subclass()
     {
-        var missing = GetContractBaseClasses()
+        var contractBases = GetContractBaseClasses();
+
+        // Floor assertion (IN-06): reflection discovery can silently return empty in
+        // a trimmed host — fail loudly instead of passing vacuously. Five contract
+        // classes ship with the kit (identity, pre-key, recent-message-cache,
+        // safety-state, signal-session); raise the floor when a sixth is added.
+        contractBases.Count.Should().BeGreaterThanOrEqualTo(5,
+            "reflection discovery returned fewer contract classes than the kit ships — "
+            + "the completeness backstop would otherwise pass vacuously");
+
+        var missing = contractBases
             .Where(contractBase => GetConcreteSubclasses(contractBase).Count == 0)
             .Select(contractBase => contractBase.FullName ?? contractBase.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
