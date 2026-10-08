@@ -51,7 +51,7 @@
     "security_block_on": "high",
     "_auto_chain_active": false,
     "build_command": "dotnet build Iwasug.WhatsApp.Sdk.sln --nologo",
-    "test_command": "dotnet test Iwasug.WhatsApp.Sdk.sln --nologo --verbosity minimal"
+    "test_command": "dotnet test Iwasug.WhatsApp.Sdk.sln"
   },
   "ship": {
     "pr_body_sections": [
