@@ -2,11 +2,51 @@
 Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase
 Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.ComplianceTestBase() -> void
 Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.Every_contract_class_has_a_concrete_subclass() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Double_put_same_address_last_write_wins() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Double_remove_same_address_second_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Get_missing_address_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.IdentityStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Two_accounts_isolated_same_address() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Bundle_and_prekey_substores_are_independent() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Double_put_bundle_last_write_wins() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Double_remove_prekey_second_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Get_missing_bundle_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Get_missing_prekey_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.PreKeyStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Put_then_Get_bundle_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Put_then_Get_prekey_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Remove_prekey_then_get_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Two_accounts_isolated_same_bundle_address() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Double_put_same_key_last_write_wins() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Double_remove_same_key_second_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Double_trim_oldest_second_removes_only_what_remains() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.GetRecent_returns_newest_first_limited_to_requested_chat() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Get_missing_message_key_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.PurgeExpired_removes_only_entries_strictly_before_cutoff() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.RecentMessageCacheStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.TrimOldest_removes_oldest_entries_observable_via_GetRecent() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Two_accounts_isolated_same_message_key() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Double_put_overwrites_single_row_last_write_wins() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Double_remove_second_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Get_missing_row_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.SafetyStateStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Two_accounts_see_independent_single_rows() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Get_missing_address_returns_null_not_throw() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.SignalSessionStoreContractTests() -> void
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Two_accounts_isolated_same_address() -> System.Threading.Tasks.Task!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory!
 virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetConcreteSubclasses(System.Type! contractBase) -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!
 virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetContractBaseClasses() -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!
