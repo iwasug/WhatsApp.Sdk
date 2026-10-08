@@ -21,6 +21,11 @@ Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Closing = 2 -> Iwasug.WhatsApp.Sd
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Connecting = 0 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState.LoggedOut = 3 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Open = 1 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs
+Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs.Attempt.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs.ConnectionStateChangedEventArgs(Iwasug.WhatsApp.Sdk.Connection.ConnectionState state, int? statusCode, int attempt) -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs.State.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs.StatusCode.get -> int?
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.AuthExpired = 419 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.BadSession = 500 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
@@ -32,6 +37,10 @@ Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.LoggedOut = 401 -> Iwasug.WhatsA
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.MultideviceMismatch = 411 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.RestartRequired = 515 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.UnavailableService = 503 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.QueryRouter
+Iwasug.WhatsApp.Sdk.Connection.QueryRouter.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Connection.QueryRouter.QueryRouter(System.Func<string!, System.ReadOnlyMemory<byte>, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! sender, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+Iwasug.WhatsApp.Sdk.Connection.QueryRouter.SendQueryAsync(System.ReadOnlyMemory<byte> payload, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<byte[]!>
 Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision
 Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.ReconnectDecision(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision! original) -> void
 Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate
@@ -47,6 +56,13 @@ Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(Iwasug.Wh
 Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal
 Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? other) -> bool
 Iwasug.WhatsApp.Sdk.Connection.ReconnectPolicy
+Iwasug.WhatsApp.Sdk.Connection.WaConnection
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.ConnectAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.SendQueryAsync(System.ReadOnlyMemory<byte> payload, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<byte[]!>
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.State.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.StateChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.WaConnection(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Func<Iwasug.WhatsApp.Sdk.Transport.IFrameTransport!>! transportFactory, Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads! payloads, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null, System.TimeProvider? timeProvider = null, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Connection.WaConnection!>? logger = null) -> void
 Iwasug.WhatsApp.Sdk.Domain.Jid
 Iwasug.WhatsApp.Sdk.Domain.Jid.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Domain.Jid.Agent.get -> string?
@@ -98,6 +114,20 @@ Iwasug.WhatsApp.Sdk.Errors.SdkStoreException
 Iwasug.WhatsApp.Sdk.Errors.SdkStoreException.SdkStoreException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException.SdkTransportException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads
+Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads.GetClientFinish() -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads.GetClientHello() -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake.Dispose() -> void
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake.NoiseHandshake(Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads! payloads) -> void
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake.ReadMessageB(System.ReadOnlyMemory<byte> message) -> Iwasug.WhatsApp.Sdk.Noise.NoiseTransport!
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake.WriteMessageA() -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.NoiseHandshake.WriteMessageC() -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.NoiseTransport
+Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Decrypt(System.ReadOnlySpan<byte> packet) -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Dispose() -> void
+Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Encrypt(System.ReadOnlySpan<byte> plaintext) -> byte[]!
+Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.NoiseTransport(System.ReadOnlyMemory<byte> writeKey, System.ReadOnlyMemory<byte> readKey) -> void
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!

@@ -29,6 +29,12 @@
     <PackageReference Include="NSubstitute" />
     <!-- FakeTimeProvider for deterministic TTL/trim tests (consumed by plan 01-04). -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!--
+      The 02-02 loopback peer performs real X25519 agreement against the client's
+      ephemeral (tracer design: real keys, scripted bytes). Versionless: the version
+      lives in Directory.Packages.props (02-01 pin, reused — no new package).
+    -->
+    <PackageReference Include="NSec.Cryptography" />
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
   </ItemGroup>
 
