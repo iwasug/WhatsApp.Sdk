@@ -30,7 +30,7 @@ public sealed class StoreRegistryTests
         await session.SignalSessions.PutAsync("peer@s.whatsapp.net", record, CancellationToken.None);
         var retrieved = await session.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None);
 
-        retrieved.Should().Be(record);
+        retrieved.Should().BeEquivalentTo(record);
     }
 
     [Fact]
@@ -47,8 +47,8 @@ public sealed class StoreRegistryTests
         await sessionA.SignalSessions.PutAsync("peer@s.whatsapp.net", forA, CancellationToken.None);
         await sessionB.SignalSessions.PutAsync("peer@s.whatsapp.net", forB, CancellationToken.None);
 
-        (await sessionA.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().Be(forA);
-        (await sessionB.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().Be(forB);
+        (await sessionA.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().BeEquivalentTo(forA);
+        (await sessionB.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().BeEquivalentTo(forB);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class StoreRegistryTests
         // Every other capability behaves like a working store (the fallback filled it).
         var sessionRecord = new SignalSessionRecord("peer@s.whatsapp.net", [9]);
         await session.SignalSessions.PutAsync("peer@s.whatsapp.net", sessionRecord, CancellationToken.None);
-        (await session.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().Be(sessionRecord);
+        (await session.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None)).Should().BeEquivalentTo(sessionRecord);
     }
 
     [Fact]

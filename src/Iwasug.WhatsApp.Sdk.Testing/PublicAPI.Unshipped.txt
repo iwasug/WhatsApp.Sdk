@@ -40,6 +40,7 @@ Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.SafetySt
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Two_accounts_see_independent_single_rows() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Get_missing_address_returns_null_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Mutating_record_bytes_after_Put_does_not_change_subsequent_Get() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Put_then_Get_round_trips_typed_record() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.SignalSessionStoreContractTests() -> void
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Two_accounts_isolated_same_address() -> System.Threading.Tasks.Task!

@@ -136,15 +136,21 @@ public sealed class InMemoryStoreFactory
         public Task<SignalSessionRecord?> GetAsync(string address, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(records.TryGetValue(address, out var record) ? record : null);
+            // Defensive copy on the read boundary too: callers must never alias
+            // (and later corrupt) the store's ratchet-state buffer.
+            return Task.FromResult(records.TryGetValue(address, out var record)
+                ? record with { SessionState = (byte[])record.SessionState.Clone() }
+                : null);
         }
 
         public Task PutAsync(string address, SignalSessionRecord session, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             // The value is observable to any subsequent read before this task completes
-            // (D-06 store-side semantics; in-memory writes are synchronous).
-            records[address] = session;
+            // (D-06 store-side semantics; in-memory writes are synchronous). Clone the
+            // mutable ratchet-state buffer so a caller mutating its own array after the
+            // write cannot silently rewrite the persisted record (WR-02).
+            records[address] = session with { SessionState = (byte[])session.SessionState.Clone() };
             return Task.CompletedTask;
         }
 

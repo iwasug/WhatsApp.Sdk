@@ -86,7 +86,9 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._sessions.TryGetValue((account, address), out var record) ? record : null);
+                return Task.FromResult(factory._sessions.TryGetValue((account, address), out var record)
+                    ? record with { SessionState = (byte[])record.SessionState.Clone() }
+                    : null);
             }
         }
 
@@ -95,7 +97,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                factory._sessions[(account, address)] = session;
+                factory._sessions[(account, address)] = session with { SessionState = (byte[])session.SessionState.Clone() };
             }
 
             return Task.CompletedTask;

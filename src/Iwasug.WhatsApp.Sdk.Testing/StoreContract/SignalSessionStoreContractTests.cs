@@ -51,6 +51,30 @@ public abstract class SignalSessionStoreContractTests
     }
 
     [Fact]
+    public async Task Mutating_record_bytes_after_Put_does_not_change_subsequent_Get()
+    {
+        var factory = CreateFactory();
+        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        var bytes = new byte[] { 0x01, 0x02, 0x03 };
+        var record = new SignalSessionRecord("noalias@s.whatsapp.net", bytes);
+
+        await store.PutAsync(record.Address, record, CancellationToken.None);
+
+        // Mutating the caller's buffer after the write must not rewrite the stored record.
+        bytes[0] = 0xFF;
+        var fetched = await store.GetAsync(record.Address, CancellationToken.None);
+        fetched.Should().NotBeNull();
+        fetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02, 0x03 });
+
+        // Mutating the returned buffer must not corrupt the store for later readers.
+        fetched.SessionState[0] = 0xFF;
+        var refetched = await store.GetAsync(record.Address, CancellationToken.None);
+        refetched.Should().NotBeNull();
+        refetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02, 0x03 });
+        await store.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Get_missing_address_returns_null_not_throw()
     {
         var factory = CreateFactory();
