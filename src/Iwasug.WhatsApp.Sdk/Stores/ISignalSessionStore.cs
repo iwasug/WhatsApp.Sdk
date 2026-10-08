@@ -95,7 +95,6 @@ public interface ISignalSessionStoreFactory
 /// <paramref name="SessionState"/> compares by REFERENCE (arrays do not implement
 /// value equality). Two records holding byte-identical buffers are NOT
 /// <c>==</c>-equal unless they share the array instance — compare buffer contents
-/// (for example with <see cref="System.Linq.Enumerable.SequenceEqual{TSource}"/>)
-/// when value equality is what you mean.
+/// (for example with <c>SequenceEqual</c>) when value equality is what you mean.
 /// </remarks>
 public sealed record SignalSessionRecord(string Address, byte[] SessionState);
