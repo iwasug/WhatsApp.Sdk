@@ -1,7 +1,10 @@
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Domain;
+using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
+using Iwasug.WhatsApp.Sdk.Testing.Rules;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
@@ -14,9 +17,14 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// Consumers (the SDK's own reference binding, and hosts verifying their persistence
 /// implementations) subclass this type and override <see cref="CreateFactory"/> to supply
 /// the factory under test. xunit runs inherited <c>[Fact]</c> methods in every concrete
-/// subclass — that inheritance dispatch is the entire mechanism. Full fault-injection
-/// variants of the failure-≠-missing rule arrive with plan 01-03; this class asserts the
-/// missing-returns-null path here.
+/// subclass — that inheritance dispatch is the entire mechanism. This class covers the
+/// full D-11 rule family for the identity seam: round-trip, failure-≠-missing on BOTH
+/// paths (a faulting read throws via <see cref="FaultingStoreFactory"/>; a genuinely
+/// absent key returns null — D-19), two-account isolation, idempotency edges,
+/// durability-await (independent second-instance read, D-06), and parallel cross-read
+/// enforcement via <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/>
+/// — parallel enforcement is uniform across all five store families (serial-only
+/// coverage is not acceptable per D-11).
 /// </remarks>
 public abstract class IdentityStoreContractTests
 {
@@ -108,5 +116,70 @@ public abstract class IdentityStoreContractTests
         first.Should().BeTrue();
         second.Should().BeFalse(); // idempotency edge: removing an absent key reports false
         await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
+    {
+        var inner = CreateFactory();
+        IIdentityStoreFactory faulting = new FaultingStoreFactory(identity: inner) { Mode = FaultMode.FailReads };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // A failing read THROWS — it must never surface as null (D-19: a flaky identity
+        // read misinterpreted as "unknown peer" would force needless key re-fetch; T-01-09).
+        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        await act.Should().ThrowAsync<SdkStoreException>();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Faulting_factory_Mode_None_absent_key_returns_null()
+    {
+        var inner = CreateFactory();
+        IIdentityStoreFactory faulting = new FaultingStoreFactory(identity: inner) { Mode = FaultMode.None };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // Distinct observable path from the fault above: a genuinely absent key returns
+        // null — failure and missing stay mechanically distinguishable (D-19).
+        (await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None)).Should().BeNull();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Write_observed_by_independent_second_store_instance()
+    {
+        var factory = CreateFactory();
+        var account = AccountId.Create("acct-A");
+
+        await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<IIdentityStore>(
+            createStore: () => factory.CreateAsync(account, CancellationToken.None),
+            writeAsync: writer => writer.PutAsync(
+                "durable@s.whatsapp.net", new SignalIdentityRecord("durable-key"), CancellationToken.None),
+            assertVisibleAsync: async reader =>
+            {
+                var fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
+                fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
+                fetched!.IdentityKeyPublic.Should().Be("durable-key");
+            });
+    }
+
+    [Fact]
+    public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
+    {
+        var factory = CreateFactory();
+        var accountA = AccountId.Create("acct-A");
+        var accountB = AccountId.Create("acct-B");
+
+        // Genuine parallelism (Task.WhenAll inside the helper, no collection disabling):
+        // B must never observe any key A wrote (D-11 concurrency family, T-01-10).
+        await StoreContractRules.AssertParallelAccessNoCrossReadsAsync<IIdentityStore>(
+            createStoreAsync: accountId => factory.CreateAsync(accountId, CancellationToken.None),
+            accountA: accountA,
+            accountB: accountB,
+            writeOnAAsync: (writer, i) => writer.PutAsync(
+                $"parallel-{i}@s.whatsapp.net", new SignalIdentityRecord($"key-A-{i}"), CancellationToken.None),
+            readLeakOnBAsync: async (reader, i) =>
+                await reader.GetAsync($"parallel-{i}@s.whatsapp.net", CancellationToken.None) is not null,
+            iterations: 100);
     }
 }

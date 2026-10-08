@@ -43,6 +43,14 @@ public enum FaultMode
 /// decorator is test infrastructure and the inner lifecycle belongs to the suite that
 /// created it (D-23 ownership stays with the creator).
 /// </para>
+/// <para>
+/// Binding pattern: all five factory interfaces share the <c>CreateAsync</c> signature but
+/// differ by return type, so only the Signal-session implementation is implicit and the
+/// other four are explicit interface implementations. Bind the decorator to the seam
+/// under test through an interface-typed variable —
+/// <c>IPreKeyStoreFactory factory = new FaultingStoreFactory(preKey: inner) { Mode = ... };</c>
+/// — and call <c>factory.CreateAsync(...)</c> so the correct store type is produced.
+/// </para>
 /// </remarks>
 public sealed class FaultingStoreFactory :
     ISignalSessionStoreFactory,

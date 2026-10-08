@@ -1,6 +1,9 @@
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
+using Iwasug.WhatsApp.Sdk.Testing.Rules;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
@@ -16,7 +19,15 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// the primitives execute and observably change state, while the retention POLICY itself
 /// lives in SDK-owned IOptions and never appears in interface signatures (D-08, Pitfall 5,
 /// T-01-07 — the compile-time half of that guarantee is pinned by plan 01-02 Task 1's
-/// acceptance criteria).
+/// acceptance criteria). Plan 01-03 adds the fault-injection family
+/// (<see cref="FaultingStoreFactory"/>: faulted read throws, absent key returns null,
+/// faulted write throws — the STORE PRIMITIVE still throws on failure; the SDK's
+/// log-and-continue wrapper is Phase 4/5 policy and not part of the store contract,
+/// D-20), durability-await (independent second-instance read, D-06), and parallel
+/// cross-read enforcement via
+/// <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/> — parallel
+/// enforcement is uniform across all five store families (serial-only coverage is not
+/// acceptable per D-11).
 /// </remarks>
 public abstract class RecentMessageCacheStoreContractTests
 {
@@ -194,5 +205,94 @@ public abstract class RecentMessageCacheStoreContractTests
         await store.TrimOldestAsync(1, CancellationToken.None);
         (await store.GetRecentAsync(chat, 10, CancellationToken.None)).Should().BeEmpty();
         await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
+    {
+        var inner = CreateFactory();
+        IRecentMessageCacheStoreFactory faulting = new FaultingStoreFactory(recentMessageCache: inner) { Mode = FaultMode.FailReads };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // A failing read THROWS — never mapped to null (D-19; T-01-09). Even for a
+        // lossy cache, the fault is observably distinct from an absent entry.
+        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        await act.Should().ThrowAsync<SdkStoreException>();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Faulting_factory_Mode_None_absent_key_returns_null()
+    {
+        var inner = CreateFactory();
+        IRecentMessageCacheStoreFactory faulting = new FaultingStoreFactory(recentMessageCache: inner) { Mode = FaultMode.None };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // Distinct observable path from the fault above: a genuinely absent key returns
+        // null — failure and missing stay mechanically distinguishable (D-19).
+        (await store.GetAsync("absent-key", CancellationToken.None)).Should().BeNull();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task FailWrites_Put_throws_Mode_None_Put_succeeds()
+    {
+        var inner = CreateFactory();
+        var decorator = new FaultingStoreFactory(recentMessageCache: inner) { Mode = FaultMode.FailWrites };
+        IRecentMessageCacheStoreFactory faulting = decorator;
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // The STORE PRIMITIVE throws on an injected write failure (D-20 nuance): the
+        // cache's log-and-continue swallow policy is SDK-side (Phases 4/5) and not part
+        // of the store contract the kit enforces.
+        var act = async () => await store.PutAsync(
+            new RecentMessageEntry("faulted-key", "alice@s.whatsapp.net", BaseTime), CancellationToken.None);
+        await act.Should().ThrowAsync<SdkStoreException>();
+
+        // Same primitive with the fault cleared succeeds — injection is per-call, and the
+        // failed attempt left nothing behind.
+        decorator.Mode = FaultMode.None;
+        await store.PutAsync(new RecentMessageEntry("faulted-key", "alice@s.whatsapp.net", BaseTime), CancellationToken.None);
+        (await store.GetAsync("faulted-key", CancellationToken.None)).Should().NotBeNull();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Write_observed_by_independent_second_store_instance()
+    {
+        var factory = CreateFactory();
+        var account = AccountId.Create("acct-A");
+
+        await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<IRecentMessageCacheStore>(
+            createStore: () => factory.CreateAsync(account, CancellationToken.None),
+            writeAsync: writer => writer.PutAsync(
+                new RecentMessageEntry("durable-key", "alice@s.whatsapp.net", BaseTime), CancellationToken.None),
+            assertVisibleAsync: async reader =>
+            {
+                var fetched = await reader.GetAsync("durable-key", CancellationToken.None);
+                fetched.Should().NotBeNull("an awaited Put must be observable by an independent subsequent read (D-06 store-side)");
+                fetched!.MessageKey.Should().Be("durable-key");
+            });
+    }
+
+    [Fact]
+    public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
+    {
+        var factory = CreateFactory();
+        var accountA = AccountId.Create("acct-A");
+        var accountB = AccountId.Create("acct-B");
+
+        // Genuine parallelism (Task.WhenAll inside the helper, no collection disabling):
+        // B must never observe any message key A wrote (D-11 concurrency family, T-01-10).
+        await StoreContractRules.AssertParallelAccessNoCrossReadsAsync<IRecentMessageCacheStore>(
+            createStoreAsync: accountId => factory.CreateAsync(accountId, CancellationToken.None),
+            accountA: accountA,
+            accountB: accountB,
+            writeOnAAsync: (writer, i) => writer.PutAsync(
+                new RecentMessageEntry($"parallel-{i}", "parallel@s.whatsapp.net", BaseTime.AddMilliseconds(i)),
+                CancellationToken.None),
+            readLeakOnBAsync: async (reader, i) =>
+                await reader.GetAsync($"parallel-{i}", CancellationToken.None) is not null,
+            iterations: 100);
     }
 }

@@ -100,3 +100,24 @@ static Iwasug.WhatsApp.Sdk.Testing.Rules.StoreContractRules.AssertParallelAccess
 static Iwasug.WhatsApp.Sdk.Testing.Rules.StoreContractRules.AssertParallelAccessNoCrossReadsAsync<TStore>(System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, System.Threading.Tasks.ValueTask<TStore>>! createStoreAsync, Iwasug.WhatsApp.Sdk.Accounts.AccountId accountA, Iwasug.WhatsApp.Sdk.Accounts.AccountId accountB, System.Func<TStore, int, System.Threading.Tasks.Task!>! writeOnAAsync, System.Func<TStore, System.Threading.Tasks.Task<bool>!>! readLeakOnBAsync, int iterations) -> System.Threading.Tasks.Task!
 static Iwasug.WhatsApp.Sdk.Testing.Rules.StoreContractRules.AssertTwoAccountsIsolatedAsync<TStore>(System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, System.Threading.Tasks.ValueTask<TStore>>! createStoreAsync, Iwasug.WhatsApp.Sdk.Accounts.AccountId accountA, Iwasug.WhatsApp.Sdk.Accounts.AccountId accountB, System.Func<TStore, int, System.Threading.Tasks.Task!>! writeSlotValueAsync, System.Func<TStore, int, System.Threading.Tasks.Task!>! assertSeesOnlySlotValueAsync) -> System.Threading.Tasks.Task!
 static Iwasug.WhatsApp.Sdk.Testing.Rules.StoreContractRules.AssertWriteVisibleToIndependentReadAsync<TStore>(System.Func<System.Threading.Tasks.ValueTask<TStore>>! createStore, System.Func<TStore, System.Threading.Tasks.Task!>! writeAsync, System.Func<TStore, System.Threading.Tasks.Task!>! assertVisibleAsync) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Faulting_factory_Mode_None_absent_key_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Faulting_factory_Mode_None_absent_keys_return_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Parallel_interleaved_prekey_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.FailWrites_Put_throws_Mode_None_Put_succeeds() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Faulting_factory_Mode_None_absent_key_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Faulting_factory_Mode_None_absent_row_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Faulting_factory_Mode_None_absent_key_returns_null() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!

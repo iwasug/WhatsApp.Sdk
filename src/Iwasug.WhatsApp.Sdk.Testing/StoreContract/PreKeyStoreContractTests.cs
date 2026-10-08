@@ -1,7 +1,10 @@
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Domain;
+using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
+using Iwasug.WhatsApp.Sdk.Testing.Rules;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
@@ -13,8 +16,14 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// <remarks>
 /// Consumers subclass and bind their factory via <see cref="CreateFactory"/>. Covers the
 /// two sub-stores (bundles by address, one-time pre-keys by integer id), their
-/// independence, the missing-returns-null path (D-19), two-account isolation, and the
-/// idempotency edges (last-write-wins double-put, double-remove second false).
+/// independence, the missing-returns-null path (D-19), two-account isolation, the
+/// idempotency edges (last-write-wins double-put, double-remove second false), the
+/// fault-injection family (<see cref="FaultingStoreFactory"/>: faulted read throws,
+/// absent key returns null), durability-await (independent second-instance read, D-06),
+/// and parallel cross-read enforcement via
+/// <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/> — parallel
+/// enforcement is uniform across all five store families (serial-only coverage is not
+/// acceptable per D-11).
 /// </remarks>
 public abstract class PreKeyStoreContractTests
 {
@@ -171,5 +180,72 @@ public abstract class PreKeyStoreContractTests
         first.Should().BeTrue();
         second.Should().BeFalse(); // idempotency edge
         await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
+    {
+        var inner = CreateFactory();
+        IPreKeyStoreFactory faulting = new FaultingStoreFactory(preKey: inner) { Mode = FaultMode.FailReads };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // A failing read THROWS on BOTH sub-stores — never mapped to null (D-19, T-01-09).
+        var bundleAct = async () => await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        await bundleAct.Should().ThrowAsync<SdkStoreException>();
+        var preKeyAct = async () => await store.GetPreKeyAsync(999, CancellationToken.None);
+        await preKeyAct.Should().ThrowAsync<SdkStoreException>();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Faulting_factory_Mode_None_absent_keys_return_null()
+    {
+        var inner = CreateFactory();
+        IPreKeyStoreFactory faulting = new FaultingStoreFactory(preKey: inner) { Mode = FaultMode.None };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // Distinct observable path from the fault above: genuinely absent keys return
+        // null — failure and missing stay mechanically distinguishable (D-19).
+        (await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None)).Should().BeNull();
+        (await store.GetPreKeyAsync(999, CancellationToken.None)).Should().BeNull();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Write_observed_by_independent_second_store_instance()
+    {
+        var factory = CreateFactory();
+        var account = AccountId.Create("acct-A");
+
+        await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<IPreKeyStore>(
+            createStore: () => factory.CreateAsync(account, CancellationToken.None),
+            writeAsync: writer => writer.PutBundleAsync(
+                "durable@s.whatsapp.net", new PreKeyBundle(9, 99), CancellationToken.None),
+            assertVisibleAsync: async reader =>
+            {
+                var fetched = await reader.GetBundleAsync("durable@s.whatsapp.net", CancellationToken.None);
+                fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
+                fetched!.SignedPreKeyId.Should().Be(9);
+                fetched.OneTimePreKeyId.Should().Be(99);
+            });
+    }
+
+    [Fact]
+    public async Task Parallel_interleaved_prekey_writes_and_reads_produce_no_cross_reads()
+    {
+        var factory = CreateFactory();
+        var accountA = AccountId.Create("acct-A");
+        var accountB = AccountId.Create("acct-B");
+
+        // Genuine parallelism (Task.WhenAll inside the helper, no collection disabling):
+        // B's prekey sub-store must never observe any id A wrote (D-11, T-01-10).
+        await StoreContractRules.AssertParallelAccessNoCrossReadsAsync<IPreKeyStore>(
+            createStoreAsync: accountId => factory.CreateAsync(accountId, CancellationToken.None),
+            accountA: accountA,
+            accountB: accountB,
+            writeOnAAsync: (writer, i) => writer.PutPreKeyAsync(i, new PreKeyRecordEntry(i), CancellationToken.None),
+            readLeakOnBAsync: async (reader, i) =>
+                await reader.GetPreKeyAsync(i, CancellationToken.None) is not null,
+            iterations: 100);
     }
 }

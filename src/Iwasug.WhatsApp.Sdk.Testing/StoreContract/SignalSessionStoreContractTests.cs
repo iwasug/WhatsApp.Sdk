@@ -1,6 +1,9 @@
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
+using Iwasug.WhatsApp.Sdk.Testing.Rules;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
@@ -14,9 +17,14 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// implementations) subclass this type and override <see cref="CreateFactory"/> to supply
 /// the factory under test. xunit runs inherited <c>[Fact]</c> methods in every concrete
 /// subclass — that inheritance dispatch is the entire mechanism; don't hand-roll a runner.
-/// This Phase 1 slice covers the round-trip, failure-≠-missing (missing case), and
-/// per-account isolation rules; the full D-11 rule families (durability-await, fault
-/// injection, parallelism, trimming) arrive with plans 01-03/01-04.
+/// This class covers the full D-11 rule family for the session seam: round-trip,
+/// failure-≠-missing on BOTH paths (a faulting read throws via
+/// <see cref="FaultingStoreFactory"/>; a genuinely absent key returns null — D-19),
+/// per-account isolation, durability-await (write observable by an independent
+/// second-instance read, D-06), and parallel cross-read enforcement via
+/// <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/> — parallel
+/// enforcement is uniform across all five store families (serial-only coverage is not
+/// acceptable per D-11).
 /// </remarks>
 public abstract class SignalSessionStoreContractTests
 {
@@ -77,5 +85,77 @@ public abstract class SignalSessionStoreContractTests
         fetchedB!.SessionState.Should().Equal(recordB.SessionState);
         await storeA.DisposeAsync();
         await storeB.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
+    {
+        var inner = CreateFactory();
+        var faulting = new FaultingStoreFactory(signalSession: inner) { Mode = FaultMode.FailReads };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        // A failing read THROWS — it must never surface as null (D-19: a DB blip misread as
+        // "empty session" wrongly triggers session re-establishment; T-01-09).
+        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        await act.Should().ThrowAsync<SdkStoreException>();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Faulting_factory_Mode_None_absent_key_returns_null()
+    {
+        var inner = CreateFactory();
+        var faulting = new FaultingStoreFactory(signalSession: inner) { Mode = FaultMode.None };
+        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+
+        var fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+
+        // Distinct observable path from the fault above: a genuinely absent key returns
+        // null — failure and missing stay mechanically distinguishable (D-19).
+        fetched.Should().BeNull();
+        await store.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Write_observed_by_independent_second_store_instance()
+    {
+        var factory = CreateFactory();
+        var account = AccountId.Create("acct-A");
+
+        await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<ISignalSessionStore>(
+            createStore: () => factory.CreateAsync(account, CancellationToken.None),
+            writeAsync: async writer =>
+            {
+                var record = new SignalSessionRecord("durable@s.whatsapp.net", new byte[] { 0x01, 0x02 });
+                await writer.PutAsync(record.Address, record, CancellationToken.None);
+            },
+            assertVisibleAsync: async reader =>
+            {
+                var fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
+                fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
+                fetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02 });
+            });
+    }
+
+    [Fact]
+    public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
+    {
+        var factory = CreateFactory();
+        var accountA = AccountId.Create("acct-A");
+        var accountB = AccountId.Create("acct-B");
+
+        // Genuine parallelism (Task.WhenAll inside the helper, no collection disabling):
+        // B must never observe any key A wrote (D-11 concurrency family, T-01-10).
+        await StoreContractRules.AssertParallelAccessNoCrossReadsAsync<ISignalSessionStore>(
+            createStoreAsync: accountId => factory.CreateAsync(accountId, CancellationToken.None),
+            accountA: accountA,
+            accountB: accountB,
+            writeOnAAsync: (writer, i) => writer.PutAsync(
+                $"parallel-{i}@s.whatsapp.net",
+                new SignalSessionRecord($"parallel-{i}@s.whatsapp.net", new[] { (byte)i }),
+                CancellationToken.None),
+            readLeakOnBAsync: async (reader, i) =>
+                await reader.GetAsync($"parallel-{i}@s.whatsapp.net", CancellationToken.None) is not null,
+            iterations: 100);
     }
 }
