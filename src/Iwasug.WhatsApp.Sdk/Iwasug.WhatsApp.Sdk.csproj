@@ -17,6 +17,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
+    <!--
+      Phase 2 wire protocol (02-01 Task 3): versions live in Directory.Packages.props
+      (central management is repo law — never inline). NSec covers the BCL's only gap
+      on the Noise path (X25519); Google.Protobuf covers handshake-payload protos;
+      Grpc.Tools runs protoc at build time only (PrivateAssets=all, no runtime dep).
+    -->
+    <PackageReference Include="NSec.Cryptography" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
     <!-- Public-surface tracking from day one (A5): every public API change must be declared. -->
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>

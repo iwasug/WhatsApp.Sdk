@@ -28,6 +28,19 @@
     <!-- Public-surface tracking (A5) -->
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
 
+    <!--
+      Phase 2 wire protocol (02-01 Task 3): X25519 key agreement (NSec, MIT) +
+      protobuf runtime + build-time .proto codegen. Central pins only — consuming
+      projects reference these WITHOUT versions. Grpc.Tools is build-time-only
+      (PrivateAssets=all on the reference) so no runtime dependency ships.
+      All three verified against the nuget.org flatcontainer in 02-RESEARCH
+      Package Legitimacy Audit (all OK, no SUS/SLOP) and re-confirmed for
+      currency in 02-SPIKE-NOTES.md F7 (Grpc.Tools) / F6 (NSec shape).
+    -->
+    <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
+    <PackageVersion Include="Grpc.Tools" Version="2.84.0" />
+
     <!-- Versioning (Development Tools: git-height SemVer2 + signed reproducible builds) -->
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.94" />
   </ItemGroup>

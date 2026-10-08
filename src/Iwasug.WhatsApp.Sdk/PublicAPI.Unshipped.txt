@@ -4,6 +4,49 @@ Iwasug.WhatsApp.Sdk.Accounts.AccountId.AccountId() -> void
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.CompareTo(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> int
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> bool
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Value.get -> string!
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.ConnectTimeoutMs.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.ConnectTimeoutMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.ConnectionOptions() -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.KeepAliveIntervalMs.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.KeepAliveIntervalMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.QueryTimeoutMs.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.QueryTimeoutMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryBaseDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryBaseDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryMaxDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryMaxDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Closing = 2 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Connecting = 0 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionState.LoggedOut = 3 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Open = 1 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.AuthExpired = 419 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.BadSession = 500 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionClosed = 428 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionLost = 408 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionReplaced = 440 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.Forbidden = 403 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.LoggedOut = 401 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.MultideviceMismatch = 411 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.RestartRequired = 515 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.UnavailableService = 503 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.ReconnectDecision(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision! original) -> void
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? other) -> bool
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Deconstruct(out System.TimeSpan Delay) -> void
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Delay.get -> System.TimeSpan
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Delay.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? other) -> bool
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.RetryAfter(System.TimeSpan Delay) -> void
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? other) -> bool
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal
+Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? other) -> bool
+Iwasug.WhatsApp.Sdk.Connection.ReconnectPolicy
 Iwasug.WhatsApp.Sdk.Domain.Jid
 Iwasug.WhatsApp.Sdk.Domain.Jid.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Domain.Jid.Agent.get -> string?
@@ -43,6 +86,8 @@ Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(Iwasug.WhatsApp.Sdk.Domai
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyPublic.get -> string?
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyPublic.init -> void
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.SignalIdentityRecord(string? IdentityKeyPublic) -> void
+Iwasug.WhatsApp.Sdk.Errors.SdkConnectionException
+Iwasug.WhatsApp.Sdk.Errors.SdkConnectionException.SdkConnectionException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkDuplicateAccountException
 Iwasug.WhatsApp.Sdk.Errors.SdkDuplicateAccountException.SdkDuplicateAccountException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkException
@@ -51,6 +96,8 @@ Iwasug.WhatsApp.Sdk.Errors.SdkFormatException
 Iwasug.WhatsApp.Sdk.Errors.SdkFormatException.SdkFormatException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkStoreException
 Iwasug.WhatsApp.Sdk.Errors.SdkStoreException.SdkStoreException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Errors.SdkTransportException
+Iwasug.WhatsApp.Sdk.Errors.SdkTransportException.SdkTransportException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
@@ -144,9 +191,34 @@ Iwasug.WhatsApp.Sdk.Stores.StoreSession.PreKeys.get -> Iwasug.WhatsApp.Sdk.Store
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.RecentMessages.get -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore!
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.SafetyState.get -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.SignalSessions.get -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseStatusCode.get -> int?
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+abstract Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
 const Iwasug.WhatsApp.Sdk.Accounts.AccountId.MaxLength = 128 -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountId.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountId.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Domain.Jid.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Domain.Jid.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Domain.Jid.ToString() -> string!
@@ -168,9 +240,27 @@ override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.ToString() -> string!
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.Create(string! value) -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
 static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectPolicy.Decide(int statusCode, int attempt, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null) -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
 static Iwasug.WhatsApp.Sdk.Domain.Jid.Parse(string! value) -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 static Iwasug.WhatsApp.Sdk.Domain.Jid.TryParse(string! value, out Iwasug.WhatsApp.Sdk.Domain.Jid? jid) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.Jid.operator !=(Iwasug.WhatsApp.Sdk.Domain.Jid? left, Iwasug.WhatsApp.Sdk.Domain.Jid? right) -> bool
@@ -187,4 +277,7 @@ static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator !=(Iwasug.WhatsApp
 static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator ==(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator !=(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator ==(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.EqualityContract.get -> System.Type!
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~override Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(object obj) -> bool

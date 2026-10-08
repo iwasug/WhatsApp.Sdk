@@ -68,3 +68,45 @@ public sealed class SdkDuplicateAccountException : SdkException
     {
     }
 }
+
+/// <summary>
+/// A frame-transport operation failed: the WebSocket could not be opened, a frame could
+/// not be sent or received, or the socket faulted mid-stream (Phase 2 transport seam).
+/// </summary>
+/// <remarks>
+/// Message discipline (T-01-01/T-01-12, extended to the wire in 02-RESEARCH Security
+/// Domain): the message names the operation or the violated rule only — it never embeds
+/// frame bytes, key material, handshake secrets, node payloads, or inner-exception
+/// message content.
+/// </remarks>
+public sealed class SdkTransportException : SdkException
+{
+    /// <summary>Initializes a new instance of the <see cref="SdkTransportException"/> class.</summary>
+    /// <param name="message">Operation description — no frame bytes or key material.</param>
+    /// <param name="inner">The underlying transport error, when available.</param>
+    public SdkTransportException(string message, Exception? inner = null)
+        : base(message, inner)
+    {
+    }
+}
+
+/// <summary>
+/// A connection-level failure surfaced to the host: a terminal disconnect reason
+/// (401/403/411/419 logged-out or outdated), a replaced session (440), or a query that
+/// timed out or was lost to a drop. Retryable drops never surface this exception — they
+/// stay inside the reconnect loop.
+/// </summary>
+/// <remarks>
+/// Message discipline (T-01-01/T-01-12): the message names the operation or the disconnect
+/// reason only — never session bytes, key material, or payload values.
+/// </remarks>
+public sealed class SdkConnectionException : SdkException
+{
+    /// <summary>Initializes a new instance of the <see cref="SdkConnectionException"/> class.</summary>
+    /// <param name="message">Operation description — no session or payload values.</param>
+    /// <param name="inner">The underlying connection error, when available.</param>
+    public SdkConnectionException(string message, Exception? inner = null)
+        : base(message, inner)
+    {
+    }
+}
