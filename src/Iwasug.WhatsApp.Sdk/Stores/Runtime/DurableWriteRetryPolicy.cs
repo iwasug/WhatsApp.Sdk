@@ -68,7 +68,7 @@ public sealed class RetryOptions
 /// </remarks>
 public sealed class DurableWriteRetryPolicy(RetryOptions? options = null, TimeProvider? timeProvider = null)
 {
-    private readonly RetryOptions _options = options ?? new RetryOptions();
+    private readonly RetryOptions _options = ValidateOptions(options);
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     /// <summary>
@@ -113,6 +113,22 @@ public sealed class DurableWriteRetryPolicy(RetryOptions? options = null, TimePr
 
     private static bool IsRetryable(Exception ex)
         => ex is not OperationCanceledException && ex is not SdkException;
+
+    // Fail-fast config validation (WR-01): an invalid RetryOptions throws
+    // ArgumentOutOfRangeException here — before any store I/O — instead of
+    // surfacing later as a raw ArgumentException from Math.Clamp or a
+    // fabricated SdkStoreException from a zero-attempt loop.
+    private static RetryOptions ValidateOptions(RetryOptions? options)
+    {
+        var resolved = options ?? new RetryOptions();
+        if (resolved.MaxAttempts < 1)
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxAttempts must be at least 1.");
+        if (resolved.BaseDelayMs < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), "BaseDelayMs must not be negative.");
+        if (resolved.MaxDelayMs < resolved.BaseDelayMs)
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxDelayMs must not be below BaseDelayMs.");
+        return resolved;
+    }
 
     // Clamp-AFTER-jitter (A1): raw = BaseDelayMs * 2^attemptIndex, ±30% jitter, then clamp
     // to [BaseDelayMs, MaxDelayMs] — observed delays never leave the configured bounds and
