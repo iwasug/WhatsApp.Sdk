@@ -21,6 +21,15 @@
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    Internal-surface unit tests (plan 01-04): StoreRegistry.EnsureUnique (D-26) and
+    StoreErrorSurface (D-21) are internal by design; the test assembly is the only
+    internals consumer.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Iwasug.WhatsApp.Sdk.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <AdditionalFiles Include="PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />

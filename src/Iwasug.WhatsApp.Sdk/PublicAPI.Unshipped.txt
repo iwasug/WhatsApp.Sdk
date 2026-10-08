@@ -101,6 +101,17 @@ Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.MessageKey.init -> void
 Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.RecentMessageEntry(string! MessageKey, string! ChatJid, System.DateTimeOffset TimestampUtc) -> void
 Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.get -> System.DateTimeOffset
 Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.DurableWriteRetryPolicy(Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.ExecuteAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! operation, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<T>!
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.RetryOptions() -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.init -> void
 Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord
 Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord!
 Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Address.get -> string!
