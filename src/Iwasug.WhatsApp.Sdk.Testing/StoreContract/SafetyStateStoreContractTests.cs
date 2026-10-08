@@ -20,8 +20,8 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// null — plus per-account isolation, instead of the keyed-entry facts the other stores
 /// carry. Plan 01-03 adds the fault-injection family (<see cref="FaultingStoreFactory"/>),
 /// durability-await (independent second-instance read, D-06), and parallel cross-read
-/// enforcement via the KEYLESS shape of
-/// <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/> (A's row is
+/// enforcement via the keyless shape of the shared
+/// <see cref="StoreContractRules"/> helper (A's row is
 /// written while B's instance reads — B must never observe A's row) — parallel
 /// enforcement is uniform across all five store families (serial-only coverage is not
 /// acceptable per D-11).

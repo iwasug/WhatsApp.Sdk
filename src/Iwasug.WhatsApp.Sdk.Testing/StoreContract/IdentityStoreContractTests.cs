@@ -22,7 +22,7 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// paths (a faulting read throws via <see cref="FaultingStoreFactory"/>; a genuinely
 /// absent key returns null — D-19), two-account isolation, idempotency edges,
 /// durability-await (independent second-instance read, D-06), and parallel cross-read
-/// enforcement via <see cref="StoreContractRules.AssertParallelAccessNoCrossReadsAsync"/>
+/// enforcement via <see cref="StoreContractRules"/>
 /// — parallel enforcement is uniform across all five store families (serial-only
 /// coverage is not acceptable per D-11).
 /// </remarks>

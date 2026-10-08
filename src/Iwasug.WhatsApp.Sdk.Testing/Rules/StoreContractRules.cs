@@ -84,7 +84,7 @@ public static class StoreContractRules
     /// <summary>
     /// Real-parallelism cross-read enforcement (D-11 concurrency family, Pitfall 4, T-01-10):
     /// writes on account A and reads on account B interleave concurrently for
-    /// <paramref name="iterations"/> iterations via <see cref="Task.WhenAll"/> (no test
+    /// <paramref name="iterations"/> iterations via <see cref="Task.WhenAll(Task[])"/> (no test
     /// collection disables parallelization), and any B read that observes A's value is a
     /// cross-account leak that fails the assertion listing the leaking iterations.
     /// </summary>

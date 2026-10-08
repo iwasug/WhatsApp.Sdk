@@ -513,6 +513,11 @@ public sealed class StoreSession : IAsyncDisposable
     /// <summary>
     /// Internal constructor — only <see cref="StoreRegistry"/> resolves sessions.
     /// </summary>
+    /// <param name="signalSessions">Account-scoped Signal session store.</param>
+    /// <param name="identity">Account-scoped peer identity store.</param>
+    /// <param name="preKeys">Account-scoped pre-key store.</param>
+    /// <param name="recentMessages">Account-scoped recent-message cache.</param>
+    /// <param name="safetyState">Account-scoped ban-safety state row.</param>
     /// <param name="fromHost">Index-aligned with the fixed store order (signal, identity, prekey, cache, safety): true when the instance came from a host factory.</param>
     internal StoreSession(
         ISignalSessionStore signalSessions,

@@ -16,6 +16,15 @@
     <Description>Store-contract test kit for Iwasug.WhatsApp.Sdk — abstract contract classes hosts subclass to verify their own pluggable store implementations.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>Iwa Sugriwa</Authors>
+    <!--
+      IN-07: CS1591 (missing XML comment) is relaxed for the kit only. The kit's
+      public contract surface is documented at the class/hook level (abstract
+      classes, CreateFactory overrides); the ~100 inherited [Fact] rule methods
+      carry their specification in their names (EF Core specification-test
+      style) and per-method boilerplate summaries would add noise, not meaning.
+      All other doc warnings (CS1572/1573/1590, CS0419) still fail the build.
+    -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

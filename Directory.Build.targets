@@ -10,6 +10,16 @@
   -->
   <PropertyGroup Condition="'$(IsPackable)' == 'true'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!--
+      DocumentationFile MUST be set explicitly here: the SDK derives it from
+      GenerateDocumentationFile in Microsoft.NET.Sdk.BeforeCommon.targets, which
+      evaluates BEFORE this file is imported — a late GenerateDocumentationFile
+      alone leaves DocumentationFile empty and no XML is emitted (verified:
+      Release pack contained no XML until this line was added). It points at the
+      OUTPUT dir (not obj/): the pack step collects the XML from the output, and
+      an obj/-pathed file is never copied there (verified: NU5026 otherwise).
+    -->
+    <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
