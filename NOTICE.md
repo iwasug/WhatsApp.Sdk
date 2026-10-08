@@ -38,6 +38,8 @@ Whenever upstream source is read while implementing a protocol detail:
 | Date | Upstream file:lines | What was learned | Where it is used |
 |------|--------------------|------------------|------------------|
 | _(none yet — Phase 1 contains zero protocol code)_ | | | |
+| 2026-10-08 | Baileys `src/WABinary/constants.ts` @ `0af2386` (MIT): `SINGLE_BYTE_TOKENS` (236), `DOUBLE_BYTE_TOKENS` (4×256), `TOKEN_MAP` build order | Token-dictionary bytes + single-then-double lookup precedence | `src/.../Codec/TokenDictionary.cs` (ported table), `src/.../Codec/BinaryNodeCodec.cs` (lookup order) |
+| 2026-10-08 | Baileys `src/WABinary/encode.ts` + `decode.ts` @ `0af2386` (MIT): list framing, nibble/hex packing, JID forms, flag-byte rule | Codec logic SHAPE only (behavioral reference — algorithms independently written in C#; no code copied) | `src/.../Codec/BinaryNodeCodec.cs`, `src/.../Transport/FrameReader.cs` |
 
 ## PR checklist
 

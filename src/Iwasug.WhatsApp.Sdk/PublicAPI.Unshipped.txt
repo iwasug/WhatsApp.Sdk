@@ -294,6 +294,10 @@ static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromChildren(string! tag, System.Col
 static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromText(string! tag, string! text, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
 static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator !=(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
 static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator ==(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
+Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Decode(System.ReadOnlySpan<byte> data) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Encode(Iwasug.WhatsApp.Sdk.Codec.BinaryNode! node) -> byte[]!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.TryDecode(System.ReadOnlySpan<byte> data, out Iwasug.WhatsApp.Sdk.Codec.BinaryNode? node) -> bool
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
 static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
