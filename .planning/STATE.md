@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 01
 current_phase_name: Foundation & Store Seam
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-10-07T22:19:16.419Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-10-08T06:25:52.020Z"
 last_activity: 2026-10-08
 last_activity_desc: Phase 01 execution started
-state_head: e31e0bb54fe3f430db4b428e117d1ca05ca0f9fc
+state_head: a3535dbfff0b3528c6818cc6e980f71bdb5d089f
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 3
   percent: 0
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 01 (Foundation & Store Seam) — EXECUTING
-Plan: 2 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-10-08 — Phase 01 execution started
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 38 min | 2 tasks | 26 files |
+| Phase 01 P03 | 26min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,10 @@ Recent decisions affecting current work:
 - [Phase 01]: Contract kit asserts via AwesomeAssertions: xunit.v3.extensibility.core ships FactAttribute only, so a second xunit package was avoided; RESEARCH scopes AwesomeAssertions to kit + internal tests
 - [Phase 01]: dotnet test on .NET 10 runs xunit.v3 in Microsoft.Testing.Platform mode selected by repo-root global.json (test.runner); TestingPlatformDotnetTestSupport rejected by SDK
 - [Phase 01]: git.allow_default_branch_commits=true set so executor commits can land on this repo's only (default) branch master under branching_strategy=none — the pre-commit assertion's own named override
+- [Phase 01]: FaultingStoreFactory: one class, all five factory interfaces; non-session seams are explicit interface impls — bind through interface-typed variables (documented in class XML doc)
+- [Phase 01]: StoreContractRules.AssertParallelAccessNoCrossReadsAsync: keyed + keyless overloads with REQUIRED iterations param (RS0026 forbids repeated optional params); callers pass 100
+- [Phase 01]: Fault facts pin the store PRIMITIVE contract only — cache FailWrites throws; SDK log-and-continue is Phase 4/5 policy (D-20)
+- [Phase 01]: PublicAPI.Unshipped.txt entries are mandatory for every new kit-public symbol incl. [Fact]s on public abstract contract classes (RS0016 under warnings-as-errors); harvested mechanically from build output
 
 ### Pending Todos
 
@@ -89,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-07T22:19:16.376Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-10-08T06:25:38.642Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
