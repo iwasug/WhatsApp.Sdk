@@ -121,7 +121,11 @@ public sealed class StoreRegistry : IAsyncDisposable
         // Check-then-register is one critical section so DisposeAsync can never
         // observe a half-registered state: either the lazy lands before the
         // shutdown snapshot (and is drained), or the flag is already set and
-        // this throws (WR-01).
+        // this throws (WR-01). The gate alone cannot close the force-creation
+        // window (a preemption between gate release and `lazy.Value`), so the
+        // creation path re-checks the flag before resolving any store and the
+        // completed-session paths below re-check it before handing a session
+        // to the caller.
         Lazy<Task<StoreSession>> lazy;
         lock (_lifecycleGate)
         {
@@ -151,6 +155,14 @@ public sealed class StoreRegistry : IAsyncDisposable
 
         if (creation.IsCompletedSuccessfully)
         {
+            // The drain may have disposed this session between our registration
+            // and the completed check; never hand out a post-dispose session.
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                Evict(accountId, lazy);
+                return new ValueTask<StoreSession>(DisposeAndThrowAsync(creation.Result));
+            }
+
             return new ValueTask<StoreSession>(creation.Result);
         }
 
@@ -201,6 +213,8 @@ public sealed class StoreRegistry : IAsyncDisposable
             Evict(kvp.Key, kvp.Value);
             if (!kvp.Value.IsValueCreated)
             {
+                // Never forced before shutdown: a late force faults inside
+                // CreateSessionCoreAsync's disposed-check instead of creating.
                 continue;
             }
 
@@ -245,6 +259,14 @@ public sealed class StoreRegistry : IAsyncDisposable
 
     private async Task<StoreSession> CreateSessionCoreAsync(AccountId accountId, CancellationToken cancellationToken, Lazy<Task<StoreSession>> self)
     {
+        // Load-bearing WR-01 guard: a lazy registered before the shutdown snapshot
+        // but forced after it (or one evicted-not-created by the drain) must fault
+        // here instead of minting a live session against a torn-down fallback.
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            throw new ObjectDisposedException(nameof(StoreRegistry));
+        }
+
         // Rollback list: stores created before a later capability fails are SDK-owned
         // (D-23) and must not leak — they are disposed before the failure propagates.
         var created = new List<IAsyncDisposable>(5);
@@ -398,7 +420,17 @@ public sealed class StoreRegistry : IAsyncDisposable
     {
         try
         {
-            return await creation.ConfigureAwait(false);
+            var session = await creation.ConfigureAwait(false);
+            // The drain may have disposed this session between registration and
+            // completion; never hand out a post-dispose session (WR-01).
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                Evict(accountId, lazy);
+                await session.DisposeAsync().ConfigureAwait(false);
+                throw new ObjectDisposedException(nameof(StoreRegistry));
+            }
+
+            return session;
         }
         catch
         {
@@ -407,6 +439,12 @@ public sealed class StoreRegistry : IAsyncDisposable
             Evict(accountId, lazy);
             throw;
         }
+    }
+
+    private static async Task<StoreSession> DisposeAndThrowAsync(StoreSession session)
+    {
+        await session.DisposeAsync().ConfigureAwait(false);
+        throw new ObjectDisposedException(nameof(StoreRegistry));
     }
 
     private static void ThrowIfDefaultAccountId(AccountId accountId)

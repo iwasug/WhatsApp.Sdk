@@ -47,10 +47,16 @@ public sealed class InMemoryStoreFactory
 
     private readonly ConcurrentDictionary<(string Capability, AccountId Account), object> _state = new();
 
+    // 0 = live, 1 = disposed: belt-and-braces (WR-01) so a CreateAsync that
+    // races factory disposal can never mint a fresh session against cleared
+    // state. StoreRegistry additionally guards its side of the seam.
+    private int _disposed;
+
     /// <inheritdoc />
     public ValueTask<ISignalSessionStore> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
 
         // GetOrAdd: every view created for the same (capability, account) observes the
         // same underlying records, so a later CreateAsync still sees earlier writes.
@@ -68,6 +74,7 @@ public sealed class InMemoryStoreFactory
     ValueTask<IIdentityStore> IIdentityStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
 
         var records = (ConcurrentDictionary<string, SignalIdentityRecord>)GetOrAdd(accountId, IdentityCapability, () => new ConcurrentDictionary<string, SignalIdentityRecord>());
 
@@ -78,6 +85,7 @@ public sealed class InMemoryStoreFactory
     ValueTask<IPreKeyStore> IPreKeyStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
 
         var state = GetOrAdd(accountId, PreKeyCapability, () => new PreKeyState());
 
@@ -88,6 +96,7 @@ public sealed class InMemoryStoreFactory
     ValueTask<IRecentMessageCacheStore> IRecentMessageCacheStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
 
         var state = GetOrAdd(accountId, RecentMessageCacheCapability, () => new RecentMessageCacheState());
 
@@ -98,6 +107,7 @@ public sealed class InMemoryStoreFactory
     ValueTask<ISafetyStateStore> ISafetyStateStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
 
         var state = GetOrAdd(accountId, SafetyStateCapability, () => new SafetyStateRow());
 
@@ -108,14 +118,25 @@ public sealed class InMemoryStoreFactory
     /// <remarks>
     /// Factory-level disposal is part of the D-23 cascade wired by plan 01-04: the owning
     /// <see cref="StoreRegistry"/> (or any SDK composition layer) disposes the fallback
-    /// factory after disposing its cached sessions. Disposal clears all account state — a
-    /// disposed factory serves fresh, empty state to any new session, and existing views
-    /// keep operating on their own references (view disposal remains view-only).
+    /// factory after disposing its cached sessions. Disposal clears all account state and
+    /// invalidates the factory — a disposed factory throws
+    /// <see cref="ObjectDisposedException"/> from any later <c>CreateAsync</c> (WR-01),
+    /// rather than serving fresh, empty state; existing views keep operating on their own
+    /// references (view disposal remains view-only).
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
+        Interlocked.Exchange(ref _disposed, 1);
         _state.Clear();
         await Task.CompletedTask.ConfigureAwait(false);
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            throw new ObjectDisposedException(nameof(InMemoryStoreFactory));
+        }
     }
 
     private object GetOrAdd(AccountId accountId, string capability, Func<object> factory)
