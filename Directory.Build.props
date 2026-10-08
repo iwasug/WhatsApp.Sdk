@@ -10,6 +10,14 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      NuGet repository metadata (IN-07): shared by every packable project so the
+      pushed packages link back to the source. PackageTags stay SDK-neutral —
+      release-readiness (icon, release notes) is a Phase 9 concern.
+    -->
+    <RepositoryUrl>https://github.com/iwasug/WhatsApp.Sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>whatsapp;sdk;e2ee;signal-protocol;multi-device</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

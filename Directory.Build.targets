@@ -1,0 +1,24 @@
+<Project>
+  <!--
+    Packable-only packaging switches (IN-07). This file evaluates AFTER each .csproj
+    body, so '$(IsPackable)' is already known here (it is NOT yet set when
+    Directory.Build.props evaluates — conditioning there would silently apply to
+    nothing). GenerateDocumentationFile ships the XML doc comments as part of the
+    NuGet package; it stays OFF for the internal test project, whose public test
+    methods intentionally carry no XML docs (CS1591 would fail the
+    warnings-as-errors gate there).
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!--
+    The repo-root README doubles as the NuGet package readme. Paths in imported
+    files resolve against the importing project directory, so ../../README.md
+    reaches the repo root from both src/* packable projects.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
