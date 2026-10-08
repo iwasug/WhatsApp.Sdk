@@ -1,39 +1,81 @@
 ---
-phase: 01-foundation-store-seam
-reviewed: 2026-10-08T07:58:10Z
+phase: 01
+review: 01-REVIEW.md
+titles: json
 findings:
-  critical: 0
-  warning: 1
-  info: 10
-  total: 11
-disposition:
-  open: 10
-  fixed: 6
-  skipped: 0
+  - id: WR-01
+    severity: warning
+    disposition: fixed
+    title: "StoreRegistry gate closes the registration window but not the force-creation window — a late `lazy.Value` still mints a live session post-dispose"
+  - id: IN-01
+    severity: info
+    disposition: fixed
+    title: "Unnecessary `partial` modifier on AccountId"
+  - id: IN-02
+    severity: info
+    disposition: fixed
+    title: "Per-account cache gate never disposed on factory teardown"
+  - id: IN-03
+    severity: info
+    disposition: fixed
+    title: "global.json does not pin the SDK version"
+  - id: IN-04
+    severity: info
+    disposition: fixed
+    title: ".editorconfig defects (trailing commas, mislabeled rule comment)"
+  - id: IN-05
+    severity: info
+    disposition: fixed
+    title: "SignalSessionRecord equality over byte[] is reference-based"
+  - id: IN-06
+    severity: info
+    disposition: fixed
+    title: "ComplianceTestBase completeness backstop is vacuous under trimming"
+  - id: IN-07
+    severity: info
+    disposition: fixed
+    title: "NuGet packaging gaps — XML docs won't ship"
+  - id: IN-08
+    severity: info
+    disposition: fixed
+    title: "Once-per-account guarantee rests on closure-over-variable pattern"
+  - id: IN-09
+    severity: info
+    disposition: fixed
+    title: "EnsureUnique is check-then-act"
+  - id: IN-10
+    severity: info
+    disposition: fixed
+    title: "`dotnet test --nologo` reports \"Zero tests ran\" on pinned SDK"
+  - id: WR-02
+    severity: warning
+    disposition: fixed
+    title: "In-memory reference store aliases mutable `byte[] SessionState` across the store seam"
+  - id: WR-03
+    severity: warning
+    disposition: fixed
+    title: "StoreRegistry has no disposed-state guard — post-dispose use silently serves fresh sessions, and sessions created mid-disposal leak"
+open: 0
+total: 13
+recorded: 2026-10-08T10:46:25.129Z
 ---
 
-# Code Review Disposition — Phase 01
-
-Reconciled after the `--fix --auto` run (3 iterations, final iteration 2026-10-08T18:40:00Z).
-`gsd-code-reviewer` is the single writer of REVIEW.md; this ledger records what happened to each
-finding so `phase.complete` can never happen with an unseen Critical. Info-tier findings remain
-`open` by design (fix scope was `critical_warning`; `--all` not passed).
+# Phase 01: Code Review Disposition
 
 | Finding | Severity | Disposition | Source |
-| --- | --- | --- | --- |
-| WR-01 | warning | fixed | fix iteration 1, commit 74b0c79 (RetryOptions fail-fast validation) |
-| WR-02 | warning | fixed | fix iteration 1, commit f987974 (defensive copy of SessionState + contract rule) |
-| WR-03 | warning | fixed | fix iteration 1, commit e0d0113 (StoreRegistry disposed guard) |
-| WR-01 (iter-2) | warning | fixed | fix iteration 2, commit c7d4bdb (lifecycle gate closes disposed-guard TOCTOU) |
-| WR-02 (iter-2) | warning | fixed | fix iteration 2, commit dc8ef3f (regression tests for WR-01/WR-03) |
-| WR-01 (iter-3 residual) | warning | fixed | fix iteration 3, commit 637b98e (force-creation window + factory invalidation) — flagged "requires human verification" (concurrency semantics) |
-| IN-01 | info | open | not in fix scope (critical_warning) |
-| IN-02 | info | open | not in fix scope (critical_warning) |
-| IN-03 | info | open | not in fix scope (critical_warning) |
-| IN-04 | info | open | not in fix scope (critical_warning) |
-| IN-05 | info | open | not in fix scope (critical_warning) |
-| IN-06 | info | open | not in fix scope (critical_warning) |
-| IN-07 | info | open | not in fix scope (critical_warning) |
-| IN-08 | info | open | not in fix scope (critical_warning) |
-| IN-09 | info | open | not in fix scope (critical_warning) |
-| IN-10 | info | open | not in fix scope (critical_warning) |
+|---------|----------|-------------|--------|
+| WR-01 | warning | fixed | fix iteration 3, commit 637b98e (force-creation window + factory invalidation) |
+| IN-01 | info | fixed | 01-REVIEW-FIX.md |
+| IN-02 | info | fixed | 01-REVIEW-FIX.md |
+| IN-03 | info | fixed | 01-REVIEW-FIX.md |
+| IN-04 | info | fixed | 01-REVIEW-FIX.md |
+| IN-05 | info | fixed | 01-REVIEW-FIX.md |
+| IN-06 | info | fixed | 01-REVIEW-FIX.md |
+| IN-07 | info | fixed | 01-REVIEW-FIX.md |
+| IN-08 | info | fixed | 01-REVIEW-FIX.md |
+| IN-09 | info | fixed | 01-REVIEW-FIX.md |
+| IN-10 | info | fixed | 01-REVIEW-FIX.md |
+| WR-02 | warning | fixed | 01-REVIEW-FIX.iter2.md (not in the current review) |
+| WR-03 | warning | fixed | 01-REVIEW-FIX.iter2.md (not in the current review) |
+
+Dispositions: `open` (recorded, not yet triaged), `fixed`, `skipped`, `deferred`.
