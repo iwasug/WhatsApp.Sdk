@@ -38,6 +38,40 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 }
 
 /// <summary>
+/// One terminal disconnect, reported to the pairing surface (03-02 seam).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Contract (one shot per terminal disconnect): the connection raises this exactly
+/// once per <see cref="ReconnectDecision.Terminal"/> verdict — inside the same
+/// Interlocked guard that emits <see cref="ConnectionState.LoggedOut"/> — carrying
+/// the <see cref="DisconnectReason"/> (405 arrives as
+/// <see cref="DisconnectReason.ClientOutdated"/>). Retryable codes (503 and
+/// friends), <c>SurfaceAndStop</c>, and restarts never raise it. The connection
+/// reports reasons and stops there: QR, refetch counts, and pairing state never
+/// appear on this path. Consuming the signal to terminate pairing (the richer
+/// pairing-status vocabulary) is the pairing coordinator's work, not this file's.
+/// </para>
+/// <para>
+/// Same handler contract as <see cref="WaConnection.StateChanged"/>: return quickly,
+/// never call <see cref="WaConnection.DisposeAsync"/>, exceptions are logged and
+/// swallowed.
+/// </para>
+/// </remarks>
+internal sealed class PairingTerminalEventArgs : EventArgs
+{
+    /// <summary>Creates a terminal-disconnect signal.</summary>
+    /// <param name="reason">The terminal reason (never a retryable code).</param>
+    internal PairingTerminalEventArgs(DisconnectReason reason)
+    {
+        Reason = reason;
+    }
+
+    /// <summary>The terminal reason for this disconnect.</summary>
+    internal DisconnectReason Reason { get; }
+}
+
+/// <summary>
 /// One account's live connection (02-02 tracer skeleton): transport auth plus one
 /// correlated query per connect, then autonomous classified reconnect — no host code on
 /// any drop (CONN-04/CONN-05).
@@ -65,8 +99,10 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// every inbound frame (<c>FrameReader → NoiseTransport.Decrypt →
 /// BinaryNodeCodec.Decode</c>) and dispatches on the node tag: <c>success</c> opens
 /// through the credential-row gate below, <c>failure</c> maps its <c>reason</c> onto
-/// the drop-code table, <c>iq</c>/<c>notification</c> raise the internal
-/// stanza-received event, <c>stream:error</c> halts fail-closed. Correlated query
+/// the drop-code table (405 → <see cref="DisconnectReason.ClientOutdated"/>),
+/// <c>iq</c>/<c>notification</c> raise the internal
+/// stanza-received event, <c>stream:error</c> carrying a numeric code maps the same
+/// way while a codeless <c>stream:error</c> halts fail-closed. Correlated query
 /// replies match on the node <c>id</c> attribute.
 /// </para>
 /// <para>
@@ -76,7 +112,7 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// flows into <see cref="ReconnectPolicy.Decide"/> with the backoff's current depth:
 /// <c>RetryAfter</c> waits the backoff's full-jitter draw on the injected
 /// <see cref="TimeProvider"/>, <c>RestartImmediate</c> (515) resets the counter with no
-/// delay, <c>Terminal</c> (401/403/411/419) emits
+/// delay, <c>Terminal</c> (401/403/405/411/419) emits
 /// <see cref="ConnectionState.LoggedOut"/> exactly once (Interlocked guard) and stops,
 /// <c>SurfaceAndStop</c> (440) stops in <c>Closing</c> without retrying (no kick-war).
 /// Every attempt runs through the single-flight <see cref="ReconnectAttemptGate"/> so
@@ -109,7 +145,7 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// </remarks>
 public sealed class WaConnection : IAsyncDisposable
 {
-    private static readonly HashSet<int> KnownCodes = [401, 403, 411, 419, 408, 428, 440, 500, 503, 515];
+    private static readonly HashSet<int> KnownCodes = [401, 403, 405, 411, 419, 408, 428, 440, 500, 503, 515];
 
     private readonly AccountId _accountId;
     private readonly Func<IFrameTransport> _transportFactory;
@@ -153,6 +189,17 @@ public sealed class WaConnection : IAsyncDisposable
     internal event EventHandler<BinaryNode>? StanzaReceived;
 
     /// <summary>
+    /// Raised exactly once per terminal disconnect with the
+    /// <see cref="DisconnectReason"/> (03-02 pairing-terminal seam): the pairing
+    /// surface subscribes to learn the truthful terminal outcome — including
+    /// <see cref="DisconnectReason.ClientOutdated"/> — instead of retrying a
+    /// permanently-unsupported build. Internal by design: hosts observe
+    /// <see cref="ConnectionState.LoggedOut"/>; the reason-discriminated signal is
+    /// for the pairing coordinator (plan 03-03). Retryable codes never raise it.
+    /// </summary>
+    internal event EventHandler<PairingTerminalEventArgs>? PairingTerminal;
+
+    /// <summary>
     /// Creates one account's connection. No I/O happens here — call
     /// <see cref="ConnectAsync"/> to start the lifecycle.
     /// </summary>
@@ -190,6 +237,15 @@ public sealed class WaConnection : IAsyncDisposable
 
     /// <summary>Current host-observable state (written by the monitor loop only).</summary>
     public ConnectionState State => _state;
+
+    /// <summary>
+    /// Version resolver for the handshake payload (03-02 wiring): when set, each
+    /// connect attempt resolves <see cref="ConnectionOptions.WaVersionOverride"/> ??
+    /// runtime revision before the handshake and hands it to a credential-aware
+    /// payload provider, so a version drift reaches the wire instead of the log.
+    /// <c>null</c> (default) keeps the provider's registration defaults.
+    /// </summary>
+    internal WaVersionResolver? VersionResolver { get; set; }
 
     /// <summary>
     /// Starts the connection lifecycle and completes at the first
@@ -418,6 +474,7 @@ public sealed class WaConnection : IAsyncDisposable
                     if (Interlocked.CompareExchange(ref _loggedOut, 1, 0) == 0)
                     {
                         Emit(ConnectionState.LoggedOut, outcome.Code, _backoff.Attempt);
+                        ReportTerminalDisconnect(outcome.Code);
                     }
 
                     CompleteFirstOpen(new SdkConnectionException("Connection terminated: the account is logged out."));
@@ -493,6 +550,46 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Terminal-disconnect consequences (03-02): raises the pairing-terminal seam
+    /// exactly once with the <see cref="DisconnectReason"/> and, on
+    /// <see cref="DisconnectReason.ClientOutdated"/>, invalidates the cached WA Web
+    /// revision so the next pairing attempt re-resolves (T-3-05). Called once per
+    /// terminal disconnect, inside the logged-out Interlocked guard.
+    /// </summary>
+    /// <param name="code">The terminal drop code (always non-null on this path).</param>
+    private void ReportTerminalDisconnect(int? code)
+    {
+        int answered = code ?? 408;
+        if (answered == (int)DisconnectReason.ClientOutdated)
+        {
+            VersionResolver?.Invalidate();
+        }
+
+        RaisePairingTerminal((DisconnectReason)answered);
+    }
+
+    private void RaisePairingTerminal(DisconnectReason reason)
+    {
+        EventHandler<PairingTerminalEventArgs>? handlers = PairingTerminal;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        try
+        {
+            handlers.Invoke(this, new PairingTerminalEventArgs(reason));
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(
+                ex,
+                "Pairing-terminal handler failed for account {AccountId}.",
+                _accountId.Value);
+        }
+    }
+
     private void StopForProtocolViolation(SdkConnectionException error)
     {
         _logger?.LogError(
@@ -544,10 +641,22 @@ public sealed class WaConnection : IAsyncDisposable
                 }
             }
 
+            // Phase 3 version wiring (03-02): when a resolver is present, resolve the
+            // app version for this attempt (override ?? runtime revision) and hand it
+            // to the payload provider so the handshake payload carries it onto the
+            // wire. Resolution never fails the attempt: the resolver falls back to
+            // the bundled pin on any fetch failure; only cancellation propagates
+            // (attempt-timeout recycles as 408 through the existing catch below).
+            if (VersionResolver is not null && _payloads is HandshakePayloadProvider versionedPayloads)
+            {
+                versionedPayloads.CurrentAppVersion = await VersionResolver
+                    .ResolveAsync(_options, attemptToken)
+                    .ConfigureAwait(false);
+            }
+
             handshake = resumeStatic is null
                 ? new NoiseHandshake(_payloads)
-                : new NoiseHandshake(_payloads, resumeStatic);
-            try
+                : new NoiseHandshake(_payloads, resumeStatic);            try
             {
                 await transport.SendAsync(NoiseProtocol.WaHeader.ToArray(), attemptToken).ConfigureAwait(false);
                 await transport.SendAsync(WaFrame.Frame(handshake.WriteMessageA()), attemptToken).ConfigureAwait(false);
@@ -865,6 +974,12 @@ public sealed class WaConnection : IAsyncDisposable
                             RaiseStanzaReceived(node);
                             break;
                         case "stream:error":
+                            int? streamCode = MapStreamErrorCode(node);
+                            if (streamCode is not null)
+                            {
+                                return streamCode.Value;
+                            }
+
                             throw new ProtocolHaltException(
                                 new SdkConnectionException("Stream error received: halting without retry."));
                         default:
@@ -949,9 +1064,9 @@ public sealed class WaConnection : IAsyncDisposable
 
     /// <summary>
     /// Maps a <c>failure</c> stanza's <c>reason</c> attribute onto the drop-code table:
-    /// the numeric code stays observable even when no <see cref="DisconnectReason"/>
-    /// member exists yet (plan 03-02 adds <c>ClientOutdated = 405</c>) — the policy
-    /// classifies it from here. A missing or unparsable reason recycles as 408.
+    /// the numeric code stays observable and the policy classifies it from here — a
+    /// 405 arrives as <see cref="DisconnectReason.ClientOutdated"/> (terminal). A
+    /// missing or unparsable reason recycles as 408.
     /// </summary>
     private int MapFailureCode(BinaryNode node)
     {
@@ -969,6 +1084,37 @@ public sealed class WaConnection : IAsyncDisposable
             "Server failure stanza without a reason code for account {AccountId}: recycling as 408.",
             _accountId.Value);
         return 408;
+    }
+
+    /// <summary>
+    /// Maps a <c>stream:error</c> stanza onto the drop-code table when it carries a
+    /// numeric state code (a <c>code</c> or <c>reason</c> attribute — a 405 here is
+    /// <see cref="DisconnectReason.ClientOutdated"/>, terminal exactly like the
+    /// <c>failure</c> path). Returns <c>null</c> when no code is present, keeping the
+    /// fail-closed halt for codeless stream errors.
+    /// </summary>
+    private int? MapStreamErrorCode(BinaryNode node)
+    {
+        int parsed;
+        if (node.Attrs.TryGetValue("code", out string? code) && int.TryParse(code, out parsed))
+        {
+            _logger?.LogWarning(
+                "Stream error stanza received for account {AccountId}: status code {StatusCode}.",
+                _accountId.Value,
+                parsed);
+            return parsed;
+        }
+
+        if (node.Attrs.TryGetValue("reason", out string? reason) && int.TryParse(reason, out parsed))
+        {
+            _logger?.LogWarning(
+                "Stream error stanza received for account {AccountId}: status code {StatusCode}.",
+                _accountId.Value,
+                parsed);
+            return parsed;
+        }
+
+        return null;
     }
 
     private void RaiseStanzaReceived(BinaryNode node)
