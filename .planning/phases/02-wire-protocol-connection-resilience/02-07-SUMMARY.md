@@ -204,3 +204,9 @@ None - no external service configuration required.
 ---
 *Phase: 02-wire-protocol-connection-resilience*
 *Completed: 2026-10-09*
+
+## Self-Check: PASSED
+
+- SUMMARY.md present at `.planning/phases/02-wire-protocol-connection-resilience/02-07-SUMMARY.md`
+- Commits found in history: `74a9e36`, `8c73812`, `74f778d`, `54e484c`
+- Key artifacts found: `src/Iwasug.WhatsApp.Sdk/Transport/WaFrame.cs`, `NOTICE.md`

@@ -12,8 +12,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CONN-01**: Host can link an account via QR code and observe typed lifecycle events (`code`/`success`/`timeout`/`logged_out`/`client_outdated`)
 - [ ] **CONN-02**: Host can link an account via pairing code without scanning a QR (headless servers)
 - [ ] **CONN-03**: Session state persists through the pluggable store; a restarted process resumes without re-pairing
-- [ ] **CONN-04**: Connection auto-reconnects with backoff and discriminates disconnect reasons (401 terminal, 428/408 retry, 515 restart, 440 replaced, 411 outdated)
-- [ ] **CONN-05**: Host can observe per-account connection state events (`connecting`/`open`/`closing`/`logged_out`)
+- [x] **CONN-04**: Connection auto-reconnects with backoff and discriminates disconnect reasons (401 terminal, 428/408 retry, 515 restart, 440 replaced, 411 outdated)
+- [x] **CONN-05**: Host can observe per-account connection state events (`connecting`/`open`/`closing`/`logged_out`)
 
 ### Store
 
@@ -114,8 +114,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONN-01 | Phase 3 | Pending |
 | CONN-02 | Phase 3 | Pending |
 | CONN-03 | Phase 3 | Pending |
-| CONN-04 | Phase 2 | Pending |
-| CONN-05 | Phase 2 | Pending |
+| CONN-04 | Phase 2 | Complete |
+| CONN-05 | Phase 2 | Complete |
 | STR-01 | Phase 1 | Complete |
 | STR-02 | Phase 1 | Complete |
 | MSG-01 | Phase 4 | Pending |

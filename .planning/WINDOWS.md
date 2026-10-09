@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 7
+open_count: 9
 waived_count: 0
 fixed_count: 0
-total_count: 7
-last_updated: 2026-10-08T07:13:22.129Z
+total_count: 9
+last_updated: 2026-10-09T04:13:40.232Z
 ---
 
 # Broken Windows Ledger
@@ -22,6 +22,8 @@ last_updated: 2026-10-08T07:13:22.129Z
 | 5 | 01 | deviation | src/Iwasug.WhatsApp.Sdk/Stores/InMemory/InMemoryStoreFactory.cs |  | 01-04 [Rule 3]: InMemoryStoreFactory gained IAsyncDisposable.DisposeAsync so the fallback factory joins the registry's D-23 disposal cascade | open |  | 2026-10-08T07:13:20.905Z |  |
 | 6 | 01 | deviation | src/Iwasug.WhatsApp.Sdk/Iwasug.WhatsApp.Sdk.csproj |  | 01-04 [Rule 3]: InternalsVisibleTo for the tests assembly added in Task 2 (plan listed it under Task 3) because Task 2's StoreErrorSurface tests need internal access | open |  | 2026-10-08T07:13:21.548Z |  |
 | 7 | 01 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Stores/StoreErrorSurfaceTests.cs |  | 01-04 [plan gap]: extra test file beyond the plan's <files> list — the plan mandated unit-testing LogAndWrap without naming a file for it | open |  | 2026-10-08T07:13:22.129Z |  |
+| 8 | 02 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Connection/ConnectionStateTests.cs |  | ConnectionStateTests.cs committed with 02-07 Task 2 though not in the plan files list (Rule 2: third loopback fake needed production intro validation) | open |  | 2026-10-09T04:13:39.383Z |  |
+| 9 | 02 | deviation | src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs |  | 02-07 verify runs needed fresh-hash rebuilds or -p:Deterministic=false to clear Windows SAC 0x800711C7 blocks on newly built DLLs (environment-only, no repo change) | open |  | 2026-10-09T04:13:40.232Z |  |
 
 ````json
 [
@@ -113,6 +115,32 @@ last_updated: 2026-10-08T07:13:22.129Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-08T07:13:22.129Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 8,
+    "kind": "deviation",
+    "phase": "02",
+    "file": "tests/Iwasug.WhatsApp.Sdk.Tests/Connection/ConnectionStateTests.cs",
+    "line": null,
+    "description": "ConnectionStateTests.cs committed with 02-07 Task 2 though not in the plan files list (Rule 2: third loopback fake needed production intro validation)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-09T04:13:39.383Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 9,
+    "kind": "deviation",
+    "phase": "02",
+    "file": "src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs",
+    "line": null,
+    "description": "02-07 verify runs needed fresh-hash rebuilds or -p:Deterministic=false to clear Windows SAC 0x800711C7 blocks on newly built DLLs (environment-only, no repo change)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-09T04:13:40.232Z",
     "resolved_at": null,
     "milestone": null
   }

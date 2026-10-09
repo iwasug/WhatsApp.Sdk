@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 02
 current_phase_name: Wire Protocol & Connection Resilience
 status: executing
-stopped_at: Phase 01 complete, ready to plan Phase 2
-last_updated: "2026-10-08T11:58:38.954Z"
-last_activity: 2026-10-08
-last_activity_desc: Phase 02 execution started
-state_head: 9abdd0d8486bbba9fe337fe8584a12772d594df9
+stopped_at: Completed 02-07-PLAN.md
+last_updated: "2026-10-09T04:15:38.566Z"
+last_activity: 2026-10-09
+last_activity_desc: Phase 02 execution resumed (wave continue)
+state_head: 54e484c60fbb52f92734e642a998bf642a744d70
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 10
-  completed_plans: 5
+  total_plans: 13
+  completed_plans: 13
   percent: 11
 ---
 
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 02 (Wire Protocol & Connection Resilience) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 02
-Last activity: 2026-10-08 — Phase 02 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-10-09 — Phase 02 execution resumed (wave continue)
 
 Progress: [█░░░░░░░░░] 11%
 
@@ -60,6 +60,7 @@ Progress: [█░░░░░░░░░] 11%
 | Phase 01 P03 | 26min | 2 tasks | 9 files |
 | Phase 01 P04 | 460m | 3 tasks | 10 files |
 | Phase 01 P05 | 14 min | 2 tasks | 3 files |
+| Phase 02 P02-07 | 35min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Phase 01 plan 05: host-style second run (HostStyleSecondRunTests) is the executed proof of success criterion 3 - one ScratchStoreFactory drives all five kit capabilities + fault injection + completeness in one flow, zero reference-impl references (T-01-16)
 - [Phase 01]: Phase 01 plan 05: non-session store seams must bind through interface-typed factory variables - concrete factories non-session CreateAsync overloads are explicit interface implementations, var-typing silently binds the session seam
 - [Phase 01]: Phase 01 plan 05: 01-VALIDATION.md re-mapped to 12 actual task IDs (plan text 01-01-T3 was a slip for 01-01-T2; plan 01-01 has two tasks); all rows green, wave_0_complete + nyquist_compliant flipped; validate-phase owns the status: validated flip
+- [Phase 02]: 02-07: server-shaped B consumed intro-first — 4-byte intro validated/stripped BEFORE WaFrame.Deframe (server shape intro||len||bytes); headerless B accepted; framing violations wrap into ProtocolHaltException fail-closed
+- [Phase 02]: 02-07: FrameReader.TryReadFrame is the sole inbound pump parser (flag strip + zlib inflate) before NoiseTransport.Decrypt; hand-rolled length parse and dead WatchAsync_OLD removed — zero production bypass (T-2-15)
+- [Phase 02]: 02-07: loopback fakes call production NoiseHandshake.ValidateIntroHeader instead of hardcoded intro byte-equality (ConnectionStateTests.cs committed as documented Rule 2 deviation — outside plan files list)
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-08T07:36:17.560Z
-Stopped at: Phase 01 complete, ready to plan Phase 2
+Last session: 2026-10-09T04:15:38.467Z
+Stopped at: Completed 02-07-PLAN.md
 Resume file: None

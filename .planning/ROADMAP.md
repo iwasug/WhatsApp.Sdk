@@ -60,7 +60,7 @@ Plans:
   2. Each disconnect reason produces distinct observable behavior: 401 surfaces as terminal logged-out (never retried), 428/408 retry with jittered backoff, 515 prompts immediate restart, 440 surfaces account-replaced, 411 surfaces protocol-outdated.
   3. Host observes typed per-connection state events (`connecting`/`open`/`closing`/`logged_out`) as the connection moves through its lifecycle.
 
-**Plans**: 7/8 plans executed (verification: gaps found — see 02-VERIFICATION.md) + 3 gap-closure plans
+**Plans**: 8/8 plans executed (verification: gaps found — see 02-VERIFICATION.md) + 3 gap-closure plans
 
 Plans:
 - [x] 02-01-PLAN.md — Spike + locked surface + seams, constants, pure policy table (wave 1)
@@ -75,7 +75,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
 - [x] 02-08-PLAN.md — Decoder hardening: depth limit 64 + capped LIST_16 + nesting/evil tests (gap_closure)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 02-07-PLAN.md — Framing unification: WaFrame helper, intro-once, headerless B/C, FrameReader-wired pump, server-shaped B fixture + NOTICE provenance row (gap_closure, depends on 02-06)
+- [x] 02-07-PLAN.md — Framing unification: WaFrame helper, intro-once, headerless B/C, FrameReader-wired pump, server-shaped B fixture + NOTICE provenance row (gap_closure, depends on 02-06)
 
 ### Phase 3: Pairing & Session Durability
 
@@ -182,7 +182,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
-| 2. Wire Protocol & Connection Resilience | 7/8 | In Progress | - |
+| 2. Wire Protocol & Connection Resilience | 8/8 | In Progress|  |
 | 3. Pairing & Session Durability | 0/TBD | Not started | - |
 | 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
