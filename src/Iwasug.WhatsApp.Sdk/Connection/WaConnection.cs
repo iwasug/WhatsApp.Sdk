@@ -147,6 +147,17 @@ public sealed class WaConnection : IAsyncDisposable
 {
     private static readonly HashSet<int> KnownCodes = [401, 403, 405, 411, 419, 408, 428, 440, 500, 503, 515];
 
+    /// <summary>
+    /// Terminal logout codes (03-04, CONN-01/CONN-03, 03-RESEARCH.md A7): a
+    /// disconnect with one of these reasons clears the persisted credential
+    /// row (awaited) before the disconnect completes, so the next pairing
+    /// attempt starts from a clean registration branch instead of resuming
+    /// with dead material. Every other code — including 405
+    /// (<c>ClientOutdated</c>, a stale build rather than a dead session) and
+    /// every transient — leaves the row untouched.
+    /// </summary>
+    private static readonly HashSet<int> LogoutCodes = [401, 403, 406];
+
     private readonly AccountId _accountId;
     private readonly Func<IFrameTransport> _transportFactory;
     private readonly INoiseHandshakePayloads _payloads;
@@ -509,6 +520,18 @@ public sealed class WaConnection : IAsyncDisposable
                 case DropOutcomeKind.Terminal:
                     if (Interlocked.CompareExchange(ref _loggedOut, 1, 0) == 0)
                     {
+                        // Logout clearing (03-04): the row is gone before the
+                        // disconnect completes — a disconnect that returns
+                        // first would reopen the stale-resume window (CONN-03
+                        // applied in reverse). A throwing remove propagates as
+                        // the disconnect fault (the connection is dying
+                        // anyway; the host sees the real error, never a
+                        // silent leftover row).
+                        if (outcome.Code.HasValue && LogoutCodes.Contains(outcome.Code.Value))
+                        {
+                            await ClearCredentialsAsync().ConfigureAwait(false);
+                        }
+
                         Emit(ConnectionState.LoggedOut, outcome.Code, _backoff.Attempt);
                         ReportTerminalDisconnect(outcome.Code);
                     }
@@ -583,6 +606,25 @@ public sealed class WaConnection : IAsyncDisposable
                 // The authoritative delay comes from the backoff's own draw in the loop
                 // above; RetryAfter.Delay serves direct Decide consumers.
                 return DropOutcome.Retry(answered);
+        }
+    }
+
+    /// <summary>
+    /// Removes the account's credential row after a terminal logout (03-04):
+    /// the next pairing attempt regenerates instead of resuming with dead
+    /// material. Runs inside the logged-out Interlocked guard, awaited before
+    /// the disconnect completes. Connections over bare payload doubles carry
+    /// no row and skip silently; a throwing remove propagates (never
+    /// swallowed) as the disconnect fault.
+    /// </summary>
+    private async Task ClearCredentialsAsync()
+    {
+        if (_payloads is HandshakePayloadProvider provider)
+        {
+            // CancellationToken.None: the clear must not be skipped by a
+            // racing host cancel — a leftover row is worse than a slow
+            // teardown on a dying connection.
+            await provider.Credentials.RemoveAsync(CancellationToken.None).ConfigureAwait(false);
         }
     }
 

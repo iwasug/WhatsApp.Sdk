@@ -19,7 +19,7 @@ public abstract record ReconnectDecision
     }
 
     /// <summary>
-    /// Dead end: credentials dead or client outdated (401/403/405/411/419, including
+    /// Dead end: credentials dead or client outdated (401/403/405/406/411/419, including
     /// <see cref="DisconnectReason.ClientOutdated"/>). The connection
     /// moves to <see cref="ConnectionState.LoggedOut"/> exactly once and the reconnect
     /// loop ends — no timer or delay path is reachable from this verdict (T-2-01).
@@ -76,7 +76,7 @@ public abstract record ReconnectDecision
 
 /// <summary>
 /// Pure status-code → <see cref="ReconnectDecision"/> table (CONN-04 core table,
-/// 02-RESEARCH Disconnect Taxonomy): 401/403/405/411/419 terminal, 408/428/500/503 jittered
+/// 02-RESEARCH Disconnect Taxonomy + 03-04 logout set): 401/403/405/406/411/419 terminal, 408/428/500/503 jittered
 /// retry, 515 immediate restart, 440 surface-and-stop, unknown bounded retry.
 /// </summary>
 /// <remarks>
@@ -121,9 +121,11 @@ public static class ReconnectPolicy
     /// Invalid bounds throw before any delay is computed.
     /// </param>
     /// <returns>
-    /// <see cref="ReconnectDecision.Terminal"/> for 401/403/405/411/419 (never retry —
+    /// <see cref="ReconnectDecision.Terminal"/> for 401/403/405/406/411/419 (never retry —
     /// 401/419 must not loop against dead credentials, T-2-01; 405/<see cref="DisconnectReason.ClientOutdated"/>
-    /// must not loop against a server-rejected build, 03-RESEARCH.md Pitfall 1);
+    /// must not loop against a server-rejected build, 03-RESEARCH.md Pitfall 1;
+    /// 406 joins the logout set per 03-RESEARCH.md A7 so a rejected session can
+    /// never resume with dead material);
     /// <see cref="ReconnectDecision.RestartImmediate"/> for 515;
     /// <see cref="ReconnectDecision.SurfaceAndStop"/> for 440;
     /// <see cref="ReconnectDecision.RetryAfter"/> for 408/428/500/503 and every unknown
@@ -145,7 +147,7 @@ public static class ReconnectPolicy
 
         return statusCode switch
         {
-            401 or 403 or 411 or 419 or (int)DisconnectReason.ClientOutdated => ReconnectDecision.Terminal.Instance,
+            401 or 403 or 406 or 411 or 419 or (int)DisconnectReason.ClientOutdated => ReconnectDecision.Terminal.Instance,
             515 => ReconnectDecision.RestartImmediate.Instance,
             440 => ReconnectDecision.SurfaceAndStop.Instance,
             _ => new ReconnectDecision.RetryAfter(ComputeDelay(attempt, resolved, Random.Shared.NextDouble())),

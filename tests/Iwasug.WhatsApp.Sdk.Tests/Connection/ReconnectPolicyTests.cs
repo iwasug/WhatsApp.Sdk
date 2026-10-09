@@ -20,6 +20,7 @@ public sealed class ReconnectPolicyTests
     [InlineData(401)]
     [InlineData(403)]
     [InlineData(405)]
+    [InlineData(406)]
     [InlineData(411)]
     [InlineData(419)]
     public void Decide_terminal_codes_return_Terminal_at_any_attempt(int statusCode)
