@@ -7,7 +7,12 @@ namespace Iwasug.WhatsApp.Sdk.Pairing;
 /// (CONN-02, 03-RESEARCH.md Open Question 6): the digits-only E.164-without-<c>+</c>
 /// contract, decided before any generation or wire work.
 /// </summary>
-internal enum PhoneNumberValidation
+/// <remarks>
+/// <para>
+/// This enum is part of the public API — hosts catch <see cref="PairingCodeRequestException"/>
+/// to determine the validation failure reason.</para>
+/// </remarks>
+public enum PhoneNumberValidation
 {
     /// <summary>The number satisfies the contract and may proceed to code generation.</summary>
     Valid,
