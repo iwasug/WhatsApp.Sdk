@@ -1,4 +1,5 @@
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
@@ -97,12 +98,18 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     /// <param name="accountId">Opaque account key — must come from <see cref="AccountId.Create"/>.</param>
     /// <param name="credentials">The account's credential store (the instance IS the namespace, D-02).</param>
     /// <param name="registrationDefaults">Registration inputs for the no-row branch.</param>
+    /// <param name="appVersion">
+    /// Explicit app version for the handshake payload (override ?? resolver value from
+    /// <see cref="ConnectionOptions"/>); <c>null</c> keeps the registration defaults.
+    /// The connection sets this per attempt when it owns a version resolver.
+    /// </param>
     /// <exception cref="SdkFormatException"><paramref name="accountId"/> is the default (uninitialized) value.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="credentials"/> or <paramref name="registrationDefaults"/> is null.</exception>
     internal HandshakePayloadProvider(
         AccountId accountId,
         ICredentialStore credentials,
-        RegistrationDefaults registrationDefaults)
+        RegistrationDefaults registrationDefaults,
+        WaVersion? appVersion = null)
     {
         if (accountId.Value is null)
         {
@@ -113,7 +120,15 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
         _accountId = accountId;
         _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         _registrationDefaults = registrationDefaults ?? throw new ArgumentNullException(nameof(registrationDefaults));
+        CurrentAppVersion = appVersion;
     }
+
+    /// <summary>
+    /// The app version the next <see cref="GetClientFinish"/> emits (set per attempt by
+    /// the connection when it owns a version resolver; <c>null</c> keeps the
+    /// registration defaults).
+    /// </summary>
+    internal WaVersion? CurrentAppVersion { get; set; }
 
     /// <summary>The account this provider loads credentials for.</summary>
     internal AccountId AccountId => _accountId;
@@ -132,15 +147,20 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     public byte[] GetClientFinish()
     {
         Snapshot snapshot = Volatile.Read(ref _snapshot);
+        WaVersion version = CurrentAppVersion
+            ?? new WaVersion(
+                _registrationDefaults.AppPrimary,
+                _registrationDefaults.AppSecondary,
+                _registrationDefaults.AppTertiary);
         if (snapshot.HasRow && snapshot.Username is not null)
         {
             return ClientPayloadFactory.Login(
                 snapshot.Username,
                 snapshot.Device,
                 snapshot.Platform,
-                _registrationDefaults.AppPrimary,
-                _registrationDefaults.AppSecondary,
-                _registrationDefaults.AppTertiary);
+                version.Primary,
+                version.Secondary,
+                version.Tertiary);
         }
 
         return ClientPayloadFactory.Registration(
@@ -150,9 +170,9 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
             _registrationDefaults.SignedPreKeySignature,
             _registrationDefaults.RegistrationId,
             _registrationDefaults.Platform,
-            _registrationDefaults.AppPrimary,
-            _registrationDefaults.AppSecondary,
-            _registrationDefaults.AppTertiary);
+            version.Primary,
+            version.Secondary,
+            version.Tertiary);
     }
 
     /// <inheritdoc />

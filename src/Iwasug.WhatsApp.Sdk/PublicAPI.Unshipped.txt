@@ -24,6 +24,8 @@ Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryBaseDelayMs.get -> int
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryBaseDelayMs.init -> void
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryMaxDelayMs.get -> int
 Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.RetryMaxDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.WaVersionOverride.get -> string?
+Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions.WaVersionOverride.init -> void
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Closing = 2 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
 Iwasug.WhatsApp.Sdk.Connection.ConnectionState.Connecting = 0 -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState

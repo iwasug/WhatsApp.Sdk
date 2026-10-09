@@ -51,6 +51,15 @@ public sealed class ConnectionOptions
     public int RetryMaxDelayMs { get; init; } = 60_000;
 
     /// <summary>
+    /// Injectable WA Web app-version override, dotted <c>primary.secondary.tertiary</c>
+    /// (e.g. <c>2.3000.1043857760</c>); <c>null</c> resolves the runtime revision
+    /// through <c>WaVersionResolver</c> instead. Tests and the loopback wire supply a
+    /// revision here so no network access is needed; the handshake payload carries the
+    /// override ?? resolver value onto the wire.
+    /// </summary>
+    public string? WaVersionOverride { get; init; }
+
+    /// <summary>
     /// Fail-fast guard (DurableWriteRetryPolicy <c>ValidateOptions</c> precedent):
     /// resolves <c>null</c> to defaults and throws
     /// <see cref="ArgumentOutOfRangeException"/> on any out-of-range bound — before any
@@ -89,6 +98,11 @@ public sealed class ConnectionOptions
         if (resolved.RetryMaxDelayMs < resolved.RetryBaseDelayMs)
         {
             throw new ArgumentOutOfRangeException(nameof(options), "RetryMaxDelayMs must not be below RetryBaseDelayMs.");
+        }
+
+        if (resolved.WaVersionOverride is not null && !WaVersion.TryParseDotted(resolved.WaVersionOverride, out _))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "WaVersionOverride must be a dotted app version (primary.secondary.tertiary).");
         }
 
         return resolved;
