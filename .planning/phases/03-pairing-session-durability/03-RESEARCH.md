@@ -383,31 +383,31 @@ ClientPayload payload = hasStoredCredentials
 | A6 | QRCoder may be added to a **samples-only** project for the human QR proof; core stays dependency-free | Standard Stack | Low — if the planner skips the sample, print the raw payload string instead |
 | A7 | `IsLoggedOut()` reason set (401/403/406) — taken from a cached research digest, not re-read from `types/events/events.go` this session | Pattern 2, Pitfall 1 | Low — extra/missing reason only widens/narrows `logged_out`; confirm during implementation |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Pull BinaryNode correlation forward from Phase 4 into Phase 3?**
    - What we know: `QueryRouter` documents the skeleton envelope and defers migration "to Phase 4, when the loopback peer and pump can move together" `[VERIFIED: QueryRouter.cs:22-25]`; live pairing requires node-tag dispatch + id-attribute correlation.
    - What's unclear: whether the planner treats this as a planned scope pull-forward (deviation entry) or limits Phase 3 to loopback-only pairing proofs.
-   - Recommendation: **pull it forward** as an explicit deviation with its own task (pump + loopback peer migrate together, router stays payload-agnostic, golden node fixtures added) — CONN-01/02/03 cannot be proven live otherwise.
+   - RESOLVED: Recommendation: **pull it forward** as an explicit deviation with its own task (pump + loopback peer migrate together, router stays payload-agnostic, golden node fixtures added) — CONN-01/02/03 cannot be proven live otherwise.
 
 2. **Where does runtime version resolution live?**
    - Known: PITFALLS assigns it to this phase `[VERIFIED: PITFALLS.md:28]`; mechanism is ~30 lines with a 6h cache.
    - Unclear: whether Phase 3 scope includes it or defers to a drift/release phase.
-   - Recommendation: include it (it is the difference between "QR never appears" and working pairing weeks later), behind `ConnectionOptions` so tests inject a fixed version.
+   - RESOLVED: Recommendation: include it (it is the difference between "QR never appears" and working pairing weeks later), behind `ConnectionOptions` so tests inject a fixed version.
 
 3. **Event surface shape: separate pairing events vs. widening `StateChanged`?**
-   - Recommendation: **separate `PairingStateChanged` (or coordinator events)** — keeps the locked 4-state `ConnectionState` vocabulary intact and lets hosts that only care about connection state ignore pairing entirely. Planner should lock the exact API (event args vs. `IAsyncEnumerable` vs. callback) since it is public surface tracked in `PublicAPI.Unshipped.txt` `[VERIFIED: src/Iwasug.WhatsApp.Sdk/PublicAPI.Unshipped.txt:72-73]`.
+   - RESOLVED: Recommendation: **separate `PairingStateChanged` (or coordinator events)** — keeps the locked 4-state `ConnectionState` vocabulary intact and lets hosts that only care about connection state ignore pairing entirely. Planner should lock the exact API (event args vs. `IAsyncEnumerable` vs. callback) since it is public surface tracked in `PublicAPI.Unshipped.txt` `[VERIFIED: src/Iwasug.WhatsApp.Sdk/PublicAPI.Unshipped.txt:72-73]`.
 
 4. **Proto schema provenance approach for `ClientPayload`/ADV/CompanionReg**
    - Known: `handshake.proto` precedent — hand-written, citing Baileys field roles read-only, "No whatsmeow bytes were involved" `[VERIFIED: handshake.proto:3-17]`.
-   - Recommendation: same approach + NOTICE.md provenance rows; never open whatsmeow `proto/*.proto` files as copy sources (MPL-2.0).
+   - RESOLVED: Recommendation: same approach + NOTICE.md provenance rows; never open whatsmeow `proto/*.proto` files as copy sources (MPL-2.0).
 
 5. **How much of CONN-01/02/03 is CI-provable vs. human-gated?**
    - Known: `human_verify_mode: "end-of-phase"` `[VERIFIED: .planning/config.json:33]`; no WhatsApp account/phone in CI; loopback harness exists (`LoopbackFrameTransport`, fake-server pairing scripts needed).
-   - Recommendation: CI = scripted fake-server pairing (QR + code paths, kill/restart resume, injected drop) + crypto KATs + node golden fixtures; human end-of-phase = real QR scan, real 8-char code entry, real restart-without-re-pair.
+   - RESOLVED: Recommendation: CI = scripted fake-server pairing (QR + code paths, kill/restart resume, injected drop) + crypto KATs + node golden fixtures; human end-of-phase = real QR scan, real 8-char code entry, real restart-without-re-pair.
 
 6. **Should `RequestPairingCodeAsync` be per-account public API on the connection, or on the coordinator?**
-   - Recommendation: on the pairing surface, taking a digits-only E.164-without-`+` number (validated: digits only, length > 6, no leading `0` `[CITED: …/whatsmeow/main/pair-code.go]`), returning the `XXXX-XXXX` display string.
+   - RESOLVED: Recommendation: on the pairing surface, taking a digits-only E.164-without-`+` number (validated: digits only, length > 6, no leading `0` `[CITED: …/whatsmeow/main/pair-code.go]`), returning the `XXXX-XXXX` display string.
 
 ## Environment Availability
 

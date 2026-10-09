@@ -41,27 +41,29 @@ created: "2026-10-09"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 3-seed-01 | TBD | 1 | CONN-01 | T-3-01 | QR payload format + 60s/20s rotation + ~160s `timeout` | unit (FakeTimeProvider) | `dotnet test --filter "FullyQualifiedName~PairingQr"` | ❌ W0 | ⬜ pending |
-| 3-seed-02 | TBD | 1 | CONN-01 | T-3-02 | Typed event sequence `code→success` / `code→timeout` / `→client_outdated(405)` / `→logged_out` on scripted fake server | integration (loopback) | `dotnet test --filter "FullyQualifiedName~PairingLifecycle"` | ❌ W0 | ⬜ pending |
-| 3-seed-03 | TBD | 1 | CONN-01 | T-3-03 | `ReconnectPolicy` maps 405 → Terminal (no unknown-code retry loop) | unit | `dotnet test --filter "FullyQualifiedName~ReconnectPolicyTests"` | ✅ exists, needs new case | ⬜ pending |
-| 3-seed-04 | TBD | 2 | CONN-02 | T-3-04 | 5B→8C code, alphabet, `XXXX-XXXX`, PBKDF2/CTR/HKDF KATs, hello/finish node shapes | unit + KAT | `dotnet test --filter "FullyQualifiedName~LinkCode"` | ❌ W0 | ⬜ pending |
-| 3-seed-05 | TBD | 2 | CONN-02 | T-3-05 | Phone-number validation (digits, >6, no leading 0); secrets never logged | unit | `dotnet test --filter "FullyQualifiedName~LinkCode"` | ❌ W0 | ⬜ pending |
-| 3-seed-06 | TBD | 3 | CONN-03 | T-3-06 | pair → dispose → reload from store → login payload → `<success>` → stays up through injected drop + 515 | integration (loopback) | `dotnet test --filter "FullyQualifiedName~Resume"` | ❌ W0 | ⬜ pending |
-| 3-seed-07 | TBD | 3 | CONN-03 | T-3-07 | Credential store contract (durability, failure≠missing, idempotent remove) | contract kit | `dotnet test --filter "FullyQualifiedName~CredentialStore"` | ❌ W0 (pattern exists for 5 stores) | ⬜ pending |
-| 3-seed-08 | TBD | 3 | all | — | Public API surface additions tracked | analyzer gate | included in build (`dotnet build ... -warnaserror`) | ✅ `PublicAPI.Unshipped.txt` | ⬜ pending |
+| 03-03-T1 | 03-03 | 3 | CONN-01 | T-3-06 | QR payload format + 60s/20s rotation + ~160s `timeout` | unit (FakeTimeProvider) | `dotnet test --filter "FullyQualifiedName~PairingQr"` | ❌ W0 (created by 03-03-T1) | ⬜ pending |
+| 03-03-T2 + 03-04-T2 | 03-03, 03-04 | 3, 4 | CONN-01 | T-3-07, T-3-09 | Typed event sequence `code→success` / `code→timeout` / `→client_outdated(405)` / `→logged_out` on scripted fake server | integration (loopback) | `dotnet test --filter "FullyQualifiedName~PairingLifecycle"` | ❌ W0 (created by 03-03-T3, extended by 03-04-T2) | ⬜ pending |
+| 03-02-T1 | 03-02 | 2 | CONN-01 | T-3-04 | `ReconnectPolicy` maps 405 → Terminal (no unknown-code retry loop) | unit | `dotnet test --filter "FullyQualifiedName~ReconnectPolicyTests"` | ✅ exists, relocated by 03-02-T1 | ⬜ pending |
+| 03-05-T1 | 03-05 | 5 | CONN-02 | T-3-10 | 5B→8C code, alphabet, `XXXX-XXXX`, PBKDF2/CTR/HKDF KATs, hello/finish node shapes | unit + KAT | `dotnet test --filter "FullyQualifiedName~LinkCode"` | ❌ W0 (created by 03-05-T1) | ⬜ pending |
+| 03-05-T1 | 03-05 | 5 | CONN-02 | T-3-11 | Phone-number validation (digits, >6, no leading 0); secrets never logged | unit | `dotnet test --filter "FullyQualifiedName~LinkCode"` | ❌ W0 (created by 03-05-T1) | ⬜ pending |
+| 03-06-T1 | 03-06 | 6 | CONN-03 | T-3-12 | pair → dispose → reload from store → login payload → `<success>` → stays up through injected drop + 515 | integration (loopback) | `dotnet test --filter "FullyQualifiedName~Resume"` | ❌ W0 (created by 03-01-T1, extended by 03-06-T1) | ⬜ pending |
+| 03-01-T2 | 03-01 | 1 | CONN-03 | T-3-02 | Credential store contract (durability, failure≠missing, idempotent remove) | contract kit | `dotnet test --filter "FullyQualifiedName~CredentialStore"` | ❌ W0 (created by 03-01-T2) | ⬜ pending |
+| all plans | 03-01 … 03-07 | 1–7 | all | T-3-SC | Public API surface additions tracked | analyzer gate | included in build (`dotnet build ... -warnaserror`) | ✅ `PublicAPI.Unshipped.txt` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
-*Note: Task IDs are seeds. The planner replaces them with concrete plan task IDs; requirement + threat-ref + command columns carry over.*
+*Note: Task IDs are concrete plan task references (`03-NN-TM`, plan 03, task M). Threat refs match each declaring plan's `<threat_model>` register; wave columns follow plan frontmatter.*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `tests/…/Pairing/` — QR payload, rotation timers, lifecycle event sequences, code-gen + crypto KATs (REQ CONN-01/02)
-- [ ] `tests/…/Connection/ResumeTests.cs` — restart-without-re-pair + injected-drop survival (CONN-03)
-- [ ] `src/Iwasug.WhatsApp.Sdk.Testing/StoreContract/CredentialStoreContractTests.cs` + InMemory/Scratch implementations (completeness backstop `ComplianceTestBase` requires a concrete subclass per contract class)
-- [ ] Scripted fake-server pairing peer (extends existing loopback: `pair-device` refs, `pair-success`, `<success>`, `<failure reason=405>`, `link_code_companion_reg` notification)
-- [ ] Golden node fixtures: registration/login `ClientPayload` bytes, `companion_hello`/`companion_finish` nodes, `pair-success` container (cross-checked against upstream encodings, **no upstream bytes copied into the repo**)
+> Wave 0 is created by plan tasks, not a separate wave: each checklist item names the task that produces it during execution.
+
+- [ ] `tests/…/Pairing/` — QR payload, rotation timers, lifecycle event sequences, code-gen + crypto KATs (REQ CONN-01/02) — created by 03-03-T1/T2 (PairingQrTests), 03-03-T3 + 03-04-T1/T2 (PairingLifecycleTests), 03-05-T1 (LinkCodeTests)
+- [ ] `tests/…/Connection/ResumeTests.cs` — restart-without-re-pair + injected-drop survival (CONN-03) — created by 03-01-T1, extended by 03-06-T1
+- [ ] `src/Iwasug.WhatsApp.Sdk.Testing/StoreContract/CredentialStoreContractTests.cs` + InMemory/Scratch implementations (completeness backstop `ComplianceTestBase` requires a concrete subclass per contract class) — created by 03-01-T2, file-store binding added by 03-06-T3
+- [ ] Scripted fake-server pairing peer (extends existing loopback: `pair-device` refs, `pair-success`, `<success>`, `<failure reason=405>`, `link_code_companion_reg` notification) — extended across 03-03-T2, 03-04-T2, 03-05-T3
+- [ ] Golden node fixtures: registration/login `ClientPayload` bytes, `companion_hello`/`companion_finish` nodes, `pair-success` container (cross-checked against upstream encodings, **no upstream bytes copied into the repo**) — created by 03-01-T3 (ClientPayload), 03-04-T1 (pair-success), 03-05-T1 (link-code KATs)
 - [ ] No framework install required (xunit v3 already wired)
 
 ---

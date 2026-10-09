@@ -88,7 +88,28 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   2. On a headless server with no camera, host obtains an 8-character pairing code and links the account without scanning anything.
   3. Killing and restarting the process resumes the session from the pluggable store with no re-pairing, and the resumed session stays connected through an injected network drop.
 
-**Plans**: TBD
+**Plans**: 7 plans
+
+**Wave 1**
+- [ ] 03-01-PLAN.md — Resume spine: credential seam + login ClientPayload + BinaryNode pump + success-gated Open + contract kit
+
+**Wave 2** *(depends on 03-01)*
+- [ ] 03-02-PLAN.md — ClientOutdated terminal path: 405 relocation, WaVersionResolver, bounded pairing abort
+
+**Wave 3** *(depends on 03-02)*
+- [ ] 03-03-PLAN.md — Pairing surface: events, wire-exact QR payload + rotation, coordinator on pump seam, registration bootstrap
+
+**Wave 4** *(depends on 03-03)*
+- [ ] 03-04-PLAN.md — Pair-success verification: adv.proto, fail-closed verifier, ordered persist→reply→event, logout credential clearing
+
+**Wave 5** *(depends on 03-04)*
+- [ ] 03-05-PLAN.md — Pairing code: 5B→8C generator, link-code crypto KATs, RequestPairingCodeAsync, companion handshake routing
+
+**Wave 6** *(depends on 03-04, 03-05)*
+- [ ] 03-06-PLAN.md — Kill/restart resume proof + 428 survival + concurrency backstop + PairingSample host
+
+**Wave 7** *(depends on 03-06)*
+- [ ] 03-07-PLAN.md — End-of-phase real-device UAT, VALIDATION/Nyquist closeout, NOTICE provenance audit
 
 ### Phase 4: Signal E2EE & Messaging
 
@@ -183,7 +204,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
 | 2. Wire Protocol & Connection Resilience | 8/8 | In Progress|  |
-| 3. Pairing & Session Durability | 0/TBD | Not started | - |
+| 3. Pairing & Session Durability | 0/7 | Not started | - |
 | 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
