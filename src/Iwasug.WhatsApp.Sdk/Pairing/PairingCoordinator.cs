@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
+using System.Text;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
@@ -67,15 +68,33 @@ namespace Iwasug.WhatsApp.Sdk.Pairing;
 /// (no <c>Success</c>, no reply), never as success.
 /// </para>
 /// <para>
+/// Code flow (03-05, CONN-02): <see cref="RequestPairingCodeAsync"/> validates
+/// the host's phone number, generates the 8-character code client-side,
+/// sends the link-code request iq, and returns the <c>XXXX-XXXX</c> display
+/// string once the server's ref reply arrives — while a companion driver
+/// (watchdog + hello-ack + the shared verify-then-persist drain) owns the
+/// attempt tail. The tail's only outcomes are the same pairing events (a
+/// companion finish that authenticates under the live code's bundle key
+/// reaches <c>Success</c> through the verified path; anything else converges
+/// on <c>Timeout</c>). Epoch binding is implicit in key material: requesting
+/// a new code derives a fresh bundle key, so a finish sealed under a prior
+/// code fails GCM authentication and is ignored — never written, never
+/// emitted. The driver task captures every fault internally (no unobserved
+/// exceptions); hosts observe the tail through events alone.
+/// </para>
+/// <para>
 /// Secret hygiene (T-3-06/T-3-07): the reference is opaque pass-through (never
 /// parsed, never logged); QR key material is derived per code from the persisted
-/// row and zeroized immediately after the payload string is built; this type logs
-/// operation/rule names and the account id only — never refs, payloads, or key
-/// material. Platform/NSec CSPRNG only; no hand-rolled curve math (public keys
+/// row and zeroized immediately after the payload string is built; pairing
+/// codes, link keys, bundle keys, and salts are zeroized at the attempt
+/// boundary and never logged, never embedded in exceptions or events beyond
+/// the <c>XXXX-XXXX</c> display string the host must render (itself a
+/// single-use secret — render it, never log or persist it). Platform/NSec
+/// CSPRNG only; no hand-rolled curve math (public keys
 /// derive via NSec X25519 import/export).
 /// </para>
 /// </remarks>
-internal sealed class PairingCoordinator
+public sealed class PairingCoordinator
 {
     /// <summary>
     /// Maximum pairing-level 405 retries per attempt: each retry invalidates and
@@ -95,6 +114,27 @@ internal sealed class PairingCoordinator
     private const string CodeAttribute = "code";
     private const string StaleClientCode = "405";
 
+    /// <summary>Link-code request child carrying the phone attribute and the wrapped ephemeral.</summary>
+    private const string LinkCodeRequestTag = "link-code-request";
+
+    /// <summary>Binary child of the link-code request carrying the 80-byte wrapped ephemeral.</summary>
+    private const string LinkCodeWrapTag = "link-code-wrap";
+
+    /// <summary>Server reply child carrying the pairing ref the phone consumes.</summary>
+    private const string LinkCodeRefTag = "link-code-ref";
+
+    /// <summary>Phone-number attribute on the link-code request (digits-only E.164 without '+').</summary>
+    private const string PhoneAttribute = "phone";
+
+    /// <summary>Server-initiated companion handshake opener (iq or notification child).</summary>
+    private const string CompanionHelloTag = "companion-hello";
+
+    /// <summary>Coordinator acknowledgement of the companion hello (iq result, id-correlated).</summary>
+    private const string CompanionHelloAckTag = "companion-hello-ack";
+
+    /// <summary>Companion finish child carrying the GCM-protected bundle as binary content.</summary>
+    private const string CompanionFinishTag = "companion-finish";
+
     private readonly AccountId _accountId;
     private readonly HandshakePayloadProvider _payloads;
     private readonly ICredentialStore _credentials;
@@ -103,6 +143,7 @@ internal sealed class PairingCoordinator
     private readonly Func<byte[], byte[], byte[], PairSuccessResult> _verify;
     private readonly TimeProvider _timeProvider;
     private readonly Func<WaVersionResolver?> _resolver;
+    private readonly Func<int, byte[]> _randomBytes;
     private readonly ILogger<PairingCoordinator>? _logger;
     private readonly object _gate = new();
     private Attempt? _attempt;
@@ -134,6 +175,11 @@ internal sealed class PairingCoordinator
     /// <param name="timeProvider">Clock for rotation/timeout delays; defaults to system time.</param>
     /// <param name="resolver">Live lookup of the connection's version resolver (405 invalidation path).</param>
     /// <param name="logger">Optional per-account logger (Abstractions only).</param>
+    /// <param name="randomBytes">
+    /// Pairing-code randomness seam: returns exactly the requested byte count
+    /// (code bytes, salts, IVs, ephemeral seeds). Defaults to the platform
+    /// CSPRNG; tests inject a scripted sequence for determinism.
+    /// </param>
     /// <exception cref="SdkFormatException"><paramref name="accountId"/> is the default (uninitialized) value.</exception>
     /// <exception cref="ArgumentNullException">Any required seam is null.</exception>
     internal PairingCoordinator(
@@ -145,7 +191,8 @@ internal sealed class PairingCoordinator
         Func<byte[], byte[], byte[], PairSuccessResult>? pairSuccessVerifier = null,
         TimeProvider? timeProvider = null,
         Func<WaVersionResolver?>? resolver = null,
-        ILogger<PairingCoordinator>? logger = null)
+        ILogger<PairingCoordinator>? logger = null,
+        Func<int, byte[]>? randomBytes = null)
     {
         if (accountId.Value is null)
         {
@@ -161,6 +208,7 @@ internal sealed class PairingCoordinator
         _verify = pairSuccessVerifier ?? PairSuccessVerifier.Verify;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _resolver = resolver ?? (() => null);
+        _randomBytes = randomBytes ?? RandomNumberGenerator.GetBytes;
         _logger = logger;
     }
 
@@ -272,6 +320,384 @@ internal sealed class PairingCoordinator
     }
 
     /// <summary>
+    /// Requests one pairing code for the host's user to type on their phone
+    /// (03-05, CONN-02): validates the phone number, generates the code
+    /// client-side (the server never supplies it), sends the link-code
+    /// request iq, and returns the <c>XXXX-XXXX</c> display string once the
+    /// server's ref reply arrives — also raised as the <c>Code</c> event.
+    /// </summary>
+    /// <remarks>
+    /// The returned task completes at code issue; the attempt stays live under
+    /// a companion driver whose only outcomes are the pairing events
+    /// (<c>Success</c> through the verified path, <c>Timeout</c> when the
+    /// window closes, <c>LoggedOut</c>/<c>ClientOutdated</c> on terminal
+    /// disconnects). Cancelling <paramref name="cancellationToken"/> after the
+    /// code is issued aborts the attempt with no terminal event (same
+    /// semantics as <see cref="StartAsync"/>). The code itself is never logged
+    /// and never embedded in exceptions — failures name the operation only.
+    /// </remarks>
+    /// <param name="phoneNumber">
+    /// Digits-only E.164 without '+' (longer than six digits, no leading
+    /// zero). Validated before any generation or wire work.
+    /// </param>
+    /// <param name="cancellationToken">Host cancellation: aborts with no terminal event.</param>
+    /// <returns>The display-ready <c>XXXX-XXXX</c> code.</returns>
+    /// <exception cref="OperationCanceledException">The host cancelled.</exception>
+    /// <exception cref="InvalidOperationException">Another pairing attempt (QR or code) is live.</exception>
+    /// <exception cref="PairingCodeRequestException">The phone number violates its input contract.</exception>
+    /// <exception cref="Errors.SdkConnectionException">
+    /// The server rejected the request, the reply never arrived inside the
+    /// attempt window, or no channel was available — the attempt is cleared.
+    /// </exception>
+    /// <exception cref="Errors.SdkStoreException">The registration bootstrap found no credential row.</exception>
+    public async Task<string> RequestPairingCodeAsync(string phoneNumber, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(phoneNumber);
+
+        PhoneNumberValidation validation = PairingCodeGenerator.ValidatePhoneNumber(phoneNumber);
+        if (validation != PhoneNumberValidation.Valid)
+        {
+            throw new PairingCodeRequestException(
+                MapValidationReason(validation),
+                ValidationMessageFor(validation));
+        }
+
+        Attempt attempt;
+        lock (_gate)
+        {
+            if (_attempt is { } live && live.Terminal == 0)
+            {
+                throw new InvalidOperationException(
+                    $"A pairing attempt is already live (started {live.StartedAt:o}); " +
+                    "wait for its terminal event or cancel it before starting another.");
+            }
+
+            attempt = new Attempt(
+                _timeProvider.GetUtcNow(),
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken),
+                IsCodeAttempt: true);
+            _attempt = attempt;
+        }
+
+        byte[]? salt = null;
+        byte[]? linkKey = null;
+        try
+        {
+            try
+            {
+                await _payloads.EnsureRegistrationMaterialAsync(attempt.Cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                ClearIfCurrent(attempt);
+                throw;
+            }
+            catch (Exception)
+            {
+                ClearIfCurrent(attempt);
+                throw;
+            }
+
+            string rawCode = PairingCodeGenerator.GenerateCode(_randomBytes);
+            byte[] codeAscii = Encoding.ASCII.GetBytes(rawCode);
+            salt = _randomBytes(LinkCodeCrypto.SaltSize);
+            byte[] iv = _randomBytes(LinkCodeCrypto.CounterSize);
+            byte[] ephemeralSeed = _randomBytes(LinkCodeCrypto.KeySize);
+            try
+            {
+                linkKey = LinkCodeCrypto.DeriveKey(codeAscii, salt);
+                byte[] ephemeralPublic = DeriveX25519Public(ephemeralSeed);
+                byte[] wrapped;
+                try
+                {
+                    wrapped = LinkCodeCrypto.WrapEphemeral(linkKey, salt, iv, ephemeralPublic);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(ephemeralPublic);
+                }
+
+                byte[] bundleKey = LinkCodeCrypto.DeriveBundleKey(linkKey, salt);
+                attempt.BundleKey = bundleKey;
+
+                // The reply's ref is the phone's business (opaque pass-through,
+                // never parsed, never logged): for the SDK the reply is the
+                // server's acceptance of the code request — a rejection
+                // surfaces here as a descriptive error before any code exists.
+                _ = await RequestCodeRefAsync(
+                    attempt, phoneNumber, wrapped, attempt.Cts.Token).ConfigureAwait(false);
+
+                _logger?.LogInformation(
+                    "Pairing code issued for account {AccountId}.",
+                    _accountId.Value);
+                string display = PairingCodeGenerator.ToDisplay(rawCode);
+                Emit(PairingStatus.Code, display);
+
+                // The request half is done: the companion driver owns the tail
+                // (watchdog + hello-ack + the shared verify-then-persist
+                // drain). Tracked through the attempt lifecycle with every
+                // fault captured inside — hosts observe the tail via events.
+                _ = RunCodeCompanionAsync(attempt);
+                return display;
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(codeAscii);
+                CryptographicOperations.ZeroMemory(iv);
+                CryptographicOperations.ZeroMemory(ephemeralSeed);
+            }
+        }
+        catch
+        {
+            ClearIfCurrent(attempt);
+            attempt.Cts.Dispose();
+            throw;
+        }
+        finally
+        {
+            if (salt is not null)
+            {
+                CryptographicOperations.ZeroMemory(salt);
+            }
+
+            if (linkKey is not null)
+            {
+                CryptographicOperations.ZeroMemory(linkKey);
+            }
+        }
+    }
+
+    private static PairingCodeValidationReason MapValidationReason(PhoneNumberValidation validation) =>
+        validation switch
+        {
+            PhoneNumberValidation.NonDigits => PairingCodeValidationReason.NonDigits,
+            PhoneNumberValidation.TooShort => PairingCodeValidationReason.TooShort,
+            PhoneNumberValidation.LeadingZero => PairingCodeValidationReason.LeadingZero,
+            _ => throw new SdkFormatException("Phone-number validation produced an unknown outcome."),
+        };
+
+    private static string ValidationMessageFor(PhoneNumberValidation validation) =>
+        validation switch
+        {
+            PhoneNumberValidation.NonDigits =>
+                "The pairing phone number must contain digits only (E.164 without '+').",
+            PhoneNumberValidation.TooShort =>
+                "The pairing phone number must be longer than six digits.",
+            PhoneNumberValidation.LeadingZero =>
+                "The pairing phone number must not start with zero.",
+            _ => throw new SdkFormatException("Phone-number validation produced an unknown outcome."),
+        };
+
+    /// <summary>
+    /// Sends one link-code request iq (phone attribute plus the 80-byte
+    /// wrapped ephemeral) and awaits the server's ref reply with
+    /// id-attribute correlation. A 405 runs the bounded version-refetch
+    /// before re-issuing; any other error, a missing channel, or an expired
+    /// window fails the request with a descriptive, log-safe error.
+    /// </summary>
+    /// <param name="attempt">The live code attempt (owns the pending waiter).</param>
+    /// <param name="phoneNumber">The validated phone number (validated by the caller).</param>
+    /// <param name="wrapped">The 80-byte wrapped ephemeral (never mutated).</param>
+    /// <param name="cancellationToken">The attempt's token (unwrapped).</param>
+    /// <returns>The server-issued pairing ref the phone consumes.</returns>
+    private async Task<string> RequestCodeRefAsync(
+        Attempt attempt,
+        string phoneNumber,
+        byte[] wrapped,
+        CancellationToken cancellationToken)
+    {
+        DateTimeOffset deadline = attempt.StartedAt + PairingQrPayload.AttemptTimeout;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await WaitForChannelAsync(attempt, deadline).ConfigureAwait(false))
+            {
+                throw new SdkConnectionException(
+                    "The pairing code request found no channel inside the attempt window: the code was not issued.");
+            }
+
+            string id = string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"pair-code-{Interlocked.Increment(ref _requestSequence)}");
+            var pending = new TaskCompletionSource<CodeRefOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+            attempt.PendingCodeRef = pending;
+            Volatile.Write(ref attempt.PendingId, id);
+
+            try
+            {
+                try
+                {
+                    await _sender(BuildLinkCodeRequest(id, phoneNumber, wrapped), attempt.Cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (SdkException ex)
+                {
+                    throw new SdkConnectionException(
+                        "The pairing code request was not sent: the channel is unavailable.", ex);
+                }
+
+                TimeSpan remaining = deadline - _timeProvider.GetUtcNow();
+                if (remaining <= TimeSpan.Zero)
+                {
+                    throw new SdkConnectionException(
+                        "The pairing code request timed out waiting for the server reply: the code was not issued.");
+                }
+
+                Task delay = Task.Delay(remaining, _timeProvider, attempt.Cts.Token);
+                Task winner = await Task.WhenAny(pending.Task, delay).ConfigureAwait(false);
+                if (!ReferenceEquals(winner, pending.Task))
+                {
+                    throw new SdkConnectionException(
+                        "The pairing code request timed out waiting for the server reply: the code was not issued.");
+                }
+
+                CodeRefOutcome outcome = await pending.Task.ConfigureAwait(false);
+                switch (outcome)
+                {
+                    case CodeRefOutcome.Ref r:
+                        return r.Value;
+                    case CodeRefOutcome.Error e when string.Equals(e.Code, StaleClientCode, StringComparison.Ordinal):
+                        if (attempt.Refetches < MaxVersionRefetches)
+                        {
+                            attempt.Refetches++;
+                            await RefetchVersionAsync(attempt).ConfigureAwait(false);
+                            continue;
+                        }
+
+                        Terminate(attempt, PairingStatus.ClientOutdated, null);
+                        throw new SdkConnectionException(
+                            "The pairing code request was rejected as client-outdated: upgrade the client build.");
+                    case CodeRefOutcome.Error e:
+                        throw new SdkConnectionException(
+                            $"The pairing code request was rejected by the server (code {e.Code}).");
+                    default:
+                        throw new SdkConnectionException(
+                            "The pairing code request received an unrecognized reply: the code was not issued.");
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref attempt.PendingId, null);
+                attempt.PendingCodeRef = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Code-attempt tail driver (03-05): joins the hello-ack waiter, the
+    /// attempt-window watchdog, and the shared verify-then-persist drain —
+    /// the same drain the QR path runs, never a second write path. Every
+    /// fault is captured inside (unexpected faults log and end the attempt
+    /// in <c>Timeout</c>); hosts observe the tail through pairing events
+    /// alone, so this task never needs joining and never faults.
+    /// </summary>
+    /// <param name="attempt">The live code attempt whose tail is driven.</param>
+    private async Task RunCodeCompanionAsync(Attempt attempt)
+    {
+        Task drain = DrainPairSuccessAsync(attempt);
+        Task helloAck = SendHelloAckOnHelloAsync(attempt);
+        Task watchdog = WatchdogTimeoutAsync(attempt);
+        try
+        {
+            await Task.WhenAll(drain, helloAck, watchdog).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // A terminal event, the window watchdog, or host cancel unwound
+            // the tail — never a failure outcome, never swallowed silently.
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(
+                ex, "Code companion driver fault for account {AccountId}: ending the attempt.", _accountId.Value);
+            Terminate(attempt, PairingStatus.Timeout, null);
+            try
+            {
+                await Task.WhenAll(drain, helloAck, watchdog).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+            }
+        }
+        finally
+        {
+            ClearIfCurrent(attempt);
+            ZeroizeCodeMaterial(attempt);
+            attempt.Cts.Dispose();
+        }
+
+        if (attempt.DrainError is not null)
+        {
+            _logger?.LogError(
+                attempt.DrainError,
+                "Pair-success persist failed on the code path for account {AccountId}: success withheld.",
+                _accountId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Sends the companion-hello acknowledgement once the server's hello
+    /// arrives (id-correlated to the hello stanza). A send failure logs and
+    /// ends this waiter only — the finish can still arrive and authenticate.
+    /// </summary>
+    /// <param name="attempt">The live code attempt.</param>
+    private async Task SendHelloAckOnHelloAsync(Attempt attempt)
+    {
+        try
+        {
+            await attempt.HelloSignal.Task.WaitAsync(attempt.Cts.Token).ConfigureAwait(false);
+            string replyId = attempt.HelloReplyId
+                ?? $"companion-hello-{Interlocked.Increment(ref _requestSequence)}";
+            await _sender(BuildCompanionHelloAck(replyId), attempt.Cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (SdkException ex)
+        {
+            _logger?.LogWarning(
+                ex, "Companion hello acknowledgement failed for account {AccountId}.", _accountId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Ends the code attempt in <c>Timeout</c> when the whole-attempt window
+    /// elapses without a verified finish (A3: a typed outcome, never a hang).
+    /// </summary>
+    /// <param name="attempt">The live code attempt.</param>
+    private async Task WatchdogTimeoutAsync(Attempt attempt)
+    {
+        try
+        {
+            await Task.Delay(PairingQrPayload.AttemptTimeout, _timeProvider, attempt.Cts.Token).ConfigureAwait(false);
+            Terminate(attempt, PairingStatus.Timeout, null);
+        }
+        catch (OperationCanceledException)
+        {
+            // A terminal event or host cancel unwound the wait.
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Zeroizes the live code attempt's bundle key at the attempt boundary.
+    /// </summary>
+    /// <param name="attempt">The ending code attempt.</param>
+    private static void ZeroizeCodeMaterial(Attempt attempt)
+    {
+        byte[]? bundleKey = Interlocked.Exchange(ref attempt.BundleKey, null);
+        if (bundleKey is not null)
+        {
+            CryptographicOperations.ZeroMemory(bundleKey);
+        }
+    }
+
+    /// <summary>
     /// Stanza-received handler (subscribes to the connection's internal stanza
     /// event): enqueues pair-success containers for the verify-then-persist
     /// drain and correlates ref/error replies to the pending pairing request
@@ -319,6 +745,27 @@ internal sealed class PairingCoordinator
             || !node.Attrs.TryGetValue("id", out string? id)
             || !string.Equals(id, pendingId, StringComparison.Ordinal))
         {
+            return;
+        }
+
+        if (attempt.PendingCodeRef is not null)
+        {
+            // Code-attempt correlation (03-05): the ref reply accepts the
+            // request; any error reply rejects it with its numeric code
+            // (405 runs the bounded refetch in the request loop). A
+            // correlated-but-unrecognized reply is ignored — the reply wait
+            // bounds it, never a silent hang.
+            if (TryExtractCodeRef(node, out string? codeRef))
+            {
+                attempt.PendingCodeRef.TrySetResult(new CodeRefOutcome.Ref(codeRef));
+                return;
+            }
+
+            if (TryGetErrorCode(node, out string? errorCode) && errorCode is not null)
+            {
+                attempt.PendingCodeRef.TrySetResult(new CodeRefOutcome.Error(errorCode));
+            }
+
             return;
         }
 
@@ -837,6 +1284,47 @@ internal sealed class PairingCoordinator
             });
 
     /// <summary>
+    /// Builds the link-code request: an <c>iq get</c> carrying the validated
+    /// phone number as a string attribute (attr values roundtrip losslessly)
+    /// and the 80-byte wrapped ephemeral as binary content (content-slot raw
+    /// strings would decode as <c>Data</c>, never as text — the 03-03
+    /// content-vs-attr codec asymmetry).
+    /// </summary>
+    /// <param name="id">The request id for reply correlation.</param>
+    /// <param name="phoneNumber">The validated phone number (digits-only, never logged).</param>
+    /// <param name="wrapped">The 80-byte wrapped ephemeral.</param>
+    private static BinaryNode BuildLinkCodeRequest(string id, string phoneNumber, byte[] wrapped) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.FromChildren(
+                LinkCodeRequestTag,
+                [BinaryNode.FromBytes(LinkCodeWrapTag, wrapped)],
+                new Dictionary<string, string>
+                {
+                    [PhoneAttribute] = phoneNumber,
+                })],
+            new Dictionary<string, string>
+            {
+                ["id"] = id,
+                ["type"] = "get",
+            });
+
+    /// <summary>
+    /// Builds the companion-hello acknowledgement: an <c>iq result</c>
+    /// correlated by the hello stanza's id.
+    /// </summary>
+    /// <param name="id">The hello stanza's id (or a generated fallback).</param>
+    private static BinaryNode BuildCompanionHelloAck(string id) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.Create(CompanionHelloAckTag)],
+            new Dictionary<string, string>
+            {
+                ["id"] = id,
+                ["type"] = "result",
+            });
+
+    /// <summary>
     /// Builds the success reply: an <c>iq result</c> correlated by the
     /// <c>id</c> attribute (the QueryRouter correlation discipline — pairing
     /// stanzas flow through the stanza event, but the reply still carries the
@@ -872,16 +1360,58 @@ internal sealed class PairingCoordinator
         return true;
     }
 
-    private static bool IsErrorCode(BinaryNode node, string code)
+    private static bool IsErrorCode(BinaryNode node, string code) =>
+        TryGetErrorCode(node, out string? actual)
+        && string.Equals(actual, code, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Extracts the numeric error code from an <c>iq error</c> stanza, if any.
+    /// </summary>
+    /// <param name="node">The inbound stanza (never mutated).</param>
+    /// <param name="errorCode">The error's <c>code</c> attribute (protocol metadata, safe to surface).</param>
+    private static bool TryGetErrorCode(BinaryNode node, out string? errorCode)
     {
+        errorCode = null;
         if (!string.Equals(node.Attrs.GetValueOrDefault("type"), "error", StringComparison.Ordinal))
         {
             return false;
         }
 
         BinaryNode? error = FindChild(node, ErrorTag);
-        return error is not null
-            && string.Equals(error.Attrs.GetValueOrDefault(CodeAttribute), code, StringComparison.Ordinal);
+        string? code = error?.Attrs.GetValueOrDefault(CodeAttribute);
+        if (string.IsNullOrEmpty(code))
+        {
+            return false;
+        }
+
+        errorCode = code;
+        return true;
+    }
+
+    /// <summary>
+    /// Extracts the server-issued pairing ref from a link-code reply: an
+    /// <c>iq result</c> whose <c>link-code-ref</c> child carries it as an
+    /// attribute (never text content — the content-vs-attr asymmetry).
+    /// </summary>
+    /// <param name="node">The inbound stanza (never mutated).</param>
+    /// <param name="codeRef">The opaque ref (the phone's business — never parsed).</param>
+    private static bool TryExtractCodeRef(BinaryNode node, [NotNullWhen(true)] out string? codeRef)
+    {
+        codeRef = null;
+        if (!string.Equals(node.Attrs.GetValueOrDefault("type"), "result", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        BinaryNode? linkRef = FindChild(node, LinkCodeRefTag);
+        string? reference = linkRef?.Attrs.GetValueOrDefault(RefAttribute);
+        if (string.IsNullOrEmpty(reference))
+        {
+            return false;
+        }
+
+        codeRef = reference;
+        return true;
     }
 
     /// <summary>
@@ -989,11 +1519,14 @@ internal sealed class PairingCoordinator
 
     private sealed class Attempt
     {
-        internal Attempt(DateTimeOffset startedAt, CancellationTokenSource cts)
+        internal Attempt(DateTimeOffset startedAt, CancellationTokenSource cts, bool IsCodeAttempt = false)
         {
             StartedAt = startedAt;
             NextIssueAt = startedAt;
             Cts = cts;
+            this.IsCodeAttempt = IsCodeAttempt;
+            HelloReceived = false;
+            HelloReplyId = null;
         }
 
         internal DateTimeOffset StartedAt { get; }
@@ -1009,6 +1542,39 @@ internal sealed class PairingCoordinator
         internal string? PendingId;
 
         internal TaskCompletionSource<RefOutcome>? PendingRef;
+
+        /// <summary>
+        /// Whether this attempt issues a pairing code (03-05) rather than QR
+        /// payloads: the request half is client-generated, and the tail waits
+        /// on the companion handshake instead of rotating refs.
+        /// </summary>
+        internal bool IsCodeAttempt { get; }
+
+        /// <summary>
+        /// Pending link-code request waiter (code attempts only): the stanza
+        /// handler completes it with the server's ref or error reply,
+        /// correlated by <see cref="PendingId"/>.
+        /// </summary>
+        internal TaskCompletionSource<CodeRefOutcome>? PendingCodeRef;
+
+        /// <summary>
+        /// The live code's bundle key (code attempts only): the companion
+        /// finish authenticates under this key, which implicitly binds the
+        /// finish to the live code epoch. Zeroized at the attempt boundary.
+        /// </summary>
+        internal byte[]? BundleKey;
+
+        /// <summary>
+        /// Completed when the companion hello arrives (code attempts only);
+        /// the driver sends the hello acknowledgement off this signal.
+        /// </summary>
+        internal TaskCompletionSource HelloSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Whether the companion hello arrived (sequence gate for the finish).</summary>
+        internal bool HelloReceived;
+
+        /// <summary>The hello stanza's id for acknowledgement correlation (null when absent).</summary>
+        internal string? HelloReplyId;
 
         /// <summary>
         /// Pair-success containers awaiting the verify-then-persist drain.
@@ -1050,5 +1616,17 @@ internal sealed class PairingCoordinator
         internal sealed record Error405 : RefOutcome;
 
         internal sealed record Retry(bool ReissuePromptly) : RefOutcome;
+    }
+
+    /// <summary>
+    /// One link-code request reply (code attempts only): the server's ref
+    /// (acceptance — the ref itself is the phone's business) or its numeric
+    /// error code (rejection, surfaced descriptively).
+    /// </summary>
+    private abstract record CodeRefOutcome
+    {
+        internal sealed record Ref(string Value) : CodeRefOutcome;
+
+        internal sealed record Error(string Code) : CodeRefOutcome;
     }
 }

@@ -264,8 +264,12 @@ public sealed class WaConnection : IAsyncDisposable
     public ConnectionState State => _state;
 
     /// <summary>
-    /// The pairing entry point (03-03): one coordinator per connection, driving a
-    /// single QR pairing attempt at a time over the stanza and channel seams.
+    /// The pairing entry point (03-03, public since 03-05 CONN-02): one
+    /// coordinator per connection, driving a single QR or pairing-code
+    /// attempt at a time over the stanza and channel seams. Hosts start QR
+    /// attempts with <c>StartAsync</c>, request typed codes with
+    /// <c>RequestPairingCodeAsync</c>, and observe every outcome on
+    /// <c>StateChanged</c>.
     /// Created on first access (which must happen before <see cref="ConnectAsync"/>
     /// so no channel-ready pulse is missed) and wired to the internal
     /// stanza-received, pairing-terminal, and channel-ready events.
@@ -274,7 +278,7 @@ public sealed class WaConnection : IAsyncDisposable
     /// The handshake payloads are not credential-aware (pre-Phase-3 doubles carry
     /// no pairing material).
     /// </exception>
-    internal PairingCoordinator Pairing
+    public PairingCoordinator Pairing
     {
         get
         {

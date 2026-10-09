@@ -183,6 +183,23 @@ Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Code = 0 -> Iwasug.WhatsApp.Sdk.Pairin
 Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.LoggedOut = 3 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
 Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Success = 1 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
 Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Timeout = 2 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.StateChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Pairing.PairingStateChangedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason.NonDigits = 0 -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason.TooShort = 1 -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason.LeadingZero = 2 -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
+Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.Valid = 0 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
+Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.NonDigits = 1 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
+Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.TooShort = 2 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
+Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.LeadingZero = 3 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.PairingCodeRequestException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.Reason.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator
+Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.StartAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.RequestPairingCodeAsync(string! phoneNumber, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+Iwasug.WhatsApp.Sdk.Connection.WaConnection.Pairing.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator!
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
