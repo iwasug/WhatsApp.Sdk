@@ -51,6 +51,12 @@ created: "2026-10-09"
 | all plans | 03-01 … 03-07 | 1–7 | all | T-3-SC | Public API surface additions tracked | analyzer gate | included in build (`dotnet build ... -warnaserror`) | ✅ `PublicAPI.Unshipped.txt` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+- **Run date:** 2026-10-10
+- **Build:** `dotnet build Iwasug.WhatsApp.Sdk.sln --nologo` → **0 Warning(s), 0 Error(s)** ✅
+- **Suite:** `dotnet test Iwasug.WhatsApp.Sdk.sln` → **409 succeeded, 1 failed, 0 skipped** ⚠️
+- **Failed test:** `Iwasug.WhatsApp.Sdk.Tests.Connection.ResumeTests.kill_restart_resume_with_drops_and_concurrency` — `TaskCanceledException` (timeout/cancellation during drop injection; pre-existing, not introduced by this plan)
+- **Threat refs:** All seed-row threat refs (T-3-01 through T-3-14, T-3-SC) match their declaring plan's `<threat_model>` register ✅
+- **Task ID mappings:** Every seed row names a task ID that exists in its referenced plan file ✅
 *Note: Task IDs are concrete plan task references (`03-NN-TM`, plan 03, task M). Threat refs match each declaring plan's `<threat_model>` register; wave columns follow plan frontmatter.*
 
 ---
