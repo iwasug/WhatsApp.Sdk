@@ -162,6 +162,27 @@ Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Decrypt(System.ReadOnlySpan<byte> packe
 Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Dispose() -> void
 Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.Encrypt(System.ReadOnlySpan<byte> plaintext) -> byte[]!
 Iwasug.WhatsApp.Sdk.Noise.NoiseTransport.NoiseTransport(System.ReadOnlyMemory<byte> writeKey, System.ReadOnlyMemory<byte> readKey) -> void
+Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload
+const Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AdvSecretSize = 32 -> int
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptExpired(System.DateTimeOffset attemptStartedAt, System.DateTimeOffset now) -> bool
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptTimeout -> System.TimeSpan
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.Build(string! pairingRef, System.ReadOnlySpan<byte> noisePublic, System.ReadOnlySpan<byte> identityPublic, System.ReadOnlySpan<byte> advSecret, string! platformId) -> string!
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.CodeExpiry(System.DateTimeOffset issuedAt, int codeIndex) -> System.DateTimeOffset
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.FirstCodeLifetime -> System.TimeSpan
+const Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.PublicKeySize = 32 -> int
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationFor(int codeIndex) -> System.TimeSpan
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationInterval -> System.TimeSpan
+const Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.WirePrefix = "https://wa.me/settings/linked_devices#" -> string!
+Iwasug.WhatsApp.Sdk.Pairing.PairingStateChangedEventArgs
+Iwasug.WhatsApp.Sdk.Pairing.PairingStateChangedEventArgs.PairingStateChangedEventArgs(Iwasug.WhatsApp.Sdk.Pairing.PairingStatus status, string? payload) -> void
+Iwasug.WhatsApp.Sdk.Pairing.PairingStateChangedEventArgs.Payload.get -> string?
+Iwasug.WhatsApp.Sdk.Pairing.PairingStateChangedEventArgs.Status.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.ClientOutdated = 4 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Code = 0 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.LoggedOut = 3 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Success = 1 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
+Iwasug.WhatsApp.Sdk.Pairing.PairingStatus.Timeout = 2 -> Iwasug.WhatsApp.Sdk.Pairing.PairingStatus
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
 Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
