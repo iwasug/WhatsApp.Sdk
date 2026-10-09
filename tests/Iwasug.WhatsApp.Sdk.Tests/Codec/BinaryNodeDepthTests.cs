@@ -32,6 +32,21 @@ public sealed class BinaryNodeDepthTests
     }
 
     [Fact]
+    public void Decode_rejects_a_10kb_jid_pair_string_chain_with_the_nesting_depth_rule()
+    {
+        // ListEmpty header tag (0x00), then a JidPair (0xFA) whose "user" element is
+        // another JidPair, and so on — one stack frame per input byte before the
+        // string-reader depth bound fires (a ~10 KB payload must throw, never
+        // exhaust the stack).
+        byte[] wire = [0x00, .. Enumerable.Repeat((byte)0xFA, 10_000)];
+        Func<BinaryNode> decode = () => BinaryNodeCodec.Decode(wire);
+
+        decode.Should()
+            .Throw<SdkFormatException>()
+            .WithMessage("Encoded node exceeds the maximum nesting depth.");
+    }
+
+    [Fact]
     public void Decode_round_trips_a_300_child_list16_node()
     {
         BinaryNode node = BinaryNode.FromChildren(

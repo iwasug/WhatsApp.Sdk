@@ -420,7 +420,7 @@ public static class BinaryNodeCodec
             }
 
             int listSize = ReadListSize(ReadByte());
-            string header = ReadString(ReadByte());
+            string header = ReadString(ReadByte(), depth);
             if (listSize == 0 || header.Length == 0)
             {
                 throw new SdkFormatException("Encoded node must carry a tag.");
@@ -430,8 +430,8 @@ public static class BinaryNodeCodec
             int attributeCount = (listSize - 1) >> 1;
             for (int i = 0; i < attributeCount; i++)
             {
-                string key = ReadString(ReadByte());
-                string attrValue = ReadString(ReadByte());
+                string key = ReadString(ReadByte(), depth);
+                string attrValue = ReadString(ReadByte(), depth);
                 attrs[key] = attrValue;
             }
 
@@ -466,7 +466,7 @@ public static class BinaryNodeCodec
                             bytes = ReadBytes(ReadInt32());
                             break;
                         default:
-                            text = ReadString(tag);
+                            text = ReadString(tag, depth);
                             break;
                     }
                 }
@@ -561,8 +561,17 @@ public static class BinaryNodeCodec
             };
         }
 
-        private string ReadString(int tag)
+        private string ReadString(int tag, int depth)
         {
+            // The JID forms below recurse once per nesting level through this reader,
+            // so the same depth budget that bounds ReadNode must bound them too —
+            // otherwise a crafted JidPair chain costs one stack frame per input byte
+            // and a few kilobytes exhaust the stack (uncatchable on modern .NET).
+            if (depth > MaxNestedDepth)
+            {
+                throw new SdkFormatException("Encoded node exceeds the maximum nesting depth.");
+            }
+
             if (tag >= 1 && tag < TokenDictionary.SingleByteTokens.Length)
             {
                 return TokenDictionary.GetSingleByteToken(tag);
@@ -584,13 +593,13 @@ public static class BinaryNodeCodec
                 case Binary32:
                     return ReadRawChars(ReadInt32());
                 case JidPair:
-                    return ReadJidPair();
+                    return ReadJidPair(depth);
                 case FbJid:
-                    return ReadFbJid();
+                    return ReadFbJid(depth);
                 case InteropJid:
-                    return ReadInteropJid();
+                    return ReadInteropJid(depth);
                 case AdJid:
-                    return ReadAdJid();
+                    return ReadAdJid(depth);
                 case Hex8:
                 case Nibble8:
                     return ReadPacked(tag);
@@ -599,10 +608,10 @@ public static class BinaryNodeCodec
             }
         }
 
-        private string ReadJidPair()
+        private string ReadJidPair(int depth)
         {
-            string user = ReadString(ReadByte());
-            string server = ReadString(ReadByte());
+            string user = ReadString(ReadByte(), depth + 1);
+            string server = ReadString(ReadByte(), depth + 1);
             if (server.Length == 0)
             {
                 throw new SdkFormatException("JID pair form requires a non-empty server part.");
@@ -611,11 +620,11 @@ public static class BinaryNodeCodec
             return user + "@" + server;
         }
 
-        private string ReadAdJid()
+        private string ReadAdJid(int depth)
         {
             int domainType = ReadByte();
             int device = ReadByte();
-            string user = ReadString(ReadByte());
+            string user = ReadString(ReadByte(), depth + 1);
             string server = domainType switch
             {
                 1 => "lid",
@@ -627,17 +636,17 @@ public static class BinaryNodeCodec
             return device == 0 ? user + "@" + server : user + ":" + device + "@" + server;
         }
 
-        private string ReadFbJid()
+        private string ReadFbJid(int depth)
         {
-            string user = ReadString(ReadByte());
+            string user = ReadString(ReadByte(), depth + 1);
             int device = ReadInt(2);
-            string server = ReadString(ReadByte());
+            string server = ReadString(ReadByte(), depth + 1);
             return user + ":" + device + "@" + server;
         }
 
-        private string ReadInteropJid()
+        private string ReadInteropJid(int depth)
         {
-            string user = ReadString(ReadByte());
+            string user = ReadString(ReadByte(), depth + 1);
             int device = ReadInt(2);
             int integrator = ReadInt(2);
 
@@ -645,7 +654,7 @@ public static class BinaryNodeCodec
             string server = "interop";
             try
             {
-                server = ReadString(ReadByte());
+                server = ReadString(ReadByte(), depth + 1);
             }
             catch (SdkFormatException)
             {
