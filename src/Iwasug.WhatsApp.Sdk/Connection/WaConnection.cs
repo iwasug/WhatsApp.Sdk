@@ -215,7 +215,7 @@ public sealed class WaConnection : IAsyncDisposable
                 throw new ObjectDisposedException(nameof(WaConnection));
             }
 
-            CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 _monitorCts.Token);
             _hostLinkedCts = linked;
@@ -257,11 +257,7 @@ public sealed class WaConnection : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        Channel? channel = _channel;
-        if (channel is null)
-        {
-            throw new SdkConnectionException("The connection is not open: the query was not sent.");
-        }
+        Channel? channel = _channel ?? throw new SdkConnectionException("The connection is not open: the query was not sent.");
 
         try
         {
@@ -1074,20 +1070,13 @@ internal sealed class ReconnectAttemptGate
         Task<T> shared;
         lock (_gate)
         {
-            if (_inFlight is Task<T> running && !running.IsCompleted)
-            {
-                shared = running;
-            }
-            else
-            {
-                shared = (Task<T>)(_inFlight = RunInnerAsync(attempt));
-            }
+            shared = _inFlight is Task<T> running && !running.IsCompleted ? running : (Task<T>)(_inFlight = RunInnerAsync(attempt));
         }
 
         if (callerToken.CanBeCanceled)
         {
             using var attached = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
-            Task waiter = Task.Delay(Timeout.Infinite, attached.Token);
+            var waiter = Task.Delay(Timeout.Infinite, attached.Token);
             Task winner = await Task.WhenAny(shared, waiter).ConfigureAwait(false);
             if (ReferenceEquals(winner, waiter))
             {

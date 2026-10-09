@@ -211,7 +211,7 @@ public sealed class ReconnectPolicyTests
     {
         Action negative = () => ReconnectPolicy.Decide(408, -1);
 
-        var thrown = negative.Should().Throw<ArgumentOutOfRangeException>().Which;
+        ArgumentOutOfRangeException thrown = negative.Should().Throw<ArgumentOutOfRangeException>().Which;
         thrown.Message.Should().Contain("must not be negative");
         thrown.Message.Should().NotContain("-1", "guard messages name the rule — they never embed the offending value");
     }

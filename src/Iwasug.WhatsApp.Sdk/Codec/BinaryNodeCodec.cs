@@ -123,7 +123,7 @@ public static class BinaryNodeCodec
     private static void EncodeNode(BinaryNode node, List<byte> buffer)
     {
         bool hasContent = node.Children is not null || node.Text is not null || node.Data is not null;
-        WriteListStart(buffer, (2 * node.Attrs.Count) + 1 + (hasContent ? 1 : 0));
+        WriteListStart(buffer, 2 * node.Attrs.Count + 1 + (hasContent ? 1 : 0));
         WriteString(buffer, node.Tag);
 
         foreach (KeyValuePair<string, string> attr in node.Attrs)
@@ -279,7 +279,7 @@ public static class BinaryNodeCodec
 
         for (int i = 0; i < value.Length / 2; i++)
         {
-            buffer.Add((byte)((PackChar(value[2 * i], tag) << 4) | PackChar(value[(2 * i) + 1], tag)));
+            buffer.Add((byte)((PackChar(value[2 * i], tag) << 4) | PackChar(value[2 * i + 1], tag)));
         }
 
         if (value.Length % 2 != 0)
@@ -577,35 +577,20 @@ public static class BinaryNodeCodec
                 return TokenDictionary.GetSingleByteToken(tag);
             }
 
-            switch (tag)
+            return tag switch
             {
-                case Dictionary0:
-                case Dictionary1:
-                case Dictionary2:
-                case Dictionary3:
-                    return TokenDictionary.GetDoubleByteToken(tag - Dictionary0, ReadByte());
-                case ListEmpty:
-                    return string.Empty;
-                case Binary8:
-                    return ReadRawChars(ReadByte());
-                case Binary20:
-                    return ReadRawChars(ReadInt20());
-                case Binary32:
-                    return ReadRawChars(ReadInt32());
-                case JidPair:
-                    return ReadJidPair(depth);
-                case FbJid:
-                    return ReadFbJid(depth);
-                case InteropJid:
-                    return ReadInteropJid(depth);
-                case AdJid:
-                    return ReadAdJid(depth);
-                case Hex8:
-                case Nibble8:
-                    return ReadPacked(tag);
-                default:
-                    throw new SdkFormatException("String field uses an unrecognized token tag.");
-            }
+                Dictionary0 or Dictionary1 or Dictionary2 or Dictionary3 => TokenDictionary.GetDoubleByteToken(tag - Dictionary0, ReadByte()),
+                ListEmpty => string.Empty,
+                Binary8 => ReadRawChars(ReadByte()),
+                Binary20 => ReadRawChars(ReadInt20()),
+                Binary32 => ReadRawChars(ReadInt32()),
+                JidPair => ReadJidPair(depth),
+                FbJid => ReadFbJid(depth),
+                InteropJid => ReadInteropJid(depth),
+                AdJid => ReadAdJid(depth),
+                Hex8 or Nibble8 => ReadPacked(tag),
+                _ => throw new SdkFormatException("String field uses an unrecognized token tag."),
+            };
         }
 
         private string ReadJidPair(int depth)
@@ -676,7 +661,7 @@ public static class BinaryNodeCodec
                 sb.Append(UnpackChar(tag, packed & 0x0F));
             }
 
-            if ((start >> 7) != 0 && sb.Length > 0)
+            if (start >> 7 != 0 && sb.Length > 0)
             {
                 sb.Length -= 1;
             }

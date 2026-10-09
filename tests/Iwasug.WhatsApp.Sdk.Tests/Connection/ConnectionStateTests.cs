@@ -221,7 +221,7 @@ public sealed class ConnectionStateTests
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
         var logger = new CaptureLogger<WaConnection>();
-        var options = TracerOptions();
+        ConnectionOptions options = TracerOptions();
         await using var connection = new WaConnection(
             NewAccount("sequence"),
             pairs.CreateClient,

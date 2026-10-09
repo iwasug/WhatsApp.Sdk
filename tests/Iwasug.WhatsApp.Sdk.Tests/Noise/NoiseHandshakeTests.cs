@@ -78,8 +78,8 @@ public sealed class NoiseHandshakeTests
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken testToken = testCts.Token;
         (LoopbackFrameTransport client, LoopbackFrameTransport peer) = LoopbackFrameTransport.CreatePair();
-        await using var clientLifetime = client;
-        await using var peerLifetime = peer;
+        await using LoopbackFrameTransport clientLifetime = client;
+        await using LoopbackFrameTransport peerLifetime = peer;
 
         var payloads = new StaticPayloads("client-hello", "client-finish");
         byte[] serverHello = Encoding.ASCII.GetBytes("server-hello");
@@ -121,8 +121,8 @@ public sealed class NoiseHandshakeTests
         byte[] serverHello = Encoding.ASCII.GetBytes("server-hello");
 
         (LoopbackFrameTransport firstClient, LoopbackFrameTransport firstPeer) = LoopbackFrameTransport.CreatePair();
-        await using var firstClientLifetime = firstClient;
-        await using var firstPeerLifetime = firstPeer;
+        await using LoopbackFrameTransport firstClientLifetime = firstClient;
+        await using LoopbackFrameTransport firstPeerLifetime = firstPeer;
         using var firstInitiator = new NoiseHandshake(payloads);
         using var firstResponder = new NoiseHandshakeResponder(serverHello);
         (NoiseTransport firstInitiatorTransport, NoiseTransport firstResponderTransport, byte[] firstMessageA, _) =
@@ -146,8 +146,8 @@ public sealed class NoiseHandshakeTests
         // Fresh handshake on a fresh channel: new ephemeral, new transcript,
         // working keys — the old secrets contribute nothing.
         (LoopbackFrameTransport secondClient, LoopbackFrameTransport secondPeer) = LoopbackFrameTransport.CreatePair();
-        await using var secondClientLifetime = secondClient;
-        await using var secondPeerLifetime = secondPeer;
+        await using LoopbackFrameTransport secondClientLifetime = secondClient;
+        await using LoopbackFrameTransport secondPeerLifetime = secondPeer;
         using var secondInitiator = new NoiseHandshake(payloads);
         using var secondResponder = new NoiseHandshakeResponder(serverHello);
         (NoiseTransport secondInitiatorTransport, NoiseTransport secondResponderTransport, byte[] secondMessageA, _) =
@@ -234,8 +234,8 @@ public sealed class NoiseHandshakeTests
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken testToken = testCts.Token;
         (LoopbackFrameTransport client, LoopbackFrameTransport peer) = LoopbackFrameTransport.CreatePair();
-        await using var clientLifetime = client;
-        await using var peerLifetime = peer;
+        await using LoopbackFrameTransport clientLifetime = client;
+        await using LoopbackFrameTransport peerLifetime = peer;
 
         byte[] hello = Encoding.ASCII.GetBytes("client-hello");
         byte[] finish = Encoding.ASCII.GetBytes("client-finish");
@@ -314,8 +314,8 @@ public sealed class NoiseHandshakeTests
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken testToken = testCts.Token;
         (LoopbackFrameTransport client, LoopbackFrameTransport peer) = LoopbackFrameTransport.CreatePair();
-        await using var clientLifetime = client;
-        await using var peerLifetime = peer;
+        await using LoopbackFrameTransport clientLifetime = client;
+        await using LoopbackFrameTransport peerLifetime = peer;
 
         var payloads = new StaticPayloads("client-hello", "client-finish");
         byte[] serverHello = Encoding.ASCII.GetBytes("server-hello");

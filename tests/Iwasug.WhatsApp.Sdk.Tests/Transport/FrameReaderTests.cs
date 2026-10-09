@@ -51,7 +51,7 @@ public sealed class FrameReaderTests
     public async Task ReadAllAsync_reassembles_split_byte_by_byte_delivery()
     {
         byte[] framed = Frame(GoldenNodeBytes);
-        var chunks = new byte[framed.Length][];
+        byte[][] chunks = new byte[framed.Length][];
         for (int i = 0; i < framed.Length; i++)
         {
             chunks[i] = [framed[i]];
@@ -149,7 +149,7 @@ public sealed class FrameReaderTests
     {
         // 17 MiB of zeros compresses to kilobytes on the wire but must still abort
         // when the inflated output crosses the cap.
-        var zeros = new byte[NoiseProtocol.MaxFrameBytes + (1024 * 1024)];
+        byte[] zeros = new byte[NoiseProtocol.MaxFrameBytes + 1024 * 1024];
         Pipe pipe = Feed([Frame(zeros, compress: true)]);
 
         Func<Task> read = () => FrameReader.ReadAllAsync(pipe.Reader, CancellationToken.None);

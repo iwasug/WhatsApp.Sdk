@@ -42,7 +42,7 @@ public sealed class QueryRouterTests
 
         Task<byte[]> first = harness.Router.SendQueryAsync(Payload([0x01]), CancellationToken.None).AsTask();
         Task<byte[]> second = harness.Router.SendQueryAsync(Payload([0x02]), CancellationToken.None).AsTask();
-        var sent = harness.TwoSent();
+        List<(string Id, byte[] Payload)> sent = harness.TwoSent();
         sent[0].Id.Should().NotBe(sent[1].Id);
 
         await harness.DeliverCannedReplyAsync(sent[0].Id, [0x0A]);

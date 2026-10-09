@@ -97,7 +97,7 @@ public sealed class LoopbackTests
             int closeCode,
             CancellationToken cancellationToken)
         {
-            using var _ = socket;
+            using WebSocket _ = socket;
             byte[] header = await ReceiveMessageAsync(socket, cancellationToken);
             NoiseHandshake.ValidateIntroHeader(header);
 
@@ -152,7 +152,7 @@ public sealed class LoopbackTests
         private static async Task<byte[]> ReceiveMessageAsync(WebSocket socket, CancellationToken cancellationToken)
         {
             using var message = new MemoryStream();
-            var buffer = new byte[8192];
+            byte[] buffer = new byte[8192];
             while (true)
             {
                 WebSocketReceiveResult result = await socket.ReceiveAsync(buffer, cancellationToken);
@@ -217,7 +217,7 @@ public sealed class LoopbackTests
         CancellationToken testToken = testCts.Token;
         using var server = LoopbackServer.Start();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
-        var options = RealSocketOptions();
+        ConnectionOptions options = RealSocketOptions();
         await using var connection = new WaConnection(
             NewAccount(),
             () => new WebSocketFrameTransport(server.Endpoint, options),

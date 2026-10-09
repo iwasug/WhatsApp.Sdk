@@ -137,7 +137,7 @@ internal static class FrameReader
             using var input = new MemoryStream(compressed.ToArray(), writable: false);
             using var inflater = new ZLibStream(input, CompressionMode.Decompress);
             using var output = new MemoryStream();
-            var chunk = new byte[8192];
+            byte[] chunk = new byte[8192];
             int total = 0;
             int read;
             while ((read = inflater.Read(chunk, 0, chunk.Length)) > 0)

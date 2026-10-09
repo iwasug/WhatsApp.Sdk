@@ -118,7 +118,7 @@ public sealed class NoiseTransport : IDisposable
         BinaryPrimitives.WriteUInt32BigEndian(nonce[^4..], (uint)_sendCounter);
         _sendCounter++;
 
-        var packet = new byte[NonceSize + plaintext.Length + TagSize];
+        byte[] packet = new byte[NonceSize + plaintext.Length + TagSize];
         nonce.CopyTo(packet.AsSpan(0, NonceSize));
         _sendCipher!.Encrypt(
             nonce,
@@ -162,7 +162,7 @@ public sealed class NoiseTransport : IDisposable
         }
 
         int ciphertextLength = packet.Length - (NonceSize + TagSize);
-        var plaintext = new byte[ciphertextLength];
+        byte[] plaintext = new byte[ciphertextLength];
         try
         {
             _receiveCipher!.Decrypt(

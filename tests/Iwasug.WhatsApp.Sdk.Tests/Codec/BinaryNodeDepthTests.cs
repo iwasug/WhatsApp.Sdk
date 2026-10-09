@@ -49,7 +49,7 @@ public sealed class BinaryNodeDepthTests
     [Fact]
     public void Decode_round_trips_a_300_child_list16_node()
     {
-        BinaryNode node = BinaryNode.FromChildren(
+        var node = BinaryNode.FromChildren(
             "parent",
             Enumerable.Range(0, 300).Select(index => BinaryNode.Create($"child-{index}")));
 
@@ -76,7 +76,7 @@ public sealed class BinaryNodeDepthTests
 
     private static BinaryNode CreateSingleChildChain(int depth)
     {
-        BinaryNode current = BinaryNode.Create("leaf");
+        var current = BinaryNode.Create("leaf");
         for (int i = 1; i < depth; i++)
         {
             current = BinaryNode.FromChildren($"node-{i}", [current]);
