@@ -36,13 +36,13 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Put_then_Get_round_trips_typed_record()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStoreFactory factory = CreateFactory();
+        ISafetyStateStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var record = new SafetyStateRecord(CreatedAt, WarmupStage: 3);
 
         await store.PutAsync(record, CancellationToken.None);
 
-        var fetched = await store.GetAsync(CancellationToken.None);
+        SafetyStateRecord? fetched = await store.GetAsync(CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.CreatedAt.Should().Be(CreatedAt);
@@ -53,10 +53,10 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Get_missing_row_returns_null_not_throw()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStoreFactory factory = CreateFactory();
+        ISafetyStateStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetAsync(CancellationToken.None);
+        SafetyStateRecord? fetched = await store.GetAsync(CancellationToken.None);
 
         fetched.Should().BeNull(); // missing ≠ failure (D-19)
         await store.DisposeAsync();
@@ -65,15 +65,15 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Two_accounts_see_independent_single_rows()
     {
-        var factory = CreateFactory();
-        var storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
+        ISafetyStateStoreFactory factory = CreateFactory();
+        ISafetyStateStore storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStore storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
 
         await storeA.PutAsync(new SafetyStateRecord(CreatedAt, WarmupStage: 4), CancellationToken.None);
 
         // Structural namespacing (D-02 / T-01-05): A's row is invisible to B.
-        var rowA = await storeA.GetAsync(CancellationToken.None);
-        var rowB = await storeB.GetAsync(CancellationToken.None);
+        SafetyStateRecord? rowA = await storeA.GetAsync(CancellationToken.None);
+        SafetyStateRecord? rowB = await storeB.GetAsync(CancellationToken.None);
         rowA.Should().NotBeNull();
         rowB.Should().BeNull();
 
@@ -89,13 +89,13 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Double_put_overwrites_single_row_last_write_wins()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStoreFactory factory = CreateFactory();
+        ISafetyStateStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         await store.PutAsync(new SafetyStateRecord(CreatedAt, WarmupStage: 1), CancellationToken.None);
         await store.PutAsync(new SafetyStateRecord(CreatedAt, WarmupStage: 2), CancellationToken.None);
 
-        var fetched = await store.GetAsync(CancellationToken.None);
+        SafetyStateRecord? fetched = await store.GetAsync(CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.WarmupStage.Should().Be(2);
@@ -105,12 +105,12 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Double_remove_second_returns_false()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStoreFactory factory = CreateFactory();
+        ISafetyStateStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         await store.PutAsync(new SafetyStateRecord(CreatedAt, WarmupStage: 1), CancellationToken.None);
 
-        var first = await store.RemoveAsync(CancellationToken.None);
-        var second = await store.RemoveAsync(CancellationToken.None);
+        bool first = await store.RemoveAsync(CancellationToken.None);
+        bool second = await store.RemoveAsync(CancellationToken.None);
 
         first.Should().BeTrue();
         second.Should().BeFalse(); // idempotency edge: removing an absent row reports false
@@ -120,13 +120,13 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
     {
-        var inner = CreateFactory();
+        ISafetyStateStoreFactory inner = CreateFactory();
         ISafetyStateStoreFactory faulting = new FaultingStoreFactory(safetyState: inner) { Mode = FaultMode.FailReads };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // A failing read THROWS — it must never surface as null (D-19: a safety-state
         // blip misread as "no row" would restart warm-up and trip ban-safety pacing).
-        var act = async () => await store.GetAsync(CancellationToken.None);
+        Func<Task<SafetyStateRecord>> act = async () => await store.GetAsync(CancellationToken.None);
         await act.Should().ThrowAsync<SdkStoreException>();
         await store.DisposeAsync();
     }
@@ -134,9 +134,9 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Faulting_factory_Mode_None_absent_row_returns_null()
     {
-        var inner = CreateFactory();
+        ISafetyStateStoreFactory inner = CreateFactory();
         ISafetyStateStoreFactory faulting = new FaultingStoreFactory(safetyState: inner) { Mode = FaultMode.None };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // Distinct observable path from the fault above: a genuinely absent row returns
         // null — failure and missing stay mechanically distinguishable (D-19).
@@ -147,7 +147,7 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Write_observed_by_independent_second_store_instance()
     {
-        var factory = CreateFactory();
+        ISafetyStateStoreFactory factory = CreateFactory();
         var account = AccountId.Create("acct-A");
 
         await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<ISafetyStateStore>(
@@ -156,7 +156,7 @@ public abstract class SafetyStateStoreContractTests
                 new SafetyStateRecord(CreatedAt, WarmupStage: 3), CancellationToken.None),
             assertVisibleAsync: async reader =>
             {
-                var fetched = await reader.GetAsync(CancellationToken.None);
+                SafetyStateRecord? fetched = await reader.GetAsync(CancellationToken.None);
                 fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
                 fetched!.WarmupStage.Should().Be(3);
             });
@@ -165,7 +165,7 @@ public abstract class SafetyStateStoreContractTests
     [Fact]
     public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
     {
-        var factory = CreateFactory();
+        ISafetyStateStoreFactory factory = CreateFactory();
         var accountA = AccountId.Create("acct-A");
         var accountB = AccountId.Create("acct-B");
 

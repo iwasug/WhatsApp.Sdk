@@ -40,13 +40,13 @@ public sealed class StoreErrorSurfaceTests
         var account = AccountId.Create("acct-1");
         var original = new InvalidOperationException("record payload secret-xyz must not leak");
 
-        var wrapped = StoreErrorSurface.LogAndWrap(original, logger, "identity put", account);
+        SdkStoreException wrapped = StoreErrorSurface.LogAndWrap(original, logger, "identity put", account);
 
         wrapped.Should().BeOfType<SdkStoreException>();
         wrapped.InnerException.Should().BeSameAs(original);
 
         logger.Entries.Should().ContainSingle();
-        var entry = logger.Entries[0];
+        LogEntry entry = logger.Entries[0];
         entry.Level.Should().Be(LogLevel.Warning);
         entry.Exception.Should().BeSameAs(original);
         entry.Message.Should().Contain("identity put");
@@ -66,7 +66,7 @@ public sealed class StoreErrorSurfaceTests
         var inner = new InvalidOperationException("boom");
         var original = new SdkStoreException("already typed", inner);
 
-        var wrapped = StoreErrorSurface.LogAndWrap(original, logger, "identity put", account);
+        SdkStoreException wrapped = StoreErrorSurface.LogAndWrap(original, logger, "identity put", account);
 
         wrapped.Should().BeSameAs(original);
         wrapped.InnerException.Should().BeSameAs(inner);
@@ -78,7 +78,7 @@ public sealed class StoreErrorSurfaceTests
         var account = AccountId.Create("acct-3");
         var original = new InvalidOperationException("boom");
 
-        var wrapped = StoreErrorSurface.LogAndWrap(original, null, "identity put", account);
+        SdkStoreException wrapped = StoreErrorSurface.LogAndWrap(original, null, "identity put", account);
 
         wrapped.Should().BeOfType<SdkStoreException>();
         wrapped.InnerException.Should().BeSameAs(original);

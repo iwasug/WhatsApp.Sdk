@@ -32,14 +32,14 @@ public sealed class HostStyleSecondRunTests
     public async Task Host_style_session_Put_Get_round_trip_and_missing_returns_null()
     {
         var factory = new ScratchStoreFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var record = new SignalSessionRecord("alice@s.whatsapp.net", new byte[] { 1, 2, 3, 4 });
 
         await store.PutAsync(record.Address, record, CancellationToken.None);
 
         // Independent subsequent read observes the value; an absent address is null, not a throw (D-06/D-19).
-        var fetched = await store.GetAsync(record.Address, CancellationToken.None);
-        var missing = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? missing = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.Address.Should().Be(record.Address);
@@ -52,15 +52,15 @@ public sealed class HostStyleSecondRunTests
     public async Task Host_style_identity_round_trip_and_two_account_isolation()
     {
         IIdentityStoreFactory factory = new ScratchStoreFactory();
-        var storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
+        IIdentityStore storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStore storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
         const string address = "shared@s.whatsapp.net";
 
         await storeA.PutAsync(address, new SignalIdentityRecord("key-A"), CancellationToken.None);
         await storeB.PutAsync(address, new SignalIdentityRecord("key-B"), CancellationToken.None);
 
-        var fetchedA = await storeA.GetAsync(address, CancellationToken.None);
-        var fetchedB = await storeB.GetAsync(address, CancellationToken.None);
+        SignalIdentityRecord? fetchedA = await storeA.GetAsync(address, CancellationToken.None);
+        SignalIdentityRecord? fetchedB = await storeB.GetAsync(address, CancellationToken.None);
 
         // Structural namespacing (D-02): same address, two accounts, zero cross-reads.
         fetchedA.Should().NotBeNull();
@@ -77,13 +77,13 @@ public sealed class HostStyleSecondRunTests
         // Non-session seams bind through the interface: ScratchStoreFactory's (and the
         // decorator's) non-session CreateAsync overloads are explicit implementations.
         IPreKeyStoreFactory factory = new ScratchStoreFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         await store.PutPreKeyAsync(42, new PreKeyRecordEntry(42), CancellationToken.None);
         (await store.GetPreKeyAsync(42, CancellationToken.None)).Should().NotBeNull();
 
-        var removed = await store.RemovePreKeyAsync(42, CancellationToken.None);
-        var fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
+        bool removed = await store.RemovePreKeyAsync(42, CancellationToken.None);
+        PreKeyRecordEntry? fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
 
         removed.Should().BeTrue();
         fetched.Should().BeNull(); // consuming a one-time pre-key leaves nothing behind (D-07)
@@ -94,14 +94,14 @@ public sealed class HostStyleSecondRunTests
     public async Task Host_style_cache_put_GetRecent_TrimOldest_PurgeExpired()
     {
         IRecentMessageCacheStoreFactory factory = new ScratchStoreFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var chat = "alice@s.whatsapp.net";
+        IRecentMessageCacheStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        string chat = "alice@s.whatsapp.net";
 
         await store.PutAsync(new RecentMessageEntry("h1", chat, BaseTime), CancellationToken.None);
         await store.PutAsync(new RecentMessageEntry("h2", chat, BaseTime.AddMinutes(1)), CancellationToken.None);
         await store.PutAsync(new RecentMessageEntry("h3", chat, BaseTime.AddMinutes(2)), CancellationToken.None);
 
-        var recent = await store.GetRecentAsync(chat, 2, CancellationToken.None);
+        IReadOnlyList<RecentMessageEntry> recent = await store.GetRecentAsync(chat, 2, CancellationToken.None);
         recent.Select(entry => entry.MessageKey).Should().Equal("h3", "h2"); // newest first, this chat only
 
         await store.TrimOldestAsync(1, CancellationToken.None);
@@ -117,12 +117,12 @@ public sealed class HostStyleSecondRunTests
     public async Task Host_style_safety_put_overwrites_last_write_wins()
     {
         ISafetyStateStoreFactory factory = new ScratchStoreFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISafetyStateStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         await store.PutAsync(new SafetyStateRecord(BaseTime, WarmupStage: 1), CancellationToken.None);
         await store.PutAsync(new SafetyStateRecord(BaseTime, WarmupStage: 2), CancellationToken.None);
 
-        var fetched = await store.GetAsync(CancellationToken.None);
+        SafetyStateRecord? fetched = await store.GetAsync(CancellationToken.None);
 
         // Safety state is a single mutable row per account: last write wins.
         fetched.Should().NotBeNull();
@@ -136,18 +136,18 @@ public sealed class HostStyleSecondRunTests
     {
         var scratch = new ScratchStoreFactory();
         var faulting = new FaultingStoreFactory(signalSession: scratch) { Mode = FaultMode.FailReads };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // A failing read THROWS — never surfaced as null (D-19/T-01-09), here through the
         // host-style flow's own FaultingStoreFactory wrap of the scratch implementation.
-        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        Func<Task<SignalSessionRecord>> act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
         await act.Should().ThrowAsync<SdkStoreException>();
         await store.DisposeAsync();
 
         // Distinct observable path: with the fault cleared, a genuinely absent key returns
         // null — failure and missing stay mechanically distinguishable in this run too.
         var passThrough = new FaultingStoreFactory(signalSession: scratch) { Mode = FaultMode.None };
-        var store2 = await passThrough.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore store2 = await passThrough.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         (await store2.GetAsync("nobody@s.whatsapp.net", CancellationToken.None)).Should().BeNull();
         await store2.DisposeAsync();
     }

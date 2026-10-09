@@ -34,17 +34,17 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Put_then_Get_round_trips_typed_record()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStoreFactory factory = CreateFactory();
+        ISignalSessionStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var record = new SignalSessionRecord("alice@s.whatsapp.net", new byte[] { 1, 2, 3, 4 });
 
         await store.PutAsync(record.Address, record, CancellationToken.None);
 
         // Independent subsequent read observes the value (D-06 store-side semantics).
-        var fetched = await store.GetAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync(record.Address, CancellationToken.None);
 
         fetched.Should().NotBeNull();
-        var observed = fetched!;
+        SignalSessionRecord observed = fetched!;
         observed.Address.Should().Be(record.Address);
         observed.SessionState.Should().Equal(record.SessionState);
         await store.DisposeAsync();
@@ -53,22 +53,22 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Mutating_record_bytes_after_Put_does_not_change_subsequent_Get()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var bytes = new byte[] { 0x01, 0x02, 0x03 };
+        ISignalSessionStoreFactory factory = CreateFactory();
+        ISignalSessionStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        byte[] bytes = new byte[] { 0x01, 0x02, 0x03 };
         var record = new SignalSessionRecord("noalias@s.whatsapp.net", bytes);
 
         await store.PutAsync(record.Address, record, CancellationToken.None);
 
         // Mutating the caller's buffer after the write must not rewrite the stored record.
         bytes[0] = 0xFF;
-        var fetched = await store.GetAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync(record.Address, CancellationToken.None);
         fetched.Should().NotBeNull();
         fetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02, 0x03 });
 
         // Mutating the returned buffer must not corrupt the store for later readers.
         fetched.SessionState[0] = 0xFF;
-        var refetched = await store.GetAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? refetched = await store.GetAsync(record.Address, CancellationToken.None);
         refetched.Should().NotBeNull();
         refetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02, 0x03 });
         await store.DisposeAsync();
@@ -77,10 +77,10 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Get_missing_address_returns_null_not_throw()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStoreFactory factory = CreateFactory();
+        ISignalSessionStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().BeNull();
         await store.DisposeAsync();
@@ -89,9 +89,9 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Two_accounts_isolated_same_address()
     {
-        var factory = CreateFactory();
-        var storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
+        ISignalSessionStoreFactory factory = CreateFactory();
+        ISignalSessionStore storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
         const string address = "shared@s.whatsapp.net";
         var recordA = new SignalSessionRecord(address, new byte[] { 0xAA });
         var recordB = new SignalSessionRecord(address, new byte[] { 0xBB });
@@ -99,8 +99,8 @@ public abstract class SignalSessionStoreContractTests
         await storeA.PutAsync(address, recordA, CancellationToken.None);
         await storeB.PutAsync(address, recordB, CancellationToken.None);
 
-        var fetchedA = await storeA.GetAsync(address, CancellationToken.None);
-        var fetchedB = await storeB.GetAsync(address, CancellationToken.None);
+        SignalSessionRecord? fetchedA = await storeA.GetAsync(address, CancellationToken.None);
+        SignalSessionRecord? fetchedB = await storeB.GetAsync(address, CancellationToken.None);
 
         // Structural namespacing (D-02): same address, two accounts, zero cross-writes.
         fetchedA.Should().NotBeNull();
@@ -114,13 +114,13 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
     {
-        var inner = CreateFactory();
+        ISignalSessionStoreFactory inner = CreateFactory();
         var faulting = new FaultingStoreFactory(signalSession: inner) { Mode = FaultMode.FailReads };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // A failing read THROWS — it must never surface as null (D-19: a DB blip misread as
         // "empty session" wrongly triggers session re-establishment; T-01-09).
-        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        Func<Task<SignalSessionRecord>> act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
         await act.Should().ThrowAsync<SdkStoreException>();
         await store.DisposeAsync();
     }
@@ -128,11 +128,11 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Faulting_factory_Mode_None_absent_key_returns_null()
     {
-        var inner = CreateFactory();
+        ISignalSessionStoreFactory inner = CreateFactory();
         var faulting = new FaultingStoreFactory(signalSession: inner) { Mode = FaultMode.None };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
 
         // Distinct observable path from the fault above: a genuinely absent key returns
         // null — failure and missing stay mechanically distinguishable (D-19).
@@ -143,7 +143,7 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Write_observed_by_independent_second_store_instance()
     {
-        var factory = CreateFactory();
+        ISignalSessionStoreFactory factory = CreateFactory();
         var account = AccountId.Create("acct-A");
 
         await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<ISignalSessionStore>(
@@ -155,7 +155,7 @@ public abstract class SignalSessionStoreContractTests
             },
             assertVisibleAsync: async reader =>
             {
-                var fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
+                SignalSessionRecord? fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
                 fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
                 fetched!.SessionState.Should().Equal(new byte[] { 0x01, 0x02 });
             });
@@ -164,7 +164,7 @@ public abstract class SignalSessionStoreContractTests
     [Fact]
     public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
     {
-        var factory = CreateFactory();
+        ISignalSessionStoreFactory factory = CreateFactory();
         var accountA = AccountId.Create("acct-A");
         var accountB = AccountId.Create("acct-B");
 

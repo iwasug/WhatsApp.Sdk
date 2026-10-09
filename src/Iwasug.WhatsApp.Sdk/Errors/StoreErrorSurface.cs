@@ -28,7 +28,7 @@ internal static class StoreErrorSurface
     /// <returns>The exception the caller should throw (wrap-or-passthrough).</returns>
     internal static SdkStoreException LogAndWrap(Exception ex, ILogger? logger, string operation, AccountId account)
     {
-        var wrapped = ex as SdkStoreException ?? new SdkStoreException($"{operation} failed.", ex);
+        SdkStoreException wrapped = ex as SdkStoreException ?? new SdkStoreException($"{operation} failed.", ex);
 
         logger?.LogWarning(
             ex,

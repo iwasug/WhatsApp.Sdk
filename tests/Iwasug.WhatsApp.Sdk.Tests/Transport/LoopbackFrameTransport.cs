@@ -137,11 +137,7 @@ internal sealed class LoopbackFrameTransport : IFrameTransport
                 throw new SdkTransportException("Frame payload must not be empty.");
             }
 
-            byte[]? payload = await ReadExactlyAsync(length, cancellationToken).ConfigureAwait(false);
-            if (payload is null)
-            {
-                throw new SdkTransportException("Frame payload truncated by peer close.");
-            }
+            byte[]? payload = await ReadExactlyAsync(length, cancellationToken).ConfigureAwait(false) ?? throw new SdkTransportException("Frame payload truncated by peer close.");
 
             return payload;
         }
@@ -196,7 +192,7 @@ internal sealed class LoopbackFrameTransport : IFrameTransport
     /// </summary>
     private async Task<byte[]?> ReadExactlyAsync(int count, CancellationToken cancellationToken)
     {
-        var buffer = new byte[count];
+        byte[] buffer = new byte[count];
         int filled = 0;
         while (filled < count)
         {

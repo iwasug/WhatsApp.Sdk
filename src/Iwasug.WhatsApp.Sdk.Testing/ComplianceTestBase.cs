@@ -31,8 +31,8 @@ public abstract class ComplianceTestBase
         Justification = "Test-kit completeness discovery runs in a non-trimmed test host; the kit is executed against consumer test assemblies, never inside trimmed production apps.")]
     protected virtual IReadOnlyCollection<Type> GetContractBaseClasses()
     {
-        var kitAssembly = typeof(ComplianceTestBase).Assembly;
-        var storeContractNamespace = typeof(ComplianceTestBase).Namespace + ".StoreContract";
+        Assembly kitAssembly = typeof(ComplianceTestBase).Assembly;
+        string storeContractNamespace = typeof(ComplianceTestBase).Namespace + ".StoreContract";
 
         return kitAssembly
             .GetTypes()
@@ -62,7 +62,7 @@ public abstract class ComplianceTestBase
     [Fact]
     public void Every_contract_class_has_a_concrete_subclass()
     {
-        var contractBases = GetContractBaseClasses();
+        IReadOnlyCollection<Type> contractBases = GetContractBaseClasses();
 
         // Floor assertion (IN-06): reflection discovery can silently return empty in
         // a trimmed host — fail loudly instead of passing vacuously. Five contract
@@ -72,7 +72,7 @@ public abstract class ComplianceTestBase
             "reflection discovery returned fewer contract classes than the kit ships — "
             + "the completeness backstop would otherwise pass vacuously");
 
-        var missing = contractBases
+        string[] missing = contractBases
             .Where(contractBase => GetConcreteSubclasses(contractBase).Count == 0)
             .Select(contractBase => contractBase.FullName ?? contractBase.Name)
             .OrderBy(name => name, StringComparer.Ordinal)

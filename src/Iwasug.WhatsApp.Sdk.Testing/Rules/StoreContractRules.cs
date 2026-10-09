@@ -42,12 +42,12 @@ public static class StoreContractRules
         Func<TStore, Task> assertVisibleAsync)
         where TStore : IAsyncDisposable
     {
-        await using var writer = await createStore();
+        await using TStore writer = await createStore();
         await writeAsync(writer);
 
         // The write returned (D-06 awaited). Completion is only real if an independent
         // subsequent read — a SECOND store instance for the same account — observes it.
-        await using var reader = await createStore();
+        await using TStore reader = await createStore();
         await assertVisibleAsync(reader);
     }
 
@@ -70,8 +70,8 @@ public static class StoreContractRules
         Func<TStore, int, Task> assertSeesOnlySlotValueAsync)
         where TStore : IAsyncDisposable
     {
-        await using var storeA = await createStoreAsync(accountA);
-        await using var storeB = await createStoreAsync(accountB);
+        await using TStore storeA = await createStoreAsync(accountA);
+        await using TStore storeB = await createStoreAsync(accountB);
 
         // Same key on both accounts, values distinguishable per "slot" (0 = A, 1 = B).
         await writeSlotValueAsync(storeA, 0);
@@ -110,8 +110,8 @@ public static class StoreContractRules
         int iterations)
         where TStore : IAsyncDisposable
     {
-        await using var storeA = await createStoreAsync(accountA);
-        await using var storeB = await createStoreAsync(accountB);
+        await using TStore storeA = await createStoreAsync(accountA);
+        await using TStore storeB = await createStoreAsync(accountB);
 
         var leaks = new ConcurrentBag<int>();
 
@@ -120,7 +120,7 @@ public static class StoreContractRules
         // started, silently degrading the fact to serial coverage (Pitfall 4).
         var writer = Task.Run(async () =>
         {
-            for (var i = 0; i < iterations; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 await writeOnAAsync(storeA, i);
             }
@@ -128,7 +128,7 @@ public static class StoreContractRules
 
         var reader = Task.Run(async () =>
         {
-            for (var i = 0; i < iterations; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 if (await readLeakOnBAsync(storeB, i))
                 {
@@ -170,15 +170,15 @@ public static class StoreContractRules
         int iterations)
         where TStore : IAsyncDisposable
     {
-        await using var storeA = await createStoreAsync(accountA);
-        await using var storeB = await createStoreAsync(accountB);
+        await using TStore storeA = await createStoreAsync(accountA);
+        await using TStore storeB = await createStoreAsync(accountB);
 
         var leaks = new ConcurrentBag<int>();
 
         // Task.Run forces genuine concurrency (see the keyed overload's remark).
         var writer = Task.Run(async () =>
         {
-            for (var i = 0; i < iterations; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 await writeOnAAsync(storeA, i);
             }
@@ -186,7 +186,7 @@ public static class StoreContractRules
 
         var reader = Task.Run(async () =>
         {
-            for (var i = 0; i < iterations; i++)
+            for (int i = 0; i < iterations; i++)
             {
                 if (await readLeakOnBAsync(storeB))
                 {

@@ -18,9 +18,9 @@ public sealed class DurableWriteRetryPolicyTests
     public async Task Succeeds_immediately_when_operation_succeeds()
     {
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), new FakeTimeProvider());
-        var calls = 0;
+        int calls = 0;
 
-        var result = await policy.ExecuteAsync(_ =>
+        int result = await policy.ExecuteAsync(_ =>
         {
             calls++;
             return Task.FromResult(42);
@@ -35,9 +35,9 @@ public sealed class DurableWriteRetryPolicyTests
     {
         var fake = new FakeTimeProvider();
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), fake);
-        var calls = 0;
+        int calls = 0;
 
-        var task = policy.ExecuteAsync(_ =>
+        Task<int> task = policy.ExecuteAsync(_ =>
         {
             calls++;
             return calls switch
@@ -61,7 +61,7 @@ public sealed class DurableWriteRetryPolicyTests
             await Task.Yield();
         }
 
-        var result = await task;
+        int result = await task;
 
         result.Should().Be(7);
         calls.Should().Be(3);
@@ -72,17 +72,17 @@ public sealed class DurableWriteRetryPolicyTests
     {
         var fake = new FakeTimeProvider();
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), fake);
-        var calls = 0;
-        var failures = new[]
+        int calls = 0;
+        InvalidOperationException[] failures = new[]
         {
             new InvalidOperationException("record payload alpha"),
             new InvalidOperationException("record payload beta"),
             new InvalidOperationException("record payload gamma"),
         };
 
-        var task = policy.ExecuteAsync(_ =>
+        Task<int> task = policy.ExecuteAsync(_ =>
         {
-            var failure = failures[Math.Min(calls, failures.Length - 1)];
+            InvalidOperationException failure = failures[Math.Min(calls, failures.Length - 1)];
             calls++;
             return Task.FromException<int>(failure);
         }, CancellationToken.None);
@@ -99,7 +99,7 @@ public sealed class DurableWriteRetryPolicyTests
             await Task.Yield();
         }
 
-        var thrown = await Assert.ThrowsAsync<SdkStoreException>(() => task);
+        SdkStoreException thrown = await Assert.ThrowsAsync<SdkStoreException>(() => task);
 
         calls.Should().Be(3);
         thrown.Message.Should().Contain("durable store write failed after 3 attempts");
@@ -113,7 +113,7 @@ public sealed class DurableWriteRetryPolicyTests
     [Fact]
     public void Constructor_throws_ArgumentOutOfRangeException_when_MaxAttempts_is_zero()
     {
-        var act = () => new DurableWriteRetryPolicy(new RetryOptions { MaxAttempts = 0 });
+        Func<DurableWriteRetryPolicy> act = () => new DurableWriteRetryPolicy(new RetryOptions { MaxAttempts = 0 });
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -121,7 +121,7 @@ public sealed class DurableWriteRetryPolicyTests
     [Fact]
     public void Constructor_throws_ArgumentOutOfRangeException_when_MaxDelay_is_below_BaseDelay()
     {
-        var act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = 200, MaxDelayMs = 100 });
+        Func<DurableWriteRetryPolicy> act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = 200, MaxDelayMs = 100 });
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -129,7 +129,7 @@ public sealed class DurableWriteRetryPolicyTests
     [Fact]
     public void Constructor_throws_ArgumentOutOfRangeException_when_BaseDelay_is_negative()
     {
-        var act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = -1 });
+        Func<DurableWriteRetryPolicy> act = () => new DurableWriteRetryPolicy(new RetryOptions { BaseDelayMs = -1 });
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -138,7 +138,7 @@ public sealed class DurableWriteRetryPolicyTests
     public async Task Does_not_retry_OperationCanceledException()
     {
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), new FakeTimeProvider());
-        var calls = 0;
+        int calls = 0;
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             policy.ExecuteAsync(_ =>
@@ -154,7 +154,7 @@ public sealed class DurableWriteRetryPolicyTests
     public async Task Does_not_retry_SdkException()
     {
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), new FakeTimeProvider());
-        var calls = 0;
+        int calls = 0;
 
         await Assert.ThrowsAsync<SdkStoreException>(() =>
             policy.ExecuteAsync(_ =>
@@ -171,9 +171,9 @@ public sealed class DurableWriteRetryPolicyTests
     {
         var fake = new FakeTimeProvider();
         var policy = new DurableWriteRetryPolicy(new RetryOptions(), fake);
-        var calls = 0;
+        int calls = 0;
 
-        var task = policy.ExecuteAsync(_ =>
+        Task<int> task = policy.ExecuteAsync(_ =>
         {
             calls++;
             return calls switch
@@ -207,7 +207,7 @@ public sealed class DurableWriteRetryPolicyTests
             await Task.Yield();
         }
 
-        var result = await task;
+        int result = await task;
 
         result.Should().Be(9);
         calls.Should().Be(3);

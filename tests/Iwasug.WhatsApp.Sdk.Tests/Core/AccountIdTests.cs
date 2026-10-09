@@ -14,7 +14,7 @@ public sealed class AccountIdTests
     [Fact]
     public void Create_rejects_null()
     {
-        var create = () => AccountId.Create(null!);
+        Func<AccountId> create = () => AccountId.Create(null!);
 
         create.Should().Throw<SdkFormatException>();
     }
@@ -22,7 +22,7 @@ public sealed class AccountIdTests
     [Fact]
     public void Create_rejects_empty_string()
     {
-        var create = () => AccountId.Create(string.Empty);
+        Func<AccountId> create = () => AccountId.Create(string.Empty);
 
         create.Should().Throw<SdkFormatException>();
     }
@@ -30,7 +30,7 @@ public sealed class AccountIdTests
     [Fact]
     public void Create_rejects_whitespace_only_string()
     {
-        var create = () => AccountId.Create("   \t  ");
+        Func<AccountId> create = () => AccountId.Create("   \t  ");
 
         create.Should().Throw<SdkFormatException>();
     }
@@ -38,7 +38,7 @@ public sealed class AccountIdTests
     [Fact]
     public void Create_rejects_control_characters()
     {
-        var create = () => AccountId.Create("acct\tname\n");
+        Func<AccountId> create = () => AccountId.Create("acct\tname\n");
 
         create.Should().Throw<SdkFormatException>();
     }
@@ -46,7 +46,7 @@ public sealed class AccountIdTests
     [Fact]
     public void Create_rejects_values_longer_than_128_characters()
     {
-        var create = () => AccountId.Create(new string('x', 129));
+        Func<AccountId> create = () => AccountId.Create(new string('x', 129));
 
         create.Should().Throw<SdkFormatException>();
     }
@@ -99,7 +99,7 @@ public sealed class AccountIdTests
     public void Exception_messages_do_not_embed_the_offending_value()
     {
         // Message discipline (T-01-01): the rule is named, the payload value is not.
-        var act = () => AccountId.Create("secret-value\r\n");
+        Func<AccountId> act = () => AccountId.Create("secret-value\r\n");
 
         act.Should().Throw<SdkFormatException>()
             .Where(ex => !ex.Message.Contains("secret-value", StringComparison.Ordinal));

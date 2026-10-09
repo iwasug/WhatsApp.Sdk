@@ -33,13 +33,13 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Put_then_Get_bundle_round_trips_typed_record()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var bundle = new PreKeyBundle(SignedPreKeyId: 7, OneTimePreKeyId: 42);
 
         await store.PutBundleAsync("alice@s.whatsapp.net", bundle, CancellationToken.None);
 
-        var fetched = await store.GetBundleAsync("alice@s.whatsapp.net", CancellationToken.None);
+        PreKeyBundle? fetched = await store.GetBundleAsync("alice@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.SignedPreKeyId.Should().Be(7);
@@ -50,13 +50,13 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Put_then_Get_prekey_round_trips_typed_record()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var key = new PreKeyRecordEntry(PreKeyId: 42);
 
         await store.PutPreKeyAsync(42, key, CancellationToken.None);
 
-        var fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
+        PreKeyRecordEntry? fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.PreKeyId.Should().Be(42);
@@ -66,10 +66,10 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Get_missing_bundle_returns_null_not_throw()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        PreKeyBundle? fetched = await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().BeNull(); // missing ≠ failure (D-19)
         await store.DisposeAsync();
@@ -78,10 +78,10 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Get_missing_prekey_returns_null_not_throw()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetPreKeyAsync(999, CancellationToken.None);
+        PreKeyRecordEntry? fetched = await store.GetPreKeyAsync(999, CancellationToken.None);
 
         fetched.Should().BeNull(); // missing ≠ failure (D-19)
         await store.DisposeAsync();
@@ -90,16 +90,16 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Two_accounts_isolated_same_bundle_address()
     {
-        var factory = CreateFactory();
-        var storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStore storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
         const string address = "shared@s.whatsapp.net";
 
         await storeA.PutBundleAsync(address, new PreKeyBundle(1, 10), CancellationToken.None);
         await storeB.PutBundleAsync(address, new PreKeyBundle(2, 20), CancellationToken.None);
 
-        var fetchedA = await storeA.GetBundleAsync(address, CancellationToken.None);
-        var fetchedB = await storeB.GetBundleAsync(address, CancellationToken.None);
+        PreKeyBundle? fetchedA = await storeA.GetBundleAsync(address, CancellationToken.None);
+        PreKeyBundle? fetchedB = await storeB.GetBundleAsync(address, CancellationToken.None);
 
         // Structural namespacing (D-02 / T-01-05): same address, zero cross-writes.
         fetchedA.Should().NotBeNull();
@@ -113,12 +113,12 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Remove_prekey_then_get_returns_null()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         await store.PutPreKeyAsync(42, new PreKeyRecordEntry(42), CancellationToken.None);
 
-        var removed = await store.RemovePreKeyAsync(42, CancellationToken.None);
-        var fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
+        bool removed = await store.RemovePreKeyAsync(42, CancellationToken.None);
+        PreKeyRecordEntry? fetched = await store.GetPreKeyAsync(42, CancellationToken.None);
 
         removed.Should().BeTrue();
         fetched.Should().BeNull();
@@ -128,8 +128,8 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Bundle_and_prekey_substores_are_independent()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         const string address = "alice@s.whatsapp.net";
         await store.PutBundleAsync(address, new PreKeyBundle(7, 42), CancellationToken.None);
         await store.PutPreKeyAsync(42, new PreKeyRecordEntry(42), CancellationToken.None);
@@ -137,14 +137,14 @@ public abstract class PreKeyStoreContractTests
         // Consuming the one-time pre-key (D-07 single-key CRUD) must not touch the bundle…
         await store.RemovePreKeyAsync(42, CancellationToken.None);
 
-        var bundleAfterConsume = await store.GetBundleAsync(address, CancellationToken.None);
-        var preKeyAfterConsume = await store.GetPreKeyAsync(42, CancellationToken.None);
+        PreKeyBundle? bundleAfterConsume = await store.GetBundleAsync(address, CancellationToken.None);
+        PreKeyRecordEntry? preKeyAfterConsume = await store.GetPreKeyAsync(42, CancellationToken.None);
         bundleAfterConsume.Should().NotBeNull();
         preKeyAfterConsume.Should().BeNull();
 
         // …and overwriting the bundle must not resurrect the consumed pre-key.
         await store.PutBundleAsync(address, new PreKeyBundle(8, 43), CancellationToken.None);
-        var preKeyAfterBundleWrite = await store.GetPreKeyAsync(42, CancellationToken.None);
+        PreKeyRecordEntry? preKeyAfterBundleWrite = await store.GetPreKeyAsync(42, CancellationToken.None);
         preKeyAfterBundleWrite.Should().BeNull();
         await store.DisposeAsync();
     }
@@ -152,14 +152,14 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Double_put_bundle_last_write_wins()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         const string address = "alice@s.whatsapp.net";
 
         await store.PutBundleAsync(address, new PreKeyBundle(1, 10), CancellationToken.None);
         await store.PutBundleAsync(address, new PreKeyBundle(2, 20), CancellationToken.None);
 
-        var fetched = await store.GetBundleAsync(address, CancellationToken.None);
+        PreKeyBundle? fetched = await store.GetBundleAsync(address, CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.SignedPreKeyId.Should().Be(2);
@@ -170,12 +170,12 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Double_remove_prekey_second_returns_false()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStoreFactory factory = CreateFactory();
+        IPreKeyStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         await store.PutPreKeyAsync(42, new PreKeyRecordEntry(42), CancellationToken.None);
 
-        var first = await store.RemovePreKeyAsync(42, CancellationToken.None);
-        var second = await store.RemovePreKeyAsync(42, CancellationToken.None);
+        bool first = await store.RemovePreKeyAsync(42, CancellationToken.None);
+        bool second = await store.RemovePreKeyAsync(42, CancellationToken.None);
 
         first.Should().BeTrue();
         second.Should().BeFalse(); // idempotency edge
@@ -185,14 +185,14 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
     {
-        var inner = CreateFactory();
+        IPreKeyStoreFactory inner = CreateFactory();
         IPreKeyStoreFactory faulting = new FaultingStoreFactory(preKey: inner) { Mode = FaultMode.FailReads };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // A failing read THROWS on BOTH sub-stores — never mapped to null (D-19, T-01-09).
-        var bundleAct = async () => await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        Func<Task<PreKeyBundle>> bundleAct = async () => await store.GetBundleAsync("nobody@s.whatsapp.net", CancellationToken.None);
         await bundleAct.Should().ThrowAsync<SdkStoreException>();
-        var preKeyAct = async () => await store.GetPreKeyAsync(999, CancellationToken.None);
+        Func<Task<PreKeyRecordEntry>> preKeyAct = async () => await store.GetPreKeyAsync(999, CancellationToken.None);
         await preKeyAct.Should().ThrowAsync<SdkStoreException>();
         await store.DisposeAsync();
     }
@@ -200,9 +200,9 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Faulting_factory_Mode_None_absent_keys_return_null()
     {
-        var inner = CreateFactory();
+        IPreKeyStoreFactory inner = CreateFactory();
         IPreKeyStoreFactory faulting = new FaultingStoreFactory(preKey: inner) { Mode = FaultMode.None };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IPreKeyStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // Distinct observable path from the fault above: genuinely absent keys return
         // null — failure and missing stay mechanically distinguishable (D-19).
@@ -214,7 +214,7 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Write_observed_by_independent_second_store_instance()
     {
-        var factory = CreateFactory();
+        IPreKeyStoreFactory factory = CreateFactory();
         var account = AccountId.Create("acct-A");
 
         await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<IPreKeyStore>(
@@ -223,7 +223,7 @@ public abstract class PreKeyStoreContractTests
                 "durable@s.whatsapp.net", new PreKeyBundle(9, 99), CancellationToken.None),
             assertVisibleAsync: async reader =>
             {
-                var fetched = await reader.GetBundleAsync("durable@s.whatsapp.net", CancellationToken.None);
+                PreKeyBundle? fetched = await reader.GetBundleAsync("durable@s.whatsapp.net", CancellationToken.None);
                 fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
                 fetched!.SignedPreKeyId.Should().Be(9);
                 fetched.OneTimePreKeyId.Should().Be(99);
@@ -233,7 +233,7 @@ public abstract class PreKeyStoreContractTests
     [Fact]
     public async Task Parallel_interleaved_prekey_writes_and_reads_produce_no_cross_reads()
     {
-        var factory = CreateFactory();
+        IPreKeyStoreFactory factory = CreateFactory();
         var accountA = AccountId.Create("acct-A");
         var accountB = AccountId.Create("acct-B");
 

@@ -86,7 +86,7 @@ public sealed class DurableWriteRetryPolicy(RetryOptions? options = null, TimePr
         ArgumentNullException.ThrowIfNull(operation);
 
         Exception? last = null;
-        for (var attempt = 0; attempt < _options.MaxAttempts; attempt++)
+        for (int attempt = 0; attempt < _options.MaxAttempts; attempt++)
         {
             try
             {
@@ -120,13 +120,22 @@ public sealed class DurableWriteRetryPolicy(RetryOptions? options = null, TimePr
     // fabricated SdkStoreException from a zero-attempt loop.
     private static RetryOptions ValidateOptions(RetryOptions? options)
     {
-        var resolved = options ?? new RetryOptions();
+        RetryOptions resolved = options ?? new RetryOptions();
         if (resolved.MaxAttempts < 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(options), "MaxAttempts must be at least 1.");
+        }
+
         if (resolved.BaseDelayMs < 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(options), "BaseDelayMs must not be negative.");
+        }
+
         if (resolved.MaxDelayMs < resolved.BaseDelayMs)
+        {
             throw new ArgumentOutOfRangeException(nameof(options), "MaxDelayMs must not be below BaseDelayMs.");
+        }
+
         return resolved;
     }
 
@@ -135,8 +144,8 @@ public sealed class DurableWriteRetryPolicy(RetryOptions? options = null, TimePr
     // attempt N's maximum possible delay stays below attempt N+1's minimum.
     private int ComputeDelayMs(int attemptIndex)
     {
-        var raw = (double)_options.BaseDelayMs * Math.Pow(2, attemptIndex);
-        var jitter = (Random.Shared.NextDouble() * 0.6) - 0.3;
+        double raw = (double)_options.BaseDelayMs * Math.Pow(2, attemptIndex);
+        double jitter = Random.Shared.NextDouble() * 0.6 - 0.3;
         return (int)Math.Clamp(raw * (1.0 + jitter), _options.BaseDelayMs, _options.MaxDelayMs);
     }
 }

@@ -26,14 +26,14 @@ public sealed class FaultingBindingTests
     [Fact]
     public async Task Faulting_factory_Mode_None_passes_session_crud_round_trip()
     {
-        var faulting = CreateWrappedFactory();
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        FaultingStoreFactory faulting = CreateWrappedFactory();
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var record = new SignalSessionRecord("binding@s.whatsapp.net", new byte[] { 0x01, 0x02, 0x03 });
 
         await store.PutAsync(record.Address, record, CancellationToken.None);
-        var fetched = await store.GetAsync(record.Address, CancellationToken.None);
-        var removed = await store.RemoveAsync(record.Address, CancellationToken.None);
-        var afterRemove = await store.GetAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? fetched = await store.GetAsync(record.Address, CancellationToken.None);
+        bool removed = await store.RemoveAsync(record.Address, CancellationToken.None);
+        SignalSessionRecord? afterRemove = await store.GetAsync(record.Address, CancellationToken.None);
 
         // Mode=None is a pure pass-through: Put/Get/Remove behave exactly as the inner
         // factory's store would.
@@ -47,10 +47,10 @@ public sealed class FaultingBindingTests
     [Fact]
     public async Task Faulting_factory_FailReads_Get_throws_SdkStoreException()
     {
-        var faulting = CreateWrappedFactory(FaultMode.FailReads);
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        FaultingStoreFactory faulting = CreateWrappedFactory(FaultMode.FailReads);
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var act = async () => await store.GetAsync("binding@s.whatsapp.net", CancellationToken.None);
+        Func<Task<SignalSessionRecord>> act = async () => await store.GetAsync("binding@s.whatsapp.net", CancellationToken.None);
 
         // The decorator converts a failing read into SdkStoreException — never null.
         await act.Should().ThrowAsync<SdkStoreException>();
@@ -60,10 +60,10 @@ public sealed class FaultingBindingTests
     [Fact]
     public async Task Faulting_factory_FailWrites_Put_throws_SdkStoreException()
     {
-        var faulting = CreateWrappedFactory(FaultMode.FailWrites);
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        FaultingStoreFactory faulting = CreateWrappedFactory(FaultMode.FailWrites);
+        ISignalSessionStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var act = () => store.PutAsync(
+        Func<Task> act = () => store.PutAsync(
             "binding@s.whatsapp.net",
             new SignalSessionRecord("binding@s.whatsapp.net", new byte[] { 0x0A }),
             CancellationToken.None);
@@ -84,7 +84,7 @@ public sealed class FaultingBindingTests
     [Fact]
     public async Task Faulting_factory_two_accounts_isolated_via_rule_helper()
     {
-        var faulting = CreateWrappedFactory();
+        FaultingStoreFactory faulting = CreateWrappedFactory();
         var accountA = AccountId.Create("acct-A");
         var accountB = AccountId.Create("acct-B");
 
@@ -100,7 +100,7 @@ public sealed class FaultingBindingTests
                 CancellationToken.None),
             assertSeesOnlySlotValueAsync: async (store, slot) =>
             {
-                var fetched = await store.GetAsync("shared@s.whatsapp.net", CancellationToken.None);
+                SignalSessionRecord? fetched = await store.GetAsync("shared@s.whatsapp.net", CancellationToken.None);
                 fetched.Should().NotBeNull();
                 fetched!.SessionState.Should().Equal(new byte[] { (byte)(0xA0 + slot) });
             });

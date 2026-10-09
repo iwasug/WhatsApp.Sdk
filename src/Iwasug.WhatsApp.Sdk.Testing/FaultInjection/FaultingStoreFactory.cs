@@ -99,35 +99,35 @@ public sealed class FaultingStoreFactory :
     /// <inheritdoc />
     public async ValueTask<ISignalSessionStore> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
-        var inner = _signalSession ?? throw NotWired(nameof(ISignalSessionStoreFactory));
+        ISignalSessionStoreFactory inner = _signalSession ?? throw NotWired(nameof(ISignalSessionStoreFactory));
         return new FaultingSignalSessionStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
     async ValueTask<IIdentityStore> IIdentityStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
-        var inner = _identity ?? throw NotWired(nameof(IIdentityStoreFactory));
+        IIdentityStoreFactory inner = _identity ?? throw NotWired(nameof(IIdentityStoreFactory));
         return new FaultingIdentityStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
     async ValueTask<IPreKeyStore> IPreKeyStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
-        var inner = _preKey ?? throw NotWired(nameof(IPreKeyStoreFactory));
+        IPreKeyStoreFactory inner = _preKey ?? throw NotWired(nameof(IPreKeyStoreFactory));
         return new FaultingPreKeyStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
     async ValueTask<IRecentMessageCacheStore> IRecentMessageCacheStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
-        var inner = _recentMessageCache ?? throw NotWired(nameof(IRecentMessageCacheStoreFactory));
+        IRecentMessageCacheStoreFactory inner = _recentMessageCache ?? throw NotWired(nameof(IRecentMessageCacheStoreFactory));
         return new FaultingRecentMessageCacheStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
     async ValueTask<ISafetyStateStore> ISafetyStateStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
     {
-        var inner = _safetyState ?? throw NotWired(nameof(ISafetyStateStoreFactory));
+        ISafetyStateStoreFactory inner = _safetyState ?? throw NotWired(nameof(ISafetyStateStoreFactory));
         return new FaultingSafetyStateStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 

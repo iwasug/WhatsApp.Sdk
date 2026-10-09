@@ -47,7 +47,7 @@ public sealed class JidTests
     [Fact]
     public void TryParse_returns_false_on_null()
     {
-        var parsed = Jid.TryParse(null!, out var jid);
+        bool parsed = Jid.TryParse(null!, out Jid? jid);
 
         parsed.Should().BeFalse();
         jid.Should().BeNull();
@@ -56,7 +56,7 @@ public sealed class JidTests
     [Fact]
     public void TryParse_returns_false_on_empty_string()
     {
-        var parsed = Jid.TryParse(string.Empty, out var jid);
+        bool parsed = Jid.TryParse(string.Empty, out Jid? jid);
 
         parsed.Should().BeFalse();
         jid.Should().BeNull();
@@ -65,7 +65,7 @@ public sealed class JidTests
     [Fact]
     public void TryParse_returns_false_without_at_separator()
     {
-        var parsed = Jid.TryParse("123.s.whatsapp.net", out var jid);
+        bool parsed = Jid.TryParse("123.s.whatsapp.net", out Jid? jid);
 
         parsed.Should().BeFalse();
         jid.Should().BeNull();
@@ -74,7 +74,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_throws_on_null()
     {
-        var parse = () => Jid.Parse(null!);
+        Func<Jid> parse = () => Jid.Parse(null!);
 
         parse.Should().Throw<SdkFormatException>();
     }
@@ -82,7 +82,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_throws_on_empty_string()
     {
-        var parse = () => Jid.Parse(string.Empty);
+        Func<Jid> parse = () => Jid.Parse(string.Empty);
 
         parse.Should().Throw<SdkFormatException>();
     }
@@ -90,7 +90,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_throws_without_at_separator()
     {
-        var parse = () => Jid.Parse("123.s.whatsapp.net");
+        Func<Jid> parse = () => Jid.Parse("123.s.whatsapp.net");
 
         parse.Should().Throw<SdkFormatException>();
     }
@@ -98,7 +98,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_throws_on_empty_user_part()
     {
-        var parse = () => Jid.Parse("@s.whatsapp.net");
+        Func<Jid> parse = () => Jid.Parse("@s.whatsapp.net");
 
         parse.Should().Throw<SdkFormatException>();
     }
@@ -106,7 +106,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_throws_on_empty_server_part()
     {
-        var parse = () => Jid.Parse("123@");
+        Func<Jid> parse = () => Jid.Parse("123@");
 
         parse.Should().Throw<SdkFormatException>();
     }
@@ -114,7 +114,7 @@ public sealed class JidTests
     [Fact]
     public void ToString_round_trips_canonical_inputs()
     {
-        foreach (var canonical in new[]
+        foreach (string? canonical in new[]
         {
             "123@s.whatsapp.net",
             "123.4@s.whatsapp.net",
@@ -142,7 +142,7 @@ public sealed class JidTests
     public void Exception_messages_do_not_embed_the_offending_value()
     {
         // Message discipline (T-01-01/T-01-06): the rule is named, the payload is not.
-        var act = () => Jid.Parse("secret-value");
+        Func<Jid> act = () => Jid.Parse("secret-value");
 
         act.Should().Throw<SdkFormatException>()
             .Where(ex => !ex.Message.Contains("secret-value", StringComparison.Ordinal));
@@ -151,7 +151,7 @@ public sealed class JidTests
     [Fact]
     public void Parse_rejects_zero_padded_device_as_non_canonical()
     {
-        var parse = () => Jid.Parse("123.4.05@s.whatsapp.net");
+        Func<Jid> parse = () => Jid.Parse("123.4.05@s.whatsapp.net");
 
         parse.Should().Throw<SdkFormatException>();
     }

@@ -84,7 +84,7 @@ public readonly record struct AccountId : IComparable<AccountId>
 
     private static bool ContainsControlCharacter(string value)
     {
-        foreach (var c in value)
+        foreach (char c in value)
         {
             if (char.IsControl(c))
             {

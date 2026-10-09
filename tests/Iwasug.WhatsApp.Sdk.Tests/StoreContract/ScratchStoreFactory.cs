@@ -86,7 +86,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._sessions.TryGetValue((account, address), out var record)
+                return Task.FromResult(factory._sessions.TryGetValue((account, address), out SignalSessionRecord? record)
                     ? record with { SessionState = (byte[])record.SessionState.Clone() }
                     : null);
             }
@@ -122,7 +122,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._identities.TryGetValue((account, address), out var record) ? record : null);
+                return Task.FromResult(factory._identities.TryGetValue((account, address), out SignalIdentityRecord? record) ? record : null);
             }
         }
 
@@ -156,7 +156,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._bundles.TryGetValue((account, address), out var bundle) ? bundle : null);
+                return Task.FromResult(factory._bundles.TryGetValue((account, address), out PreKeyBundle? bundle) ? bundle : null);
             }
         }
 
@@ -176,7 +176,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._preKeys.TryGetValue((account, preKeyId), out var key) ? key : null);
+                return Task.FromResult(factory._preKeys.TryGetValue((account, preKeyId), out PreKeyRecordEntry? key) ? key : null);
             }
         }
 
@@ -210,7 +210,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._cacheEntries.TryGetValue((account, messageKey), out var entry) ? entry : null);
+                return Task.FromResult(factory._cacheEntries.TryGetValue((account, messageKey), out RecentMessageEntry? entry) ? entry : null);
             }
         }
 
@@ -255,11 +255,11 @@ public sealed class ScratchStoreFactory
 
             lock (factory._gate)
             {
-                var index = IndexOf(account);
+                List<string> index = IndexOf(account);
                 var result = new List<RecentMessageEntry>(Math.Min(limit, index.Count));
-                for (var i = index.Count - 1; i >= 0 && result.Count < limit; i--)
+                for (int i = index.Count - 1; i >= 0 && result.Count < limit; i--)
                 {
-                    if (factory._cacheEntries.TryGetValue((account, index[i]), out var entry)
+                    if (factory._cacheEntries.TryGetValue((account, index[i]), out RecentMessageEntry? entry)
                         && string.Equals(entry.ChatJid, chatJid, StringComparison.Ordinal))
                     {
                         result.Add(entry);
@@ -280,9 +280,9 @@ public sealed class ScratchStoreFactory
 
             lock (factory._gate)
             {
-                var index = IndexOf(account);
-                var remove = Math.Min(count, index.Count);
-                for (var i = 0; i < remove; i++)
+                List<string> index = IndexOf(account);
+                int remove = Math.Min(count, index.Count);
+                for (int i = 0; i < remove; i++)
                 {
                     factory._cacheEntries.Remove((account, index[i]));
                 }
@@ -298,13 +298,13 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                var index = IndexOf(account);
-                var expired = index
-                    .Where(key => factory._cacheEntries.TryGetValue((account, key), out var entry)
+                List<string> index = IndexOf(account);
+                string[] expired = index
+                    .Where(key => factory._cacheEntries.TryGetValue((account, key), out RecentMessageEntry? entry)
                         && entry.TimestampUtc < cutoffUtc)
                     .ToArray();
 
-                foreach (var key in expired)
+                foreach (string? key in expired)
                 {
                     factory._cacheEntries.Remove((account, key));
                 }
@@ -319,7 +319,7 @@ public sealed class ScratchStoreFactory
 
         private List<string> IndexOf(AccountId accountId)
         {
-            if (!factory._cacheIndex.TryGetValue(accountId, out var index))
+            if (!factory._cacheIndex.TryGetValue(accountId, out List<string>? index))
             {
                 index = new List<string>();
                 factory._cacheIndex[accountId] = index;
@@ -336,7 +336,7 @@ public sealed class ScratchStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             lock (factory._gate)
             {
-                return Task.FromResult(factory._safetyRows.TryGetValue(account, out var row) ? row : null);
+                return Task.FromResult(factory._safetyRows.TryGetValue(account, out SafetyStateRecord? row) ? row : null);
             }
         }
 

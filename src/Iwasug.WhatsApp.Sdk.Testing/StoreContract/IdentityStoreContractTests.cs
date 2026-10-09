@@ -34,14 +34,14 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Put_then_Get_round_trips_typed_record()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStoreFactory factory = CreateFactory();
+        IIdentityStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         var record = new SignalIdentityRecord("identity-key-public");
 
         await store.PutAsync("alice@s.whatsapp.net", record, CancellationToken.None);
 
         // Independent subsequent read observes the value (D-06 store-side semantics).
-        var fetched = await store.GetAsync("alice@s.whatsapp.net", CancellationToken.None);
+        SignalIdentityRecord? fetched = await store.GetAsync("alice@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.IdentityKeyPublic.Should().Be(record.IdentityKeyPublic);
@@ -51,10 +51,10 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Get_missing_address_returns_null_not_throw()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStoreFactory factory = CreateFactory();
+        IIdentityStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
-        var fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        SignalIdentityRecord? fetched = await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
 
         fetched.Should().BeNull(); // missing ≠ failure (D-19) — full fault injection lands in 01-03
         await store.DisposeAsync();
@@ -63,9 +63,9 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Two_accounts_isolated_same_address()
     {
-        var factory = CreateFactory();
-        var storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
-        var storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
+        IIdentityStoreFactory factory = CreateFactory();
+        IIdentityStore storeA = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStore storeB = await factory.CreateAsync(AccountId.Create("acct-B"), CancellationToken.None);
         const string address = "shared@s.whatsapp.net";
         var recordA = new SignalIdentityRecord("key-A");
         var recordB = new SignalIdentityRecord("key-B");
@@ -73,8 +73,8 @@ public abstract class IdentityStoreContractTests
         await storeA.PutAsync(address, recordA, CancellationToken.None);
         await storeB.PutAsync(address, recordB, CancellationToken.None);
 
-        var fetchedA = await storeA.GetAsync(address, CancellationToken.None);
-        var fetchedB = await storeB.GetAsync(address, CancellationToken.None);
+        SignalIdentityRecord? fetchedA = await storeA.GetAsync(address, CancellationToken.None);
+        SignalIdentityRecord? fetchedB = await storeB.GetAsync(address, CancellationToken.None);
 
         // Structural namespacing (D-02): same address, two accounts, zero cross-writes (T-01-05).
         fetchedA.Should().NotBeNull();
@@ -88,14 +88,14 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Double_put_same_address_last_write_wins()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStoreFactory factory = CreateFactory();
+        IIdentityStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         const string address = "alice@s.whatsapp.net";
 
         await store.PutAsync(address, new SignalIdentityRecord("first"), CancellationToken.None);
         await store.PutAsync(address, new SignalIdentityRecord("second"), CancellationToken.None);
 
-        var fetched = await store.GetAsync(address, CancellationToken.None);
+        SignalIdentityRecord? fetched = await store.GetAsync(address, CancellationToken.None);
 
         fetched.Should().NotBeNull();
         fetched!.IdentityKeyPublic.Should().Be("second");
@@ -105,13 +105,13 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Double_remove_same_address_second_returns_false()
     {
-        var factory = CreateFactory();
-        var store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStoreFactory factory = CreateFactory();
+        IIdentityStore store = await factory.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
         const string address = "alice@s.whatsapp.net";
         await store.PutAsync(address, new SignalIdentityRecord("key"), CancellationToken.None);
 
-        var first = await store.RemoveAsync(address, CancellationToken.None);
-        var second = await store.RemoveAsync(address, CancellationToken.None);
+        bool first = await store.RemoveAsync(address, CancellationToken.None);
+        bool second = await store.RemoveAsync(address, CancellationToken.None);
 
         first.Should().BeTrue();
         second.Should().BeFalse(); // idempotency edge: removing an absent key reports false
@@ -121,13 +121,13 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task FailReads_Get_throws_SdkStoreException_never_returns_null()
     {
-        var inner = CreateFactory();
+        IIdentityStoreFactory inner = CreateFactory();
         IIdentityStoreFactory faulting = new FaultingStoreFactory(identity: inner) { Mode = FaultMode.FailReads };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // A failing read THROWS — it must never surface as null (D-19: a flaky identity
         // read misinterpreted as "unknown peer" would force needless key re-fetch; T-01-09).
-        var act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
+        Func<Task<SignalIdentityRecord>> act = async () => await store.GetAsync("nobody@s.whatsapp.net", CancellationToken.None);
         await act.Should().ThrowAsync<SdkStoreException>();
         await store.DisposeAsync();
     }
@@ -135,9 +135,9 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Faulting_factory_Mode_None_absent_key_returns_null()
     {
-        var inner = CreateFactory();
+        IIdentityStoreFactory inner = CreateFactory();
         IIdentityStoreFactory faulting = new FaultingStoreFactory(identity: inner) { Mode = FaultMode.None };
-        var store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
+        IIdentityStore store = await faulting.CreateAsync(AccountId.Create("acct-A"), CancellationToken.None);
 
         // Distinct observable path from the fault above: a genuinely absent key returns
         // null — failure and missing stay mechanically distinguishable (D-19).
@@ -148,7 +148,7 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Write_observed_by_independent_second_store_instance()
     {
-        var factory = CreateFactory();
+        IIdentityStoreFactory factory = CreateFactory();
         var account = AccountId.Create("acct-A");
 
         await StoreContractRules.AssertWriteVisibleToIndependentReadAsync<IIdentityStore>(
@@ -157,7 +157,7 @@ public abstract class IdentityStoreContractTests
                 "durable@s.whatsapp.net", new SignalIdentityRecord("durable-key"), CancellationToken.None),
             assertVisibleAsync: async reader =>
             {
-                var fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
+                SignalIdentityRecord? fetched = await reader.GetAsync("durable@s.whatsapp.net", CancellationToken.None);
                 fetched.Should().NotBeNull("an awaited write must be observable by an independent subsequent read (D-06 store-side)");
                 fetched!.IdentityKeyPublic.Should().Be("durable-key");
             });
@@ -166,7 +166,7 @@ public abstract class IdentityStoreContractTests
     [Fact]
     public async Task Parallel_interleaved_writes_and_reads_produce_no_cross_reads()
     {
-        var factory = CreateFactory();
+        IIdentityStoreFactory factory = CreateFactory();
         var accountA = AccountId.Create("acct-A");
         var accountB = AccountId.Create("acct-B");
 

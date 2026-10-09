@@ -92,7 +92,7 @@ public sealed record class Jid
             throw new SdkFormatException("JID value must not contain control characters.");
         }
 
-        var separator = value.LastIndexOf('@');
+        int separator = value.LastIndexOf('@');
         if (separator < 0)
         {
             throw new SdkFormatException("JID value must contain an '@' separator between the user part and the server.");
@@ -103,8 +103,8 @@ public sealed record class Jid
             throw new SdkFormatException("JID user part must not be empty.");
         }
 
-        var local = value[..separator];
-        var server = value[(separator + 1)..];
+        string local = value[..separator];
+        string server = value[(separator + 1)..];
 
         if (local.Contains('@', StringComparison.Ordinal))
         {
@@ -116,7 +116,7 @@ public sealed record class Jid
             throw new SdkFormatException("JID server part must not be empty.");
         }
 
-        var segments = local.Split('.');
+        string[] segments = local.Split('.');
         return segments.Length switch
         {
             1 => Create(segments[0], server, null, null, value),
@@ -152,7 +152,7 @@ public sealed record class Jid
     public override string ToString()
     {
         // Canonical reconstruction (D-16): never Unicode-normalized, never case-folded.
-        var local = Agent is null
+        string local = Agent is null
             ? User
             : Device is null
                 ? $"{User}.{Agent}"
@@ -162,8 +162,8 @@ public sealed record class Jid
 
     private static Jid ParseAgentSuffix(string[] segments, string server, string value)
     {
-        var user = segments[0];
-        var agent = segments[1];
+        string user = segments[0];
+        string agent = segments[1];
 
         if (user.Length == 0)
         {
@@ -185,9 +185,9 @@ public sealed record class Jid
 
     private static Jid ParseAgentDeviceSuffix(string[] segments, string server, string value)
     {
-        var user = string.Join('.', segments[..^2]);
-        var agent = segments[^2];
-        var deviceText = segments[^1];
+        string user = string.Join('.', segments[..^2]);
+        string agent = segments[^2];
+        string deviceText = segments[^1];
 
         if (user.Length == 0)
         {
@@ -209,7 +209,7 @@ public sealed record class Jid
             throw new SdkFormatException("JID device component must be a plain number without leading zeros.");
         }
 
-        if (!int.TryParse(deviceText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var device))
+        if (!int.TryParse(deviceText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int device))
         {
             throw new SdkFormatException("JID device component is outside the supported numeric range.");
         }
@@ -234,7 +234,7 @@ public sealed record class Jid
 
     private static bool IsAlphanumeric(string value)
     {
-        foreach (var c in value)
+        foreach (char c in value)
         {
             if (!char.IsAsciiLetterOrDigit(c))
             {
@@ -257,7 +257,7 @@ public sealed record class Jid
             return false; // zero-padded devices are non-canonical — deferred to Phase 2/4.
         }
 
-        foreach (var c in value)
+        foreach (char c in value)
         {
             if (!char.IsAsciiDigit(c))
             {
@@ -270,7 +270,7 @@ public sealed record class Jid
 
     private static bool ContainsWhitespace(string value)
     {
-        foreach (var c in value)
+        foreach (char c in value)
         {
             if (char.IsWhiteSpace(c))
             {
@@ -283,7 +283,7 @@ public sealed record class Jid
 
     private static bool ContainsControlCharacter(string value)
     {
-        foreach (var c in value)
+        foreach (char c in value)
         {
             if (char.IsControl(c))
             {

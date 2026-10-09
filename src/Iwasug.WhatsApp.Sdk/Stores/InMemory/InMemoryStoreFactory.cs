@@ -87,7 +87,7 @@ public sealed class InMemoryStoreFactory
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        var state = GetOrAdd(accountId, PreKeyCapability, () => new PreKeyState());
+        object state = GetOrAdd(accountId, PreKeyCapability, () => new PreKeyState());
 
         return ValueTask.FromResult<IPreKeyStore>(new InMemoryPreKeyStore((PreKeyState)state));
     }
@@ -98,7 +98,7 @@ public sealed class InMemoryStoreFactory
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        var state = GetOrAdd(accountId, RecentMessageCacheCapability, () => new RecentMessageCacheState());
+        object state = GetOrAdd(accountId, RecentMessageCacheCapability, () => new RecentMessageCacheState());
 
         return ValueTask.FromResult<IRecentMessageCacheStore>(new InMemoryRecentMessageCacheStore((RecentMessageCacheState)state));
     }
@@ -109,7 +109,7 @@ public sealed class InMemoryStoreFactory
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        var state = GetOrAdd(accountId, SafetyStateCapability, () => new SafetyStateRow());
+        object state = GetOrAdd(accountId, SafetyStateCapability, () => new SafetyStateRow());
 
         return ValueTask.FromResult<ISafetyStateStore>(new InMemorySafetyStateStore((SafetyStateRow)state));
     }
@@ -135,7 +135,7 @@ public sealed class InMemoryStoreFactory
         // that owns them. A gate created concurrently with this teardown is simply not
         // in the snapshot — it holds no unmanaged resources until its WaitHandle is
         // touched, so the GC reclaims it harmlessly.
-        foreach (var cache in _state.Values.OfType<RecentMessageCacheState>())
+        foreach (RecentMessageCacheState cache in _state.Values.OfType<RecentMessageCacheState>())
         {
             cache.Gate.Dispose();
         }
@@ -172,7 +172,7 @@ public sealed class InMemoryStoreFactory
             cancellationToken.ThrowIfCancellationRequested();
             // Defensive copy on the read boundary too: callers must never alias
             // (and later corrupt) the store's ratchet-state buffer.
-            return Task.FromResult(records.TryGetValue(address, out var record)
+            return Task.FromResult(records.TryGetValue(address, out SignalSessionRecord? record)
                 ? record with { SessionState = (byte[])record.SessionState.Clone() }
                 : null);
         }
@@ -209,7 +209,7 @@ public sealed class InMemoryStoreFactory
         public Task<SignalIdentityRecord?> GetAsync(string address, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(records.TryGetValue(address, out var record) ? record : null);
+            return Task.FromResult(records.TryGetValue(address, out SignalIdentityRecord? record) ? record : null);
         }
 
         public Task PutAsync(string address, SignalIdentityRecord identity, CancellationToken cancellationToken)
@@ -246,7 +246,7 @@ public sealed class InMemoryStoreFactory
         public Task<PreKeyBundle?> GetBundleAsync(string address, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(state.Bundles.TryGetValue(address, out var bundle) ? bundle : null);
+            return Task.FromResult(state.Bundles.TryGetValue(address, out PreKeyBundle? bundle) ? bundle : null);
         }
 
         public Task PutBundleAsync(string address, PreKeyBundle bundle, CancellationToken cancellationToken)
@@ -259,7 +259,7 @@ public sealed class InMemoryStoreFactory
         public Task<PreKeyRecordEntry?> GetPreKeyAsync(int preKeyId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(state.PreKeys.TryGetValue(preKeyId, out var key) ? key : null);
+            return Task.FromResult(state.PreKeys.TryGetValue(preKeyId, out PreKeyRecordEntry? key) ? key : null);
         }
 
         public Task PutPreKeyAsync(int preKeyId, PreKeyRecordEntry key, CancellationToken cancellationToken)
@@ -305,7 +305,7 @@ public sealed class InMemoryStoreFactory
             await state.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                return state.Entries.TryGetValue(messageKey, out var entry) ? entry : null;
+                return state.Entries.TryGetValue(messageKey, out RecentMessageEntry? entry) ? entry : null;
             }
             finally
             {
@@ -366,9 +366,9 @@ public sealed class InMemoryStoreFactory
             {
                 // Newest first: walk the insertion-ordered index backwards, same chat only.
                 var result = new List<RecentMessageEntry>(Math.Min(limit, state.Index.Count));
-                for (var i = state.Index.Count - 1; i >= 0 && result.Count < limit; i--)
+                for (int i = state.Index.Count - 1; i >= 0 && result.Count < limit; i--)
                 {
-                    if (state.Entries.TryGetValue(state.Index[i], out var entry)
+                    if (state.Entries.TryGetValue(state.Index[i], out RecentMessageEntry? entry)
                         && string.Equals(entry.ChatJid, chatJid, StringComparison.Ordinal))
                     {
                         result.Add(entry);
@@ -396,8 +396,8 @@ public sealed class InMemoryStoreFactory
             {
                 // Removes only what remains — a second TrimOldest(n) after an empty
                 // account removes nothing (no negative over-trim).
-                var remove = Math.Min(count, state.Index.Count);
-                for (var i = 0; i < remove; i++)
+                int remove = Math.Min(count, state.Index.Count);
+                for (int i = 0; i < remove; i++)
                 {
                     state.Entries.TryRemove(state.Index[i], out _);
                 }
@@ -417,12 +417,12 @@ public sealed class InMemoryStoreFactory
             try
             {
                 // Strictly-before cutoff only; entries at or after the cutoff are untouched.
-                var expired = state.Index
-                    .Where(key => state.Entries.TryGetValue(key, out var entry)
+                string[] expired = state.Index
+                    .Where(key => state.Entries.TryGetValue(key, out RecentMessageEntry? entry)
                         && entry.TimestampUtc < cutoffUtc)
                     .ToArray();
 
-                foreach (var key in expired)
+                foreach (string? key in expired)
                 {
                     state.Entries.TryRemove(key, out _);
                 }

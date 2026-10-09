@@ -24,11 +24,11 @@ public sealed class StoreRegistryTests
         var registry = new StoreRegistry(new StoreRegistryOptions());
         var account = AccountId.Create("reg-fallback-A");
 
-        var session = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession session = await registry.CreateSessionAsync(account, CancellationToken.None);
         var record = new SignalSessionRecord("peer@s.whatsapp.net", [1, 2, 3]);
 
         await session.SignalSessions.PutAsync("peer@s.whatsapp.net", record, CancellationToken.None);
-        var retrieved = await session.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None);
+        SignalSessionRecord? retrieved = await session.SignalSessions.GetAsync("peer@s.whatsapp.net", CancellationToken.None);
 
         retrieved.Should().BeEquivalentTo(record);
     }
@@ -42,8 +42,8 @@ public sealed class StoreRegistryTests
         var forA = new SignalSessionRecord("peer@s.whatsapp.net", [1, 1, 1]);
         var forB = new SignalSessionRecord("peer@s.whatsapp.net", [2, 2, 2]);
 
-        var sessionA = await registry.CreateSessionAsync(accountA, CancellationToken.None);
-        var sessionB = await registry.CreateSessionAsync(accountB, CancellationToken.None);
+        StoreSession sessionA = await registry.CreateSessionAsync(accountA, CancellationToken.None);
+        StoreSession sessionB = await registry.CreateSessionAsync(accountB, CancellationToken.None);
         await sessionA.SignalSessions.PutAsync("peer@s.whatsapp.net", forA, CancellationToken.None);
         await sessionB.SignalSessions.PutAsync("peer@s.whatsapp.net", forB, CancellationToken.None);
 
@@ -55,13 +55,13 @@ public sealed class StoreRegistryTests
     public async Task Host_factory_wins_when_registered_and_fallback_fills_the_rest()
     {
         var account = AccountId.Create("reg-host-A");
-        var hostStore = Substitute.For<ISignalSessionStore>();
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStore hostStore = Substitute.For<ISignalSessionStore>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(hostStore));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
 
-        var session = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession session = await registry.CreateSessionAsync(account, CancellationToken.None);
 
         session.SignalSessions.Should().BeSameAs(hostStore);
         _ = hostFactory.Received(1).CreateAsync(account, Arg.Any<CancellationToken>());
@@ -76,13 +76,13 @@ public sealed class StoreRegistryTests
     public async Task Subset_registration_mixes_host_identity_with_fallback_everything_else()
     {
         var account = AccountId.Create("reg-subset-A");
-        var hostIdentity = Substitute.For<IIdentityStore>();
-        var hostFactory = Substitute.For<IIdentityStoreFactory>();
+        IIdentityStore hostIdentity = Substitute.For<IIdentityStore>();
+        IIdentityStoreFactory hostFactory = Substitute.For<IIdentityStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(hostIdentity));
         var registry = new StoreRegistry(new StoreRegistryOptions { IdentityFactory = hostFactory });
 
-        var session = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession session = await registry.CreateSessionAsync(account, CancellationToken.None);
 
         session.Identity.Should().BeSameAs(hostIdentity);
         _ = hostFactory.Received(1).CreateAsync(account, Arg.Any<CancellationToken>());
@@ -97,13 +97,13 @@ public sealed class StoreRegistryTests
     public async Task Same_account_id_returns_the_cached_session_and_creates_once()
     {
         var account = AccountId.Create("reg-cache-A");
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(Substitute.For<ISignalSessionStore>()));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
 
-        var first = await registry.CreateSessionAsync(account, CancellationToken.None);
-        var second = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession first = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession second = await registry.CreateSessionAsync(account, CancellationToken.None);
 
         second.Should().BeSameAs(first);
         _ = hostFactory.Received(1).CreateAsync(account, Arg.Any<CancellationToken>());
@@ -118,10 +118,10 @@ public sealed class StoreRegistryTests
 
         await registry.CreateSessionAsync(known, CancellationToken.None);
 
-        var ensure = () => registry.EnsureUnique(known);
+        Action ensure = () => registry.EnsureUnique(known);
         ensure.Should().Throw<SdkDuplicateAccountException>();
 
-        var ensureUnknown = () => registry.EnsureUnique(unknown);
+        Action ensureUnknown = () => registry.EnsureUnique(unknown);
         ensureUnknown.Should().NotThrow();
     }
 
@@ -129,14 +129,14 @@ public sealed class StoreRegistryTests
     public async Task Disposing_the_session_disposes_host_factory_instances_too()
     {
         var account = AccountId.Create("reg-cascade-A");
-        var hostStore = Substitute.For<ISignalSessionStore>();
+        ISignalSessionStore hostStore = Substitute.For<ISignalSessionStore>();
         hostStore.DisposeAsync().Returns(ValueTask.CompletedTask);
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(hostStore));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
 
-        var session = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession session = await registry.CreateSessionAsync(account, CancellationToken.None);
         await session.DisposeAsync();
 
         _ = hostStore.Received(1).DisposeAsync();
@@ -146,9 +146,9 @@ public sealed class StoreRegistryTests
     public async Task Disposing_the_registry_disposes_its_cached_sessions()
     {
         var account = AccountId.Create("reg-shutdown-A");
-        var hostStore = Substitute.For<ISignalSessionStore>();
+        ISignalSessionStore hostStore = Substitute.For<ISignalSessionStore>();
         hostStore.DisposeAsync().Returns(ValueTask.CompletedTask);
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(hostStore));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
@@ -163,15 +163,15 @@ public sealed class StoreRegistryTests
     public async Task Dispose_failures_aggregate_without_aborting_the_cascade()
     {
         var account = AccountId.Create("reg-aggregate-A");
-        var brokenStore = Substitute.For<ISignalSessionStore>();
+        ISignalSessionStore brokenStore = Substitute.For<ISignalSessionStore>();
         brokenStore.When(x => x.DisposeAsync()).Do(_ => throw new InvalidOperationException("dispose boom"));
-        var brokenFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStoreFactory brokenFactory = Substitute.For<ISignalSessionStoreFactory>();
         brokenFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(brokenStore));
 
-        var identityStore = Substitute.For<IIdentityStore>();
+        IIdentityStore identityStore = Substitute.For<IIdentityStore>();
         identityStore.DisposeAsync().Returns(ValueTask.CompletedTask);
-        var identityFactory = Substitute.For<IIdentityStoreFactory>();
+        IIdentityStoreFactory identityFactory = Substitute.For<IIdentityStoreFactory>();
         identityFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(identityStore));
 
@@ -181,10 +181,10 @@ public sealed class StoreRegistryTests
             IdentityFactory = identityFactory,
         });
 
-        var session = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession session = await registry.CreateSessionAsync(account, CancellationToken.None);
 
-        var dispose = async () => await session.DisposeAsync();
-        var thrown = (await dispose.Should().ThrowAsync<AggregateException>()).Which;
+        Func<Task> dispose = async () => await session.DisposeAsync();
+        AggregateException thrown = (await dispose.Should().ThrowAsync<AggregateException>()).Which;
 
         thrown.InnerExceptions.Should().Contain(ex => ex is InvalidOperationException);
         // The store after the failing one still got its dispose attempt (T-01-13).
@@ -199,7 +199,7 @@ public sealed class StoreRegistryTests
 
         await registry.DisposeAsync();
 
-        var act = async () => await registry.CreateSessionAsync(account, CancellationToken.None);
+        Func<Task<StoreSession>> act = async () => await registry.CreateSessionAsync(account, CancellationToken.None);
         await act.Should().ThrowAsync<ObjectDisposedException>();
     }
 
@@ -208,8 +208,8 @@ public sealed class StoreRegistryTests
     {
         var account = AccountId.Create("reg-retry-A");
         var boom = new InvalidOperationException("factory boom payload");
-        var goodStore = Substitute.For<ISignalSessionStore>();
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStore goodStore = Substitute.For<ISignalSessionStore>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory
             .CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(
@@ -217,8 +217,8 @@ public sealed class StoreRegistryTests
                 ValueTask.FromResult(goodStore));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
 
-        var first = async () => await registry.CreateSessionAsync(account, CancellationToken.None);
-        var thrown = (await first.Should().ThrowAsync<SdkStoreException>()).Which;
+        Func<Task<StoreSession>> first = async () => await registry.CreateSessionAsync(account, CancellationToken.None);
+        SdkStoreException thrown = (await first.Should().ThrowAsync<SdkStoreException>()).Which;
 
         thrown.InnerException.Should().BeSameAs(boom);
         // Payload discipline (T-01-12): the surfaced message never carries the inner
@@ -226,7 +226,7 @@ public sealed class StoreRegistryTests
         thrown.Message.Should().NotContain("factory boom payload");
 
         // Fault eviction (D-24): the failed creation did not poison the cache.
-        var second = await registry.CreateSessionAsync(account, CancellationToken.None);
+        StoreSession second = await registry.CreateSessionAsync(account, CancellationToken.None);
         second.SignalSessions.Should().BeSameAs(goodStore);
     }
 
@@ -234,7 +234,7 @@ public sealed class StoreRegistryTests
     public async Task Parallel_create_calls_for_one_account_create_exactly_once()
     {
         var account = AccountId.Create("reg-race-A");
-        var hostFactory = Substitute.For<ISignalSessionStoreFactory>();
+        ISignalSessionStoreFactory hostFactory = Substitute.For<ISignalSessionStoreFactory>();
         hostFactory.CreateAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>())
             .Returns(ValueTask.FromResult(Substitute.For<ISignalSessionStore>()));
         var registry = new StoreRegistry(new StoreRegistryOptions { SignalSessionFactory = hostFactory });
@@ -242,11 +242,11 @@ public sealed class StoreRegistryTests
         // IN-08: the once-per-account guarantee rests on the Lazy self-capture being
         // lexical — a routine refactor could mint two sessions under a race. This test
         // pins the guarantee: every parallel caller observes the one winning session.
-        var sessions = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ =>
+        StoreSession[] sessions = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ =>
             registry.CreateSessionAsync(account, CancellationToken.None).AsTask()));
 
-        var first = sessions[0];
-        foreach (var session in sessions)
+        StoreSession first = sessions[0];
+        foreach (StoreSession? session in sessions)
         {
             session.Should().BeSameAs(first);
         }

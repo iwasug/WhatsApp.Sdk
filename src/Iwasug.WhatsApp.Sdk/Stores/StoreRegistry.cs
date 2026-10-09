@@ -130,7 +130,9 @@ public sealed class StoreRegistry : IAsyncDisposable
         lock (_lifecycleGate)
         {
             if (Volatile.Read(ref _disposed) != 0)
+            {
                 throw new ObjectDisposedException(nameof(StoreRegistry));
+            }
 
             // The value factory may run more than once under a race; ConcurrentDictionary keeps
             // exactly one winner, so exactly one Lazy (and therefore one creation) per account
@@ -216,7 +218,7 @@ public sealed class StoreRegistry : IAsyncDisposable
 
         // Snapshot-and-evict: remove each entry before disposing its session so a racing
         // CreateSessionAsync does not resolve to a session that is being torn down.
-        foreach (var kvp in snapshot)
+        foreach (KeyValuePair<AccountId, Lazy<Task<StoreSession>>> kvp in snapshot)
         {
             Evict(kvp.Key, kvp.Value);
             if (!kvp.Value.IsValueCreated)
@@ -284,8 +286,8 @@ public sealed class StoreRegistry : IAsyncDisposable
             // (expr?.M) cannot convert to a delegate, and the local snapshot lets the
             // lambda's nullability flow analysis work. The snapshot also pins the host's
             // registration for the whole resolution instead of re-reading the property.
-            var signalFactory = _options.SignalSessionFactory;
-            var signal = await ResolveStoreAsync(
+            ISignalSessionStoreFactory? signalFactory = _options.SignalSessionFactory;
+            (ISignalSessionStore Store, bool FromHost) signal = await ResolveStoreAsync(
                 signalFactory is null
                     ? null
                     : (id, token) => signalFactory.CreateAsync(id, token),
@@ -295,8 +297,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(signal.Store);
 
-            var identityFactory = _options.IdentityFactory;
-            var identity = await ResolveStoreAsync(
+            IIdentityStoreFactory? identityFactory = _options.IdentityFactory;
+            (IIdentityStore Store, bool FromHost) identity = await ResolveStoreAsync(
                 identityFactory is null
                     ? null
                     : (id, token) => identityFactory.CreateAsync(id, token),
@@ -306,8 +308,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(identity.Store);
 
-            var preKeyFactory = _options.PreKeyFactory;
-            var preKeys = await ResolveStoreAsync(
+            IPreKeyStoreFactory? preKeyFactory = _options.PreKeyFactory;
+            (IPreKeyStore Store, bool FromHost) preKeys = await ResolveStoreAsync(
                 preKeyFactory is null
                     ? null
                     : (id, token) => preKeyFactory.CreateAsync(id, token),
@@ -317,8 +319,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(preKeys.Store);
 
-            var cacheFactory = _options.RecentMessageCacheFactory;
-            var cache = await ResolveStoreAsync(
+            IRecentMessageCacheStoreFactory? cacheFactory = _options.RecentMessageCacheFactory;
+            (IRecentMessageCacheStore Store, bool FromHost) cache = await ResolveStoreAsync(
                 cacheFactory is null
                     ? null
                     : (id, token) => cacheFactory.CreateAsync(id, token),
@@ -328,8 +330,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(cache.Store);
 
-            var safetyFactory = _options.SafetyStateFactory;
-            var safety = await ResolveStoreAsync(
+            ISafetyStateStoreFactory? safetyFactory = _options.SafetyStateFactory;
+            (ISafetyStateStore Store, bool FromHost) safety = await ResolveStoreAsync(
                 safetyFactory is null
                     ? null
                     : (id, token) => safetyFactory.CreateAsync(id, token),
@@ -353,7 +355,7 @@ public sealed class StoreRegistry : IAsyncDisposable
         {
             // Best-effort rollback (D-23): the original creation failure is what the
             // caller must see; dispose failures during rollback are secondary.
-            foreach (var store in created)
+            foreach (IAsyncDisposable store in created)
             {
                 try
                 {
@@ -428,7 +430,7 @@ public sealed class StoreRegistry : IAsyncDisposable
     {
         try
         {
-            var session = await creation.ConfigureAwait(false);
+            StoreSession session = await creation.ConfigureAwait(false);
             // The drain may have disposed this session between registration and
             // completion; never hand out a post-dispose session (WR-01).
             if (Volatile.Read(ref _disposed) != 0)
@@ -573,7 +575,7 @@ public sealed class StoreSession : IAsyncDisposable
         }
 
         List<Exception>? failures = null;
-        foreach (var (store, _) in _ownedStores)
+        foreach ((IAsyncDisposable? store, StoreOrigin _) in _ownedStores)
         {
             try
             {
@@ -586,7 +588,7 @@ public sealed class StoreSession : IAsyncDisposable
         }
 
         // Evict before surfacing failures: the session is dead either way.
-        var eviction = Interlocked.Exchange(ref _evictionCallback, null);
+        Action? eviction = Interlocked.Exchange(ref _evictionCallback, null);
         eviction?.Invoke();
 
         if (failures is not null)
