@@ -115,15 +115,17 @@ public sealed class ConnectionStateTests
         CancellationToken cancellationToken)
     {
         byte[] header = await ReceiveOrThrowAsync(peer, cancellationToken);
-        header.Should().Equal([0x57, 0x41, 0x06, 0x03]);
+        NoiseHandshake.ValidateIntroHeader(header);
 
-        byte[] messageA = await ReceiveOrThrowAsync(peer, cancellationToken);
+        byte[] messageAFrame = await ReceiveOrThrowAsync(peer, cancellationToken);
         using var responder = new NoiseHandshakeResponder(serverHello);
+        byte[] messageA = WaFrame.Deframe(messageAFrame).ToArray();
         responder.ReadMessageA(messageA);
         byte[] messageB = responder.WriteMessageB();
-        await peer.SendAsync(messageB, cancellationToken);
+        await peer.SendAsync(WaFrame.Frame(messageB), cancellationToken);
 
-        byte[] messageC = await ReceiveOrThrowAsync(peer, cancellationToken);
+        byte[] messageCFrame = await ReceiveOrThrowAsync(peer, cancellationToken);
+        byte[] messageC = WaFrame.Deframe(messageCFrame).ToArray();
         NoiseTransport transport = responder.ReadMessageC(messageC);
         return new PeerHandshakeResult { Transport = transport };
     }
@@ -134,7 +136,8 @@ public sealed class ConnectionStateTests
         CancellationToken cancellationToken)
     {
         byte[] encrypted = await ReceiveOrThrowAsync(peer, cancellationToken);
-        byte[] plain = noise.Decrypt(encrypted);
+        ReadOnlySpan<byte> framed = WaFrame.Deframe(encrypted);
+        byte[] plain = noise.Decrypt(framed.Slice(1));
         if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
         {
             throw new InvalidOperationException("Peer received an unparsable query frame.");
@@ -151,7 +154,10 @@ public sealed class ConnectionStateTests
         CancellationToken cancellationToken)
     {
         byte[] response = QueryRouter.BuildFrame(id, body);
-        await peer.SendAsync(noise.Encrypt(response), cancellationToken);
+        byte[] encrypted = noise.Encrypt(response);
+        byte[] flagged = new byte[encrypted.Length + 1];
+        encrypted.CopyTo(flagged.AsSpan(1));
+        await peer.SendAsync(WaFrame.Frame(flagged), cancellationToken);
     }
 
     private static async Task RunPeerEchoLoopAsync(
@@ -169,14 +175,18 @@ public sealed class ConnectionStateTests
                 return;
             }
 
-            byte[] plain = noise.Decrypt(frame.Value.Span);
+            ReadOnlySpan<byte> framed = WaFrame.Deframe(frame.Value.Span);
+            byte[] plain = noise.Decrypt(framed.Slice(1));
             if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
             {
                 throw new InvalidOperationException("Peer received an unparsable query frame.");
             }
 
             byte[] response = QueryRouter.BuildFrame(id, body);
-            await peer.SendAsync(noise.Encrypt(response), cancellationToken);
+            byte[] encrypted = noise.Encrypt(response);
+            byte[] flagged = new byte[encrypted.Length + 1];
+            encrypted.CopyTo(flagged.AsSpan(1));
+            await peer.SendAsync(WaFrame.Frame(flagged), cancellationToken);
             served++;
         }
     }

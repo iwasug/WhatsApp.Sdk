@@ -1,3 +1,4 @@
+using System.Buffers;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
@@ -481,7 +482,7 @@ public sealed class WaConnection : IAsyncDisposable
             try
             {
                 await transport.SendAsync(NoiseProtocol.WaHeader.ToArray(), attemptToken).ConfigureAwait(false);
-                await transport.SendAsync(handshake.WriteMessageA(), attemptToken).ConfigureAwait(false);
+                await transport.SendAsync(WaFrame.Frame(handshake.WriteMessageA()), attemptToken).ConfigureAwait(false);
             }
             catch (SdkConnectionException) when (transport.CloseStatusCode is not null)
             {
@@ -516,18 +517,40 @@ public sealed class WaConnection : IAsyncDisposable
 
             try
             {
-                noise = handshake.ReadMessageB(messageB.Value);
+                // Server shape is intro || length-prefixed body: the intro must be
+                // validated and stripped BEFORE deframing — the intro's own bytes are
+                // not a length prefix, so deframe-first would misread them as one.
+                // Headerless B (loopback shape) skips straight to deframing.
+                ReadOnlySpan<byte> received = messageB.Value.Span;
+                if (received.Length >= NoiseProtocol.WaHeader.Length
+                    && received[0] == NoiseProtocol.WaHeader[0]
+                    && received[1] == NoiseProtocol.WaHeader[1]
+                    && received[2] == NoiseProtocol.WaHeader[2])
+                {
+                    NoiseHandshake.ValidateIntroHeader(received[..NoiseProtocol.WaHeader.Length]);
+                    received = received[NoiseProtocol.WaHeader.Length..];
+                }
+
+                received = WaFrame.Deframe(received);
+                noise = handshake.ReadMessageB(received.ToArray());
             }
             catch (SdkConnectionException ex)
             {
                 throw new ProtocolHaltException(ex);
+            }
+            catch (SdkTransportException ex)
+            {
+                // A framing violation on B is a protocol error, not a transport blip:
+                // fail closed instead of recycling the attempt forever (Rule 2).
+                throw new ProtocolHaltException(
+                    new SdkConnectionException("Handshake message B failed validation.", ex));
             }
 
             byte[] messageC = handshake.WriteMessageC();
             byte[] transcriptHash = handshake.HandshakeHash;
             try
             {
-                await transport.SendAsync(messageC, attemptToken).ConfigureAwait(false);
+                await transport.SendAsync(WaFrame.Frame(messageC), attemptToken).ConfigureAwait(false);
             }
             catch (SdkConnectionException) when (transport.CloseStatusCode is not null)
             {
@@ -635,12 +658,13 @@ public sealed class WaConnection : IAsyncDisposable
 
     private async Task<int?> WatchAsync(Channel channel, CancellationToken monitorToken)
     {
+        var buffered = new ArrayBufferWriter<byte>();
         while (!monitorToken.IsCancellationRequested)
         {
-            ReadOnlyMemory<byte>? frame;
+            ReadOnlyMemory<byte>? chunk;
             try
             {
-                frame = await channel.Transport.ReceiveAsync(monitorToken).ConfigureAwait(false);
+                chunk = await channel.Transport.ReceiveAsync(monitorToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -655,43 +679,59 @@ public sealed class WaConnection : IAsyncDisposable
                 return channel.Transport.CloseStatusCode ?? 408;
             }
 
-            if (frame is null)
+            if (chunk is null)
             {
                 return channel.Transport.CloseStatusCode ?? 408;
             }
 
-            byte[] plain;
-            try
+            chunk.Value.Span.CopyTo(buffered.GetSpan(chunk.Value.Length));
+            buffered.Advance(chunk.Value.Length);
+
+            // Production pump: every buffered byte is drained through the shared
+            // FrameReader (flag strip + compression) before NoiseTransport.Decrypt —
+            // zero hand-rolled framing remains on the inbound path.
+            ReadOnlySequence<byte> buffer = new(buffered.WrittenMemory);
+            while (FrameReader.TryReadFrame(ref buffer, out byte[]? payload))
             {
-                plain = channel.Noise.Decrypt(frame.Value.Span);
-            }
-            catch (ObjectDisposedException)
-            {
-                return 408;
-            }
-            catch (SdkTransportException ex)
-            {
-                _logger?.LogWarning(
-                    ex,
-                    "Frame authentication failed for account {AccountId}.",
-                    _accountId.Value);
-                return channel.Transport.CloseStatusCode ?? 408;
+                byte[] plain;
+                try
+                {
+                    plain = channel.Noise.Decrypt(payload!);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return 408;
+                }
+                catch (SdkTransportException ex)
+                {
+                    _logger?.LogWarning(
+                        ex,
+                        "Frame authentication failed for account {AccountId}.",
+                        _accountId.Value);
+                    return channel.Transport.CloseStatusCode ?? 408;
+                }
+
+                if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
+                {
+                    _logger?.LogWarning(
+                        "Frame correlation failed for account {AccountId}: frame discarded.",
+                        _accountId.Value);
+                }
+                else if (!channel.Router.TryDeliver(id, body))
+                {
+                    _logger?.LogDebug(
+                        "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
+                        id,
+                        _accountId.Value);
+                }
             }
 
-            if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
+            buffered.Clear();
+            if (!buffer.IsEmpty)
             {
-                _logger?.LogWarning(
-                    "Frame correlation failed for account {AccountId}: frame discarded.",
-                    _accountId.Value);
-                continue;
-            }
-
-            if (!channel.Router.TryDeliver(id, body))
-            {
-                _logger?.LogDebug(
-                    "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
-                    id,
-                    _accountId.Value);
+                byte[] remainder = buffer.ToArray();
+                remainder.CopyTo(buffered.GetSpan(remainder.Length));
+                buffered.Advance(remainder.Length);
             }
         }
 
@@ -713,7 +753,9 @@ public sealed class WaConnection : IAsyncDisposable
 
         try
         {
-            await channel.Transport.SendAsync(encrypted, cancellationToken).ConfigureAwait(false);
+            byte[] flagged = new byte[encrypted.Length + 1];
+            encrypted.CopyTo(flagged.AsSpan(1));
+            await channel.Transport.SendAsync(WaFrame.Frame(flagged), cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

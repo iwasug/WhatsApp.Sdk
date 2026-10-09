@@ -99,26 +99,30 @@ public sealed class LoopbackTests
         {
             using var _ = socket;
             byte[] header = await ReceiveMessageAsync(socket, cancellationToken);
-            header.Should().Equal([0x57, 0x41, 0x06, 0x03]);
+            NoiseHandshake.ValidateIntroHeader(header);
 
-            byte[] messageA = await ReceiveMessageAsync(socket, cancellationToken);
+            byte[] messageAFrame = await ReceiveMessageAsync(socket, cancellationToken);
             using var responder = new NoiseHandshakeResponder(serverHello);
-            responder.ReadMessageA(messageA);
-            await SendMessageAsync(socket, responder.WriteMessageB(), cancellationToken);
+            responder.ReadMessageA(WaFrame.Deframe(messageAFrame).ToArray());
+            await SendMessageAsync(socket, WaFrame.Frame(responder.WriteMessageB()), cancellationToken);
 
-            byte[] messageC = await ReceiveMessageAsync(socket, cancellationToken);
-            using NoiseTransport transport = responder.ReadMessageC(messageC);
+            byte[] messageCFrame = await ReceiveMessageAsync(socket, cancellationToken);
+            using NoiseTransport transport = responder.ReadMessageC(WaFrame.Deframe(messageCFrame).ToArray());
 
             for (int i = 0; i < echoQueriesBeforeClose; i++)
             {
                 byte[] encrypted = await ReceiveMessageAsync(socket, cancellationToken);
-                byte[] plain = transport.Decrypt(encrypted);
+                ReadOnlySpan<byte> framed = WaFrame.Deframe(encrypted);
+                byte[] plain = transport.Decrypt(framed.Slice(1));
                 if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
                 {
                     throw new InvalidOperationException("Loopback server received an unparsable query frame.");
                 }
 
-                await SendMessageAsync(socket, transport.Encrypt(QueryRouter.BuildFrame(id, body)), cancellationToken);
+                byte[] encryptedReply = transport.Encrypt(QueryRouter.BuildFrame(id, body));
+                byte[] flaggedReply = new byte[encryptedReply.Length + 1];
+                encryptedReply.CopyTo(flaggedReply.AsSpan(1));
+                await SendMessageAsync(socket, WaFrame.Frame(flaggedReply), cancellationToken);
             }
 
             await socket.CloseAsync((WebSocketCloseStatus)(WebSocketFrameTransport.LoopbackCloseBase + closeCode), "injected", cancellationToken);
