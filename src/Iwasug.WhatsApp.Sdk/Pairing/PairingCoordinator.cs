@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
@@ -27,8 +28,12 @@ namespace Iwasug.WhatsApp.Sdk.Pairing;
 /// them — request <c>&lt;iq id type="get"&gt;&lt;pair-device/&gt;</c>, ref reply
 /// <c>&lt;iq id type="result"&gt;&lt;pair-device ref="…"/&gt;</c>,
 /// pairing-level error <c>&lt;iq id type="error"&gt;&lt;error code="405"/&gt;</c>,
-/// success <c>&lt;notification&gt;&lt;pair-success user/&gt;</c> (an <c>iq</c>
-/// carrying <c>pair-success</c> is accepted too). The ref rides an attribute,
+/// success <c>&lt;notification id&gt;&lt;pair-success/&gt;</c> whose
+/// <c>pair-success</c> child carries the <c>PairSuccessContainer</c> bytes as
+/// binary content (an <c>iq</c> carrying <c>pair-success</c> is accepted too),
+/// and the coordinator's reply <c>&lt;iq id type="result"&gt;
+/// &lt;pair-success-ack/&gt;</c> correlated by the notification's
+/// <c>id</c> attribute. The ref rides an attribute,
 /// not text content: content-slot raw strings decode as <c>Data</c> bytes
 /// (BinaryNodeCodec header) while attr values roundtrip losslessly as strings.
 /// The loopback tests are the executable definition; the end-of-phase human
@@ -51,12 +56,15 @@ namespace Iwasug.WhatsApp.Sdk.Pairing;
 /// 03-RESEARCH.md Pitfall 1).
 /// </para>
 /// <para>
-/// Success boundary (plan 03-04 owns the rest): the pair-success payload is
-/// passed through UNVERIFIED — no HMAC/signature check, no credential write. On
-/// <see cref="PairingStatus.Success"/> this coordinator does not persist; plan
-/// 03-04 owns the verify-then-persist ordering through the
-/// <see cref="CompletePairSuccessAsync"/> seam below (which currently throws
-/// <see cref="NotSupportedException"/>).
+/// Success ordering (03-04, T-3-08/T-3-09, mandatory): a pair-success stanza
+/// never emits <c>Success</c> directly — it is enqueued for the
+/// verify-then-persist drain (<see cref="CompletePairSuccessAsync"/>), which
+/// runs verify → awaited <c>PutAsync</c> → independent read → <c>iq</c> reply
+/// → <c>Success</c> event, every step awaited in order with no
+/// fire-and-forget. A rejected container stops there (log-safe reason, no
+/// write, no reply, no event — the attempt continues to its natural timeout
+/// or terminal); a throwing <c>PutAsync</c> surfaces as a pairing failure
+/// (no <c>Success</c>, no reply), never as success.
 /// </para>
 /// <para>
 /// Secret hygiene (T-3-06/T-3-07): the reference is opaque pass-through (never
@@ -83,8 +91,8 @@ internal sealed class PairingCoordinator
     private const string RefAttribute = "ref";
     private const string ErrorTag = "error";
     private const string PairSuccessTag = "pair-success";
+    private const string PairSuccessAckTag = "pair-success-ack";
     private const string CodeAttribute = "code";
-    private const string UserAttribute = "user";
     private const string StaleClientCode = "405";
 
     private readonly AccountId _accountId;
@@ -92,6 +100,7 @@ internal sealed class PairingCoordinator
     private readonly ICredentialStore _credentials;
     private readonly Func<BinaryNode, CancellationToken, ValueTask> _sender;
     private readonly Func<bool> _hasChannel;
+    private readonly Func<byte[], byte[], byte[], PairSuccessResult> _verify;
     private readonly TimeProvider _timeProvider;
     private readonly Func<WaVersionResolver?> _resolver;
     private readonly ILogger<PairingCoordinator>? _logger;
@@ -117,6 +126,11 @@ internal sealed class PairingCoordinator
     /// <param name="credentials">The account's credential store (QR key material source).</param>
     /// <param name="sender">Sends one pairing node on the current channel (the connection owns the channel).</param>
     /// <param name="hasChannel">Whether a channel is currently installed (no send is attempted without one).</param>
+    /// <param name="pairSuccessVerifier">
+    /// Pair-success verification strategy (defaults to <see cref="PairSuccessVerifier.Verify"/>):
+    /// takes the container bytes, the stored adv secret, and the row-pinned device public key.
+    /// A seam for the ordering proofs, which observe the verify step explicitly.
+    /// </param>
     /// <param name="timeProvider">Clock for rotation/timeout delays; defaults to system time.</param>
     /// <param name="resolver">Live lookup of the connection's version resolver (405 invalidation path).</param>
     /// <param name="logger">Optional per-account logger (Abstractions only).</param>
@@ -128,6 +142,7 @@ internal sealed class PairingCoordinator
         ICredentialStore credentials,
         Func<BinaryNode, CancellationToken, ValueTask> sender,
         Func<bool> hasChannel,
+        Func<byte[], byte[], byte[], PairSuccessResult>? pairSuccessVerifier = null,
         TimeProvider? timeProvider = null,
         Func<WaVersionResolver?>? resolver = null,
         ILogger<PairingCoordinator>? logger = null)
@@ -143,6 +158,7 @@ internal sealed class PairingCoordinator
         _credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
         _sender = sender ?? throw new ArgumentNullException(nameof(sender));
         _hasChannel = hasChannel ?? throw new ArgumentNullException(nameof(hasChannel));
+        _verify = pairSuccessVerifier ?? PairSuccessVerifier.Verify;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _resolver = resolver ?? (() => null);
         _logger = logger;
@@ -198,15 +214,55 @@ internal sealed class PairingCoordinator
             throw;
         }
 
+        // The attempt loop and the pair-success drain run concurrently and are
+        // both joined here: the drain owns verify → write → read → reply →
+        // Success, the loop owns rotation/timeout/refetch. Neither is
+        // fire-and-forget — both tasks are awaited on every exit path below.
+        Task attemptTask = RunAttemptAsync(attempt);
+        Task drainTask = DrainPairSuccessAsync(attempt);
         try
         {
-            await RunAttemptAsync(attempt).ConfigureAwait(false);
+            await Task.WhenAll(attemptTask, drainTask).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (attempt.Terminal != 0)
+        catch (OperationCanceledException)
         {
-            // A terminal already fired its event — the cancellation below is just
-            // the mechanism that unwinds the in-flight wait, not an outcome.
-            return;
+            // A store fault captured by the drain surfaces here as the pairing
+            // failure outcome (never as Success) — with the original stack.
+            if (attempt.DrainError is not null)
+            {
+                ExceptionDispatchInfo.Capture(attempt.DrainError).Throw();
+            }
+
+            if (attempt.Terminal != 0)
+            {
+                // A terminal already fired its event — the cancellation is just
+                // the mechanism that unwinds the in-flight wait, not an outcome.
+                return;
+            }
+
+            throw;
+        }
+        catch (Exception)
+        {
+            // The attempt loop faulted while the drain is still parked: unwind
+            // the sibling, join both, then surface the original fault.
+            try
+            {
+                attempt.Cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                await Task.WhenAll(attemptTask, drainTask).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+            }
+
+            throw;
         }
         finally
         {
@@ -217,8 +273,9 @@ internal sealed class PairingCoordinator
 
     /// <summary>
     /// Stanza-received handler (subscribes to the connection's internal stanza
-    /// event): routes pair-success notifications to <c>Success</c> and correlates
-    /// ref/error replies to the pending pairing request by node id.
+    /// event): enqueues pair-success containers for the verify-then-persist
+    /// drain and correlates ref/error replies to the pending pairing request
+    /// by node id.
     /// </summary>
     /// <param name="sender">The connection (unused).</param>
     /// <param name="node">The inbound <c>iq</c> or <c>notification</c> node (never mutated).</param>
@@ -232,9 +289,23 @@ internal sealed class PairingCoordinator
             return;
         }
 
-        if (TryExtractPairSuccess(node, out string? user))
+        if (TryExtractPairSuccessContainer(node, out string? replyId, out byte[]? container)
+            && container is not null)
         {
-            Terminate(attempt, PairingStatus.Success, user);
+            // Handled here, fully: a pair-success stanza never falls through
+            // to iq correlation below. Without a live attempt it is ignored;
+            // otherwise the drain verifies it before any side effect.
+            lock (_gate)
+            {
+                if (!ReferenceEquals(_attempt, attempt) || attempt.Terminal != 0)
+                {
+                    return;
+                }
+
+                attempt.SuccessQueue.Enqueue(new SuccessItem(container, replyId));
+                attempt.SuccessSignal.TrySetResult();
+            }
+
             return;
         }
 
@@ -310,12 +381,177 @@ internal sealed class PairingCoordinator
     }
 
     /// <summary>
-    /// Pair-success verify-then-persist seam (plan 03-04): verifies the
-    /// pair-success container and writes the credential row. Not implemented in
-    /// this plan — <c>Success</c> is an unverified passthrough until 03-04.
+    /// Pair-success drain (03-04): dequeues every pair-success container the
+    /// stanza handler enqueued and runs each through
+    /// <see cref="CompletePairSuccessAsync"/> until one verifies (which ends
+    /// the attempt in <c>Success</c>) or the attempt ends another way.
+    /// Awaited by <see cref="StartAsync"/> — never fire-and-forget.
     /// </summary>
-    internal Task CompletePairSuccessAsync(BinaryNode node, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("Pair-success verification and credential persistence arrive in plan 03-04.");
+    /// <param name="attempt">The live attempt whose queue is drained.</param>
+    private async Task DrainPairSuccessAsync(Attempt attempt)
+    {
+        try
+        {
+            while (true)
+            {
+                SuccessItem[] batch;
+                Task wait;
+                lock (_gate)
+                {
+                    if (attempt.SuccessQueue.Count > 0)
+                    {
+                        batch = attempt.SuccessQueue.ToArray();
+                        attempt.SuccessQueue.Clear();
+                        wait = Task.CompletedTask;
+                    }
+                    else
+                    {
+                        batch = [];
+                        wait = attempt.SuccessSignal.Task;
+                    }
+                }
+
+                if (batch.Length == 0)
+                {
+                    await wait.WaitAsync(attempt.Cts.Token).ConfigureAwait(false);
+                    continue;
+                }
+
+                foreach (SuccessItem item in batch)
+                {
+                    // A store fault here (FailWrites) is the pairing failure
+                    // outcome, never Success: captured below, surfaced by
+                    // StartAsync after the sibling loop unwinds.
+                    PairSuccessPayload? payload = await CompletePairSuccessAsync(
+                        item,
+                        Volatile.Read(ref attempt.PendingId),
+                        attempt.Cts.Token).ConfigureAwait(false);
+                    if (payload is not null)
+                    {
+                        Terminate(attempt, PairingStatus.Success, payload.PairedUser);
+                        return;
+                    }
+                }
+
+                lock (_gate)
+                {
+                    // Re-arm only when nothing arrived mid-batch: a queued item
+                    // takes the batch path above, so waiting on an already
+                    // completed signal (a busy spin) is impossible.
+                    if (attempt.SuccessQueue.Count == 0 && attempt.SuccessSignal.Task.IsCompleted)
+                    {
+                        attempt.SuccessSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Terminal, timeout, or host cancel unwinds the wait — never a
+            // failure outcome, never swallowed.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            attempt.DrainError = ex;
+            try
+            {
+                attempt.Cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>
+    /// Pair-success verify-then-persist (03-04): verifies the container
+    /// fail-closed, writes the credential row and awaits it, confirms the
+    /// write through an independent read, and only then replies to the
+    /// server. Returns the verified payload, or <c>null</c> when the
+    /// container was rejected or no row exists (no write, no reply, no
+    /// event — the attempt continues).
+    /// </summary>
+    /// <param name="item">The enqueued container plus its reply correlation id.</param>
+    /// <param name="fallbackReplyId">The pending request id when the stanza carried none.</param>
+    /// <param name="cancellationToken">The attempt's token (unwrapped).</param>
+    /// <returns>The verified payload, or <c>null</c> for a non-success outcome.</returns>
+    /// <exception cref="Errors.SdkStoreException">
+    /// The write failed or the independent read missed it — the pairing
+    /// failure outcome (surfaces from <c>StartAsync</c>, never as Success).
+    /// </exception>
+    /// <exception cref="OperationCanceledException">The attempt ended mid-sequence.</exception>
+    private async Task<PairSuccessPayload?> CompletePairSuccessAsync(
+        SuccessItem item,
+        string? fallbackReplyId,
+        CancellationToken cancellationToken)
+    {
+        // Fail-closed first touch: the row supplies the adv secret AND the
+        // row-pinned device key. A missing row cannot verify — stop with no
+        // write, no reply, no event. A throwing read propagates as the
+        // pairing failure (a broken store must not look like "no success
+        // yet").
+        CredentialRecord? row = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (row is null)
+        {
+            _logger?.LogWarning(
+                "Pair-success arrived with no credential row for account {AccountId}: success withheld.",
+                _accountId.Value);
+            return null;
+        }
+
+        byte[] advSecret = (byte[])row.AdvSecret.Clone();
+        byte[] signingPrivate = (byte[])row.SigningKeyPrivate.Clone();
+        try
+        {
+            byte[] devicePublic = DeriveEd25519Public(signingPrivate);
+            try
+            {
+                PairSuccessResult verdict = _verify(item.Container, advSecret, devicePublic);
+                if (verdict is not PairSuccessResult.Verified verified)
+                {
+                    var rejected = (PairSuccessResult.Rejected)verdict;
+                    _logger?.LogWarning(
+                        "Pair-success verification failed for account {AccountId}: {Reason}.",
+                        _accountId.Value,
+                        rejected.Reason);
+                    return null;
+                }
+
+                CredentialRecord updated = row with
+                {
+                    PairedUser = verified.Payload.PairedUser,
+                    Device = verified.Payload.Device,
+                    RegistrationId = verified.Payload.RegistrationId,
+                };
+                await _credentials.PutAsync(updated, cancellationToken).ConfigureAwait(false);
+
+                CredentialRecord? observed = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+                if (observed is null
+                    || !string.Equals(observed.PairedUser, verified.Payload.PairedUser, StringComparison.Ordinal)
+                    || observed.Device != verified.Payload.Device)
+                {
+                    throw new SdkStoreException(
+                        "Pair-success write was not observable by an independent read: success withheld.");
+                }
+
+                string replyId = item.ReplyId
+                    ?? fallbackReplyId
+                    ?? $"pair-success-{Interlocked.Increment(ref _requestSequence)}";
+                await _sender(BuildPairSuccessReply(replyId), cancellationToken).ConfigureAwait(false);
+                return verified.Payload;
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(devicePublic);
+            }
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(advSecret);
+            CryptographicOperations.ZeroMemory(signingPrivate);
+        }
+    }
 
     private async Task RunAttemptAsync(Attempt attempt)
     {
@@ -569,6 +805,27 @@ internal sealed class PairingCoordinator
         }
     }
 
+    /// <summary>
+    /// Derives the Ed25519 device public key from the row-pinned signing
+    /// private (the pair-success device-signature pin). Same clone/import/
+    /// zeroize discipline as <see cref="DeriveX25519Public"/> — NSec derives,
+    /// never hand-rolled curve math.
+    /// </summary>
+    /// <param name="privateSeed">The 32-byte signing private (never mutated).</param>
+    private static byte[] DeriveEd25519Public(byte[] privateSeed)
+    {
+        byte[] copy = (byte[])privateSeed.Clone();
+        try
+        {
+            using Key key = Key.Import(SignatureAlgorithm.Ed25519, copy, KeyBlobFormat.RawPrivateKey);
+            return key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(copy);
+        }
+    }
+
     private static BinaryNode BuildPairDeviceRequest(string id) =>
         BinaryNode.FromChildren(
             "iq",
@@ -577,6 +834,23 @@ internal sealed class PairingCoordinator
             {
                 ["id"] = id,
                 ["type"] = "get",
+            });
+
+    /// <summary>
+    /// Builds the success reply: an <c>iq result</c> correlated by the
+    /// <c>id</c> attribute (the QueryRouter correlation discipline — pairing
+    /// stanzas flow through the stanza event, but the reply still carries the
+    /// id the server matches on).
+    /// </summary>
+    /// <param name="id">The incoming pair-success stanza's id (or the pending request's).</param>
+    private static BinaryNode BuildPairSuccessReply(string id) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.Create(PairSuccessAckTag)],
+            new Dictionary<string, string>
+            {
+                ["id"] = id,
+                ["type"] = "result",
             });
 
     private static bool TryExtractRef(BinaryNode node, [NotNullWhen(true)] out string? pairingRef)
@@ -610,18 +884,31 @@ internal sealed class PairingCoordinator
             && string.Equals(error.Attrs.GetValueOrDefault(CodeAttribute), code, StringComparison.Ordinal);
     }
 
-    private static bool TryExtractPairSuccess(BinaryNode node, out string? user)
+    /// <summary>
+    /// Extracts the pair-success container bytes from a stanza: the
+    /// <c>pair-success</c> child must carry the <c>PairSuccessContainer</c>
+    /// bytes as binary content. Legacy shapes without binary content (the
+    /// 03-03 unverified <c>user</c> passthrough) are NOT extracted — an
+    /// unverified payload can never reach the drain.
+    /// </summary>
+    /// <param name="node">The inbound stanza (never mutated).</param>
+    /// <param name="replyId">The stanza's <c>id</c> attribute for reply correlation (may be null).</param>
+    /// <param name="container">The container bytes (a fresh copy).</param>
+    private static bool TryExtractPairSuccessContainer(
+        BinaryNode node,
+        out string? replyId,
+        [NotNullWhen(true)] out byte[]? container)
     {
-        user = null;
+        replyId = null;
+        container = null;
         BinaryNode? success = FindChild(node, PairSuccessTag);
-        if (success is null)
+        if (success?.Data is null || success.Data.Length == 0)
         {
             return false;
         }
 
-        // Unverified passthrough (03-04 boundary): carry the scripted user attr
-        // (else node text, else null) without interpreting it.
-        user = success.Attrs.GetValueOrDefault(UserAttribute) ?? success.Text;
+        replyId = node.Attrs.GetValueOrDefault("id");
+        container = (byte[])success.Data.Clone();
         return true;
     }
 
@@ -722,6 +1009,38 @@ internal sealed class PairingCoordinator
         internal string? PendingId;
 
         internal TaskCompletionSource<RefOutcome>? PendingRef;
+
+        /// <summary>
+        /// Pair-success containers awaiting the verify-then-persist drain.
+        /// Enqueued by the stanza handler, dequeued by the drain — both under
+        /// <see cref="_gate"/>.
+        /// </summary>
+        internal readonly Queue<SuccessItem> SuccessQueue = new();
+
+        /// <summary>
+        /// Completed whenever <see cref="SuccessQueue"/> gains an item; re-armed
+        /// by the drain when it empties the queue.
+        /// </summary>
+        internal TaskCompletionSource SuccessSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>
+        /// A non-cancellation drain fault (e.g. FailWrites <c>PutAsync</c>),
+        /// surfaced by <c>StartAsync</c> as the pairing failure outcome.
+        /// </summary>
+        internal Exception? DrainError;
+    }
+
+    /// <summary>
+    /// One enqueued pair-success arrival: the container bytes plus the
+    /// stanza's reply-correlation id (null when the stanza carried none).
+    /// </summary>
+    /// <param name="Container">The container bytes (owned by the queue).</param>
+    /// <param name="ReplyId">The stanza <c>id</c> for reply correlation.</param>
+    private sealed class SuccessItem(byte[] Container, string? ReplyId)
+    {
+        internal byte[] Container { get; } = Container;
+
+        internal string? ReplyId { get; } = ReplyId;
     }
 
     private abstract record RefOutcome

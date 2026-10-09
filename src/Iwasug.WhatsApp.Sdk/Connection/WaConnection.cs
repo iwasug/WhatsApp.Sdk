@@ -626,8 +626,9 @@ public sealed class WaConnection : IAsyncDisposable
             provider.Credentials,
             SendPairingNodeAsync,
             () => _channel is not null,
-            _timeProvider,
-            () => VersionResolver,
+            pairSuccessVerifier: null,
+            timeProvider: _timeProvider,
+            resolver: () => VersionResolver,
             logger: null);
         StanzaReceived += coordinator.OnStanzaReceived;
         PairingTerminal += coordinator.OnPairingTerminal;

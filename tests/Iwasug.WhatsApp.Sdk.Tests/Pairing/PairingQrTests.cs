@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using AwesomeAssertions;
+using Google.Protobuf;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
@@ -361,13 +362,92 @@ public sealed class PairingQrTests
             [BinaryNode.Create("error", new Dictionary<string, string> { ["code"] = code })],
             new Dictionary<string, string> { ["id"] = id, ["type"] = "error" });
 
-    private static BinaryNode PairSuccessNotification(string user) =>
+    private static BinaryNode PairSuccessContainerNotification(string id, byte[] container) =>
         BinaryNode.FromChildren(
             "notification",
-            [BinaryNode.Create("pair-success", new Dictionary<string, string> { ["user"] = user })]);
+            [BinaryNode.FromBytes("pair-success", container)],
+            new Dictionary<string, string> { ["id"] = id });
+
+    private static byte[] BuildSeedRowContainer(CredentialRecord seed, string user, uint device, uint registrationId)
+    {
+        // A container the coordinator verifies against the seed row: the
+        // device key is the row's signing key, the secret is the row's adv
+        // secret, the account key is arbitrary test material.
+        byte[] accountSeed = FixedBytes(0x50);
+        byte[] accountPublic = Ed25519PublicOf(accountSeed);
+        var details = new AdvDetails
+        {
+            PairedUser = user,
+            Device = device,
+            RegistrationId = registrationId,
+            AccountPublic = ByteString.CopyFrom(accountPublic),
+        };
+        byte[] detailsBytes = details.ToByteArray();
+        byte[] hmac = HMACSHA256.HashData(seed.AdvSecret, detailsBytes);
+        byte[] accountSignature = Ed25519Sign(accountSeed, JoinSegments([6, 0], detailsBytes));
+        byte[] deviceSignature = Ed25519Sign(seed.SigningKeyPrivate, JoinSegments([6, 1], detailsBytes, accountPublic));
+        var container = new PairSuccessContainer
+        {
+            Details = details,
+            Hmac = ByteString.CopyFrom(hmac),
+            AccountSignature = ByteString.CopyFrom(accountSignature),
+            DeviceSignature = ByteString.CopyFrom(deviceSignature),
+        };
+        return container.ToByteArray();
+    }
+
+    private static byte[] Ed25519PublicOf(byte[] seed)
+    {
+        byte[] copy = (byte[])seed.Clone();
+        try
+        {
+            using Key key = Key.Import(SignatureAlgorithm.Ed25519, copy, KeyBlobFormat.RawPrivateKey);
+            return key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(copy);
+        }
+    }
+
+    private static byte[] Ed25519Sign(byte[] seed, byte[] data)
+    {
+        byte[] copy = (byte[])seed.Clone();
+        try
+        {
+            using Key key = Key.Import(SignatureAlgorithm.Ed25519, copy, KeyBlobFormat.RawPrivateKey);
+            return SignatureAlgorithm.Ed25519.Sign(key, data);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(copy);
+        }
+    }
+
+    private static byte[] JoinSegments(params byte[][] segments)
+    {
+        int total = 0;
+        foreach (byte[] segment in segments)
+        {
+            total += segment.Length;
+        }
+
+        byte[] result = new byte[total];
+        int offset = 0;
+        foreach (byte[] segment in segments)
+        {
+            segment.CopyTo(result.AsSpan(offset));
+            offset += segment.Length;
+        }
+
+        return result;
+    }
 
     private static BinaryNode FailureNode(string reason) =>
         BinaryNode.Create("failure", new Dictionary<string, string> { ["reason"] = reason });
+
+    private static bool HasChild(BinaryNode node, string tag) =>
+        node.Children is not null && node.Children.Any(child => string.Equals(child.Tag, tag, StringComparison.Ordinal));
 
     private static async Task<PairingStateChangedEventArgs> WaitForPairingAsync(
         ConcurrentQueue<PairingStateChangedEventArgs> events,
@@ -788,12 +868,14 @@ public sealed class PairingQrTests
     }
 
     [Fact]
-    public async Task Pairing_success_is_terminal_and_one_shot_with_unverified_passthrough()
+    public async Task Pairing_success_verifies_writes_replies_and_is_terminal_and_one_shot()
     {
-        // BOUNDARY (plan 03-04 owns the rest): the Success payload below is passed
-        // through UNVERIFIED — no HMAC/signature check, no credential write. This
-        // test asserts only the event shape (Status + passthrough payload) and the
-        // terminal one-shot rule.
+        // (03-04) The Success payload below is VERIFIED: the HMAC covers the
+        // details with the seed row's adv secret and both Ed25519 signatures
+        // check out, so the coordinator persists the row and replies before
+        // emitting Success. This test asserts the event shape (Status +
+        // verified payload), the reply correlation, the credential update, and
+        // the terminal one-shot rule.
         var clock = new FakeTimeProvider();
         using var testCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         CancellationToken testToken = testCts.Token;
@@ -807,7 +889,9 @@ public sealed class PairingQrTests
         ICredentialStore store = composed.Store;
         pairing.StateChanged += (_, e) => events.Enqueue(e);
 
+        byte[] container = BuildSeedRowContainer(composed.Seed, "1234567890", 2, 77);
         var sendSuccess = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var replyReceived = new TaskCompletionSource<BinaryNode>(TaskCreationOptions.RunContinuationsAsynchronously);
         var peerTask = Task.Run(async () =>
         {
             LoopbackFrameTransport peer = await TakePeerAsync(pairs, testToken);
@@ -817,12 +901,20 @@ public sealed class PairingQrTests
                 BinaryNode request = await ReceivePeerNodeAsync(peer, noise, testToken);
                 await SendPeerNodeAsync(peer, noise, RefReply(request.Attrs["id"], "REF-1"), testToken);
                 await sendSuccess.Task.WaitAsync(testToken);
-                await SendPeerNodeAsync(peer, noise, PairSuccessNotification("1234567890"), testToken);
+                await SendPeerNodeAsync(peer, noise, PairSuccessContainerNotification("n-1", container), testToken);
+
+                // The coordinator's reply arrives before its Success event:
+                // assert the correlation here, on the fake-server side.
+                BinaryNode reply = await ReceivePeerNodeAsync(peer, noise, testToken);
+                reply.Tag.Should().Be("iq");
+                reply.Attrs["id"].Should().Be("n-1");
+                HasChild(reply, "pair-success-ack").Should().BeTrue();
+                replyReceived.TrySetResult(reply);
 
                 // Post-terminal noise the coordinator must ignore: a duplicate
                 // success and a stale correlated reply.
                 await Task.Delay(50, testToken);
-                await SendPeerNodeAsync(peer, noise, PairSuccessNotification("1234567890"), testToken);
+                await SendPeerNodeAsync(peer, noise, PairSuccessContainerNotification("n-2", container), testToken);
                 await SendPeerNodeAsync(peer, noise, RefReply(request.Attrs["id"], "REF-STALE"), testToken);
                 await HoldPeerTillDoneAsync(peer, testToken);
             }
@@ -837,10 +929,16 @@ public sealed class PairingQrTests
 
         await WaitForPairingAsync(events, e => e.Status == PairingStatus.Code, "first code");
         sendSuccess.TrySetResult();
+        await replyReceived.Task.WaitAsync(testToken);
         PairingStateChangedEventArgs success = await WaitForPairingAsync(
             events, e => e.Status == PairingStatus.Success, "success terminal");
-        success.Payload.Should().Be("1234567890", "the success payload passes through (unverified in this plan)");
+        success.Payload.Should().Be("1234567890", "the success payload is the verified paired user");
         await pairingTask.WaitAsync(testToken);
+
+        CredentialRecord? row = await store.GetAsync(testToken);
+        row.Should().NotBeNull("the verified success persists the credential row");
+        row!.PairedUser.Should().Be("1234567890");
+        row.Device.Should().Be(2);
 
         await Task.Delay(100, testToken);
         events.Count(e => e.Status == PairingStatus.Success).Should().Be(1);

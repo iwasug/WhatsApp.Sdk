@@ -69,8 +69,8 @@ public sealed class PairingStateChangedEventArgs : EventArgs
     /// <summary>Creates a pairing transition event.</summary>
     /// <param name="status">The pairing state just entered.</param>
     /// <param name="payload">
-    /// The QR wire string on <see cref="PairingStatus.Code"/>, the pair-success
-    /// passthrough on <see cref="PairingStatus.Success"/>, <c>null</c> on every
+    /// The QR wire string on <see cref="PairingStatus.Code"/>, the verified
+    /// paired user on <see cref="PairingStatus.Success"/>, <c>null</c> on every
     /// other status.
     /// </param>
     public PairingStateChangedEventArgs(PairingStatus status, string? payload)
