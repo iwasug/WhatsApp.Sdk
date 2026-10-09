@@ -1,8 +1,8 @@
 ---
 phase: 02-wire-protocol-connection-resilience
-verified: 2026-10-09T00:00:00Z
-status: gaps_found
-score: 4/6 must-haves verified
+verified: 2026-10-09T12:00:00Z
+status: human_needed
+score: 6/6 must-haves verified
 covered_files:
   - .planning/phases/02-wire-protocol-connection-resilience/02-01-PLAN.md
   - .planning/phases/02-wire-protocol-connection-resilience/02-01-SUMMARY.md
@@ -14,7 +14,13 @@ covered_files:
   - .planning/phases/02-wire-protocol-connection-resilience/02-04-SUMMARY.md
   - .planning/phases/02-wire-protocol-connection-resilience/02-05-PLAN.md
   - .planning/phases/02-wire-protocol-connection-resilience/02-05-SUMMARY.md
-  - src/Iwasug.WhatsApp.Sdk/Noise/NoiseProtocol.cs
+  - .planning/phases/02-wire-protocol-connection-resilience/02-06-PLAN.md
+  - .planning/phases/02-wire-protocol-connection-resilience/02-06-SUMMARY.md
+  - .planning/phases/02-wire-protocol-connection-resilience/02-07-PLAN.md
+  - .planning/phases/02-wire-protocol-connection-resilience/02-07-SUMMARY.md
+  - .planning/phases/02-wire-protocol-connection-resilience/02-08-PLAN.md
+  - .planning/phases/02-wire-protocol-connection-resilience/02-08-SUMMARY.md
+  - src/Iwasug.WhatsApp.Sdk/Proto/handshake.proto
   - src/Iwasug.WhatsApp.Sdk/Noise/NoiseHandshake.cs
   - src/Iwasug.WhatsApp.Sdk/Noise/NoiseTransport.cs
   - src/Iwasug.WhatsApp.Sdk/Connection/DisconnectReason.cs
@@ -25,39 +31,30 @@ covered_files:
   - src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs
   - src/Iwasug.WhatsApp.Sdk/Transport/IFrameTransport.cs
   - src/Iwasug.WhatsApp.Sdk/Transport/FrameReader.cs
+  - src/Iwasug.WhatsApp.Sdk/Transport/WaFrame.cs
   - src/Iwasug.WhatsApp.Sdk/Transport/WebSocketFrameTransport.cs
   - src/Iwasug.WhatsApp.Sdk/Codec/BinaryNode.cs
   - src/Iwasug.WhatsApp.Sdk/Codec/BinaryNodeCodec.cs
   - src/Iwasug.WhatsApp.Sdk/Codec/TokenDictionary.cs
-  - src/Iwasug.WhatsApp.Sdk/Proto/handshake.proto
   - src/Iwasug.WhatsApp.Sdk/Errors/SdkException.cs
-covered_digest: "v3:sha256:9004ff51289ca0f5aec19627c3f406e2db29591ed541789f125561c8fac2d972"
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Noise/HandshakeEnvelopeTests.cs
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Codec/BinaryNodeDepthTests.cs
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Noise/NoiseHandshakeTests.cs
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Connection/LoopbackTests.cs
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Connection/LoopbackRoundTripTests.cs
+  - tests/Iwasug.WhatsApp.Sdk.Tests/Connection/ConnectionStateTests.cs
+  - NOTICE.md
+covered_digest: "v2:sha256:7ced93381dbabc23b9c86cb4e44000196b6a9258189bcb43eb657a3f9dbfbc85"
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "SDK establishes a live session with WhatsApp (WebSocket + Noise XX handshake + query/reply) and reconnects automatically"
-    status: failed
-    reason: "CR-01 + CR-02 (both independently re-verified against upstream Baileys @0af2386 during this verification): outer proto fields 1/2/3 vs server 2/3/4 so message A never starts a handshake and message B never parses; intro header sent twice with no length prefixes while the server speaks intro-once + 3-byte BE prefix per frame. The client as committed cannot complete a handshake with wss://web.whatsapp.com."
-    artifacts:
-      - path: "src/Iwasug.WhatsApp.Sdk/Proto/handshake.proto"
-        issue: "HandshakeMessage outer fields client_hello=1/server_hello=2/client_finish=3; server schema is 2/3/4 (wire tags 18/26/34)"
-      - path: "src/Iwasug.WhatsApp.Sdk/Noise/NoiseHandshake.cs"
-        issue: "WriteMessageA re-embeds WaHeader (lines 629-633) on top of the standalone WaHeader frame sent by WaConnection (line 483); no 3-byte length prefix on A/C; ParseMessageB demands a 4-byte header the server never sends inside deframed bytes (line 931)"
-      - path: "src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs"
-        issue: "WatchAsync/SendRoutedAsync bypass FrameReader entirely (zero production references to FrameReader under src/); raw WS messages feed straight into NoiseTransport.Decrypt"
-    missing:
-      - "Renumber HandshakeMessage outer fields to 2/3/4 + golden-bytes test pinning outer tags 0x12/0x1A/0x22"
-      - "Single Frame/Deframe helper (FrameReader semantics) used by handshake + pump; intro header sent exactly once per connection; accept headerless message B/C"
-      - "Server-shaped golden fixture test (header || len || bytes) proving a real-shaped message B is consumed"
-  - truth: "Wire bytes decode safely under adversarial fixtures (framing + codec hardening, T-2-06)"
-    status: failed
-    reason: "CR-03 confirmed mechanically: BinaryNodeCodec.ReadNode recurses per nested child with no depth budget (lines 414-446), and StackOverflowException is uncatchable — ~30 KB of nested LIST_8 frames crashes the process. Companion: LIST_16 pre-allocates up to 65535 entries from two untrusted bytes (line 442). Evil-fixture suite covers lies/truncations/overruns but no nesting case."
-    artifacts:
-      - path: "src/Iwasug.WhatsApp.Sdk/Codec/BinaryNodeCodec.cs"
-        issue: "ReadNode() has no depth parameter/guard; unbounded recursion on adversary-controlled bytes; capacity pre-allocation from untrusted count"
-    missing:
-      - "Recursion-depth limit (e.g. 64) with rule-naming SdkFormatException + nesting golden/evil test"
-      - "Incremental list growth or capped initial capacity for LIST_16"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 4/6
+  gaps_closed:
+    - "SDK establishes a live session (CR-01 envelope field numbers + CR-02 handshake/pump framing + FrameReader bypass) — HandshakeMessage renumbered to server-compatible 2/3/4 with golden-tag tests; single WaFrame helper owns all 3-byte prefixes; intro sent exactly once and validated once at the edge; server-shaped message B (intro || len || bare envelope) proven consumable with agreeing transport keys; FrameReader now the sole inbound pump parser"
+    - "Wire bytes decode safely under adversarial fixtures (CR-03 unbounded decoder recursion) — depth budget 64 with rule-naming SdkFormatException; LIST_16 pre-allocation capped at 32 with exact-count growth; four nesting/large-list/truncation regression facts"
+  gaps_remaining: []
+  regressions: []
 requirements_verified: [CONN-04, CONN-05]
 ---
 
@@ -65,8 +62,8 @@ requirements_verified: [CONN-04, CONN-05]
 
 **Phase Goal:** Host has a live connection to WhatsApp that reconnects on its own and classifies why it dropped.
 **Verified:** 2026-10-09
-**Status:** gaps_found
-**Re-verification:** No — initial verification (no prior 02-VERIFICATION.md; 02-REVIEW.md + 02-REVIEW-DISPOSITION.md with 24 open findings were weighed as input, not as a prior verdict)
+**Status:** human_needed
+**Re-verification:** Yes — after gap closure (02-06 envelope renumber, 02-07 framing unification, 02-08 decoder hardening). All prior gap verdicts were re-checked against the current codebase, not carried forward.
 
 ## Goal Achievement
 
@@ -74,68 +71,72 @@ requirements_verified: [CONN-04, CONN-05]
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | SDK establishes a session (WebSocket + Noise XX handshake + correlated query/reply round-trip) and, after any network drop, reconnects automatically with backoff — no host code involved | ✗ FAILED | Loopback mechanics pass (11 LoopbackRoundTrip + 1 real-socket LoopbackTests facts, all green in my re-run), but the client **cannot handshake with the real server**: CR-01 + CR-02 confirmed-gap (see Critical-finding verdicts). "Live connection to WhatsApp" does not hold. |
-| 2 | Each disconnect reason produces distinct observable behavior: 401 terminal logged-out (never retried), 428/408 retry with jittered backoff, 515 immediate restart, 440 account-replaced, 411 protocol-outdated | ✓ VERIFIED | `ReconnectPolicy.Decide` table + `ReconnectBackoff` + `WaConnection` close gate, proven by 36 ReconnectPolicyTests + 14 ConnectionStateTests, all green in my full-suite re-run (288/288). Classification logic is wire-format-independent. Live observability of each code depends on gap closure for truth 1. |
-| 3 | Host observes typed per-connection state events (connecting/open/closing/logged_out) across the lifecycle | ✓ VERIFIED | Event sequences asserted in every LoopbackRoundTrip fact + ConnectionStateTests (incl. terminal exactly-once, no post-terminal events, Closing payload with code + depth). Single-writer emit + Interlocked terminal guard verified in code (`WaConnection.cs`). |
-| 4 | Noise XX core is spec-faithful with strict nonce/key hygiene (cacophony vectors, fresh ephemeral per re-handshake, zeroization) | ✓ VERIFIED | Committed `noise-xx-aesgcm-vectors.json` (verbatim upstream entry) + 5 NoiseVectorTests + 13 NoiseHandshakeTests, all green in my re-run. Nonce shape matches Baileys `generateIV` (review-verified, not disputed). |
-| 5 | Wire bytes decode safely under adversarial fixtures; every query has exactly one observable outcome | ✗ FAILED | Router half holds (10 QueryRouterTests: correlation, timeout, late-discard, closing fail-fast — green). Codec/framing half fails: CR-03 unbounded-recursion remote crash (confirmed mechanically); FrameReader proven only by its own tests and bypassed on the production path (CR-02). |
-| 6 | Production ClientWebSocket path proven over real sockets (Origin/UA headers, keepalive, close-code mapping) with TLS validation intact; reconnect is single-flight | ✓ VERIFIED | `LoopbackTests` (real `ClientWebSocket` ↔ `HttpListener` fake: headers observed server-side both attempts, 428 → autonomous reconnect) green in my re-run; single-flight + exactly-once interleaving facts green. **Scope note:** the fake speaks the loopback protocol, so this proves socket mechanics, NOT server wire compatibility. No TLS-bypass string under `src/` (my grep: zero hits). |
+| 1 | SDK establishes a session (WebSocket + Noise XX handshake + correlated query/reply round-trip) and, after any network drop, reconnects automatically with backoff — no host code involved | ✓ VERIFIED | Both prior blockers re-checked and closed in code: **(CR-01)** `handshake.proto:33-35` now uses outer fields 2/3/4; five golden-wire facts in `HandshakeEnvelopeTests.cs` pin tags 0x12/0x1A/0x22 and field-3 server-shape parse (green in my run). **(CR-02)** `WaFrame.Frame/Deframe` (new shared helper) owns every 3-byte BE prefix; `WaConnection.cs:484-485` sends the intro exactly once then a framed bare-protobuf A (no re-embedded header — `WriteMessageA` returns `envelope.ToByteArray()`); B consumed intro-first then deframed (`:524-534`) with framing violations wrapped into fail-closed `ProtocolHaltException` (`:537-547`); C framed (`:553`). Server-shaped B proven end-to-end by `Server_shaped_message_b_intro_plus_frame_is_consumed_and_keys_agree` (intro ‖ frame ‖ bare ServerHello envelope → handshake completes → responder-encrypt/initiator-decrypt probe equality). Auto-reconnect: `RealSocket_connect_headers_handshake_roundtrip_then_428_reconnects` (real ClientWebSocket) + 11 LoopbackRoundTrip facts + drop/reconnect cycle facts, all green in my full-suite re-run. |
+| 2 | Each disconnect reason produces distinct observable behavior: 401 terminal logged-out (never retried), 428/408 retry with jittered backoff, 515 immediate restart, 440 account-replaced, 411 protocol-outdated | ✓ VERIFIED | `ReconnectPolicy.Decide` table + `ReconnectBackoff` + `WaConnection` close gate; 36 ReconnectPolicyTests (incl. `Decide_401_logged_out_never_retries_even_after_many_attempts`, `Decide_440_replaced_never_retries_at_any_depth`, `Decide_411_outdated_never_retries_at_any_depth`) + per-code ConnectionStateTests (`Drop401_...exactly_once`, `Drop440_stops...`, `Drop411_is_terminal`, `Drops_428_then_515_restart_with_counter_reset`), green in my re-run. Classification is wire-format-independent and the wire format it will observe is now server-shaped (truth 1). |
+| 3 | Host observes typed per-connection state events (connecting/open/closing/logged_out) across the lifecycle | ✓ VERIFIED | `Reconnecting_sequence_emits_connecting_open_closing_connecting_open`, `Drop401_after_open_emits_logged_out_exactly_once_with_no_post_terminal_events`, `Concurrent_401_drop_and_dispose_emit_logged_out_at_most_once` — all green in my run; single-writer emit + Interlocked terminal guard in `WaConnection.cs`. |
+| 4 | Noise XX core is spec-faithful with strict nonce/key hygiene (cacophony vectors, fresh ephemeral per re-handshake, zeroization) | ✓ VERIFIED | Committed `noise-xx-aesgcm-vectors.json` + 5 NoiseVectorTests + 16 NoiseHandshakeTests (incl. `Rehandshake_after_515_mints_fresh_ephemeral_and_zeroizes_old_keys`, `Cancelled_handshake_zeroizes_inflight_keys`), green in my re-run. Untouched by the gap-closure changes except the envelope/framing surface, which the two-party key-agreement facts re-prove. |
+| 5 | Wire bytes decode safely under adversarial fixtures; every query has exactly one observable outcome | ✓ VERIFIED | **CR-03 closed:** `BinaryNodeCodec.cs:63` `MaxNestedDepth = 64`; `ReadNode(int depth = 0)` throws rule-naming `SdkFormatException` above budget (`:415-420`); recursion threads `depth + 1` (`:452`); LIST_16 initial capacity capped `Math.Min(count, 32)` with exact-count validated growth (`:448-453`). Four regression facts in `BinaryNodeDepthTests.cs` (accepts 64, rejects 200 with the exact rule message, 300-child LIST_16 round-trip, truncated 65535-count rejected) green in my run. Router half unchanged and green (10 QueryRouterTests: correlation, timeout, late-discard, closing fail-fast). |
+| 6 | Production ClientWebSocket path proven over real sockets (Origin/UA headers, keepalive, close-code mapping) with TLS validation intact; reconnect is single-flight | ✓ VERIFIED | Real-socket loopback fact green in my re-run (headers observed server-side, 428 → autonomous reconnect over the now-framed flow); single-flight facts (`Parallel_queries_during_drop_collapse_to_single_reconnect_attempt`, `ReconnectGate_collapses_concurrent_requests_to_one_attempt`) green; zero TLS-bypass strings under `src/` (my grep). |
 
-**Score:** 4/6 truths verified (0 present-but-behavior-unverified)
+**Score:** 6/6 truths verified (0 present-but-behavior-unverified). All behavior-dependent truths (drop→reconnect transition, exactly-once terminal, single-flight collapse, decoder rejection) are exercised by passing behavioral tests in my own full-suite run — none rests on symbol presence alone.
 
-### Critical-finding verdicts (02-REVIEW.md CR-01/CR-02/CR-03 — each re-verified, none taken on trust)
+### Gap Closure Verification (re-verification of the two prior FAILED truths)
 
-| ID | Verdict | Evidence (this verification, not the review's word) |
-|----|---------|------------------------------------------------------|
-| CR-01 envelope field numbers | **confirmed-gap** | Independently fetched Baileys `@0af2386` `WAProto/index.js` just now: `HandshakeMessage.encode` uses wire tags **18/26/34** (fields 2/3/4) and `decode` switches on cases 2/3/4 — read from raw upstream source. Ours uses 1/2/3 (`handshake.proto:30-34`), whose own header admits "names and numbers below are our own", contradicting the 02-03 "Baileys-faithful shapes" claim. No golden-bytes test pins the outer tags (grep: none). Fatal in both directions. |
-| CR-02 handshake/pump framing + FrameReader bypass | **confirmed-gap** | Code-mechanical: `WaConnection.cs:483` sends standalone `WaHeader`, then `WriteMessageA()` re-embeds the same 4 bytes (`NoiseHandshake.cs:629-633`) → intro duplicated; no 3-byte length prefix on A/C; `ParseMessageB` demands a 4-byte header (`:931`); `FrameReader` has **zero production references** under `src/` (only doc-comment mentions). Upstream `encodeFrame` (`src/Utils/noise-handler.ts @0af2386`, fetched just now) confirms intro-once (`sentIntro` flag) + 3-byte BE prefix on every frame, and `socket.ts validateConnection` sends message A as a bare protobuf through `encodeFrame` while decoding the reply directly as `HandshakeMessage` with no header check. One nuance the review overstates slightly: whether a server intro accompanies message B cannot be settled without a live server — but the divergence (double-intro, missing prefixes, header-demanding B, bypassed FrameReader) is settled from code alone. |
-| CR-03 unbounded decoder recursion | **confirmed-gap** | Code-mechanical: `BinaryNodeCodec.cs:414-446` — `ReadNode()` takes no depth parameter, file contains no depth guard (grep `depth|MaxDepth`: zero hits); `new List<BinaryNode>(count)` at line 442 allocates from two untrusted bytes. Evil-fixture suite has no nesting case. Uncatchable `StackOverflowException` from adversary-controlled bytes inside the declared T-2-06 boundary. |
+| Prior gap | Fix claimed by | Re-checked against code | Verdict |
+|-----------|----------------|-------------------------|---------|
+| CR-01 envelope fields 1/2/3 vs server 2/3/4 + no golden-tag test | 02-06 | `handshake.proto:33-35` = 2/3/4; provenance header cites Baileys tags 18/26/34 @ `0af2386`; `HandshakeEnvelopeTests.cs` (5 facts) pins 0x12/0x1A/0x22 encode + server-shape decode; commits `94023f8`/`88525af` verified ancestors of HEAD | **CLOSED** |
+| CR-02 double intro, missing length prefixes, header-demanding B, FrameReader bypassed in production | 02-07 | `WaFrame.cs` new shared helper; `WaConnection.cs:484` intro sent once per attempt; `NoiseHandshake.WriteMessageA/WriteMessageC` return bare envelopes (no header re-embed — old `ParseMessageB` header demand replaced by edge validation `ValidateIntroHeader`, `NoiseHandshake.cs:918`); B consumed intro-first fail-closed (`WaConnection.cs:518-547`); pump drains through `FrameReader.TryReadFrame` (`:694`) — grep confirms it is now the sole production inbound parser (only other `.Decrypt` callers are `NoiseTransport` internals and the handshake AEAD); `WatchAsync_OLD` gone; server-shaped B tracer fact with key-agreement probe; NOTICE.md row 2026-10-09 logs Baileys framing provenance (noise-handler.ts / socket.ts / WAProto @ `0af2386`) naming the three consumer files — WR-10 also closed; commits `74a9e36`/`8c73812`/`74f778d` verified ancestors | **CLOSED** |
+| CR-03 unbounded decoder recursion + LIST_16 pre-allocation from untrusted bytes | 02-08 | Depth budget + rule-naming throw + capped LIST_16 in `BinaryNodeCodec.cs`; `BinaryNodeDepthTests.cs` (4 facts) green in my run; commits `951b930`/`8baa41c`/`12fa837` verified ancestors | **CLOSED** |
 
 ### Deferred Items
 
-None. Considered Phase 9 (OPS-02 live-interop drift job): it would *detect* but not *fix* these defects, and the defects are initial incorrectness in Phase 2 files, not drift. No later phase's goal or success criteria covers renumbering the handshake envelope, fixing handshake/pump framing, or bounding decoder recursion. All three gaps belong to Phase 2 gap closure.
+None. Live-server interop is not deferred here — it is routed to human verification below (external-service integration is inherently human per the verifier contract); Phase 9 OPS-02 will add a drift-detecting live job, but no later phase owns any remaining code gap.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `Connection/ReconnectPolicy.cs` | Decide table + full-jitter backoff | ✓ VERIFIED | Pure `Decide` + internal `ReconnectBackoff`, clamp-after-jitter, 36 tests green |
-| `Connection/WaConnection.cs` | Lifecycle + close gate + single-flight | ✓ VERIFIED (mechanics) / wire path FAILED (framing, see gaps) | Gate, single-flight, exactly-once proven; handshake/pump byte path diverges from server |
-| `Connection/QueryRouter.cs` | Correlation + timeout + late-discard + closing fail-fast | ✓ VERIFIED | 10 tests green; per-attempt router wired as drop trigger |
-| `Noise/NoiseHandshake.cs` + `NoiseTransport.cs` | Spec XX core + AEAD + hygiene | ✓ VERIFIED (crypto) / envelope FAILED (see gaps) | Vectors + two-party + zeroization green; envelope numbers + framing wrong |
-| `Proto/handshake.proto` | Server-compatible envelope | ✗ FAILED | Outer fields 1/2/3 vs server 2/3/4 (CR-01) |
-| `Codec/BinaryNode.cs` + `BinaryNodeCodec.cs` + `TokenDictionary.cs` | Byte-identical codec, MIT provenance | ✓ VERIFIED (parity) / ✗ FAILED (safety: CR-03) | Round-trips + evil fixtures green; recursion DoS open; NOTICE token rows present |
-| `Transport/IFrameTransport.cs` + `FrameReader.cs` | Seam + 3-byte framing parser | ✓ VERIFIED (unit) / ⚠️ ORPHANED in production | FrameReader green in isolation, never called on the live path |
-| `Transport/WebSocketFrameTransport.cs` | Production socket transport | ✓ VERIFIED (mechanics, scope-limited) | Real-socket loopback green; byte-transparent by design (which is precisely why server framing breaks above it) |
+| `Connection/ReconnectPolicy.cs` | Decide table + full-jitter backoff | ✓ VERIFIED | Pure `Decide` + `ReconnectBackoff`, clamp-after-jitter, 36 tests green |
+| `Connection/WaConnection.cs` | Lifecycle + close gate + single-flight + server-shaped wire path | ✓ VERIFIED | Gate/single-flight/exactly-once green; intro-once framed A/C, intro-first fail-closed B, FrameReader-wired pump (`:694`), flagged+framed routed sends (`:758`) |
+| `Connection/QueryRouter.cs` | Correlation + timeout + late-discard + closing fail-fast | ✓ VERIFIED | 10 tests green; untouched by gap closure (as 02-07 claimed) |
+| `Noise/NoiseHandshake.cs` + `NoiseTransport.cs` | Spec XX core + AEAD + hygiene + bare-protobuf envelope | ✓ VERIFIED | Vectors + two-party + zeroization green; writers return bare envelopes; `ValidateIntroHeader` edge validation |
+| `Proto/handshake.proto` | Server-compatible envelope (fields 2/3/4) | ✓ VERIFIED | `:33-35` renumbered; clean-room provenance header naming Baileys @ `0af2386` |
+| `Codec/BinaryNode.cs` + `BinaryNodeCodec.cs` + `TokenDictionary.cs` | Byte-identical codec + bounded decoder + MIT provenance | ✓ VERIFIED | Round-trips + evil fixtures + 4 depth facts green; depth 64 + LIST_16 cap; NOTICE token rows present |
+| `Transport/WaFrame.cs` (new) | Shared 3-byte BE framing helper | ✓ VERIFIED | Cap-enforced Frame/Deframe with rule-naming `SdkTransportException`; used by handshake A/C, B consumption, and routed sends |
+| `Transport/FrameReader.cs` | Single inbound pump parser, wired in production | ✓ VERIFIED (was ORPHANED) | Production call site at `WaConnection.cs:694`; sole inbound decrypt path |
+| `Transport/WebSocketFrameTransport.cs` | Production socket transport | ✓ VERIFIED | Real-socket loopback green; byte-transparent above the shared framing layer |
 | `Connection/DisconnectReason.cs` + `ConnectionState.cs` + `ConnectionOptions.cs` | Vocabulary | ✓ VERIFIED | 401/403/411/419 terminal, 440 stop, 515 restart; exactly Connecting/Open/Closing/LoggedOut |
+| `NOTICE.md` | Baileys handshake-framing provenance row | ✓ VERIFIED | Row dated 2026-10-09 (WR-10 closed) |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `WaConnection.ConnectAsync` | `IFrameTransport` | factory + `SendAsync`/`ReceiveAsync` | ✓ WIRED | Real-socket test proves the seam carries bytes both directions |
-| `WaConnection` drop path | `ReconnectPolicy.Decide` + backoff | `MapDropToOutcome` | ✓ WIRED | Per-code outcomes asserted end-to-end in ConnectionStateTests |
-| `NoiseHandshake` | `NoiseTransport` | `ReadMessageB` mint + `WriteMessageC` | ✓ WIRED | Two-party tests agree on keys both directions |
-| `FrameReader` | pump handshake/data path | — | ✗ NOT_WIRED | Zero production call sites; the phase's own framing component is dead code on the live path |
-| `QueryRouter` | `WaConnection` pump | per-attempt router + `NotifyConnectionClosing` | ✓ WIRED | In-flight fails as connection-lost; no latch leaks (post-reconnect round-trips green) |
+| `WaConnection.ConnectAsync` | `IFrameTransport` | factory + `SendAsync`/`ReceiveAsync` | ✓ WIRED | Real-socket test proves bytes flow both directions |
+| `WaConnection` | `WaFrame` (handshake A/C + B + routed sends) | `WaFrame.Frame/Deframe` at `:485`, `:534`, `:553`, `:758` | ✓ WIRED | New link closing CR-02; all length-prefix work in one helper |
+| `WaConnection` watch pump | `FrameReader.TryReadFrame` | `:694` | ✓ WIRED (was NOT_WIRed) | Sole production inbound parser; grep confirms zero other production decrypt entry points |
+| `WaConnection` drop path | `ReconnectPolicy.Decide` + backoff | `MapDropToOutcome` | ✓ WIRED | Per-code outcomes asserted end-to-end |
+| `NoiseHandshake` | `NoiseTransport` | `ReadMessageB` mint + `WriteMessageC` | ✓ WIRED | Two-party + server-shaped-B facts agree on keys both directions |
+| `QueryRouter` | `WaConnection` pump | per-attempt router + `NotifyConnectionClosing` | ✓ WIRED | In-flight fails as connection-lost; post-reconnect round-trips green |
 
 ### Data-Flow Trace (Level 4)
 
-N/A as UI rendering — applied as wire-byte trace instead: server-shaped bytes → `WebSocketFrameTransport.ReceiveAsync` → `NoiseTransport.Decrypt` directly (FrameReader bypassed, 3-byte prefix un-stripped → strict-nonce failure → spurious 408). Chain ends in misparse, not in delivered data. Status: ✗ DISCONNECTED on the inbound live path; ✓ FLOWING on the loopback path (fake speaks the SDK's own format).
+Server-shaped bytes (`intro ‖ 3-byte-len ‖ bare HandshakeMessage`) → `WebSocketFrameTransport.ReceiveAsync` → intro validated+stripped once (`WaConnection.cs:524-532`) → `WaFrame.Deframe` (`:534`) → `NoiseHandshake.ReadMessageB` → live `NoiseTransport`. Pump: bytes → `FrameReader.TryReadFrame` (flag strip + zlib) → `NoiseTransport.Decrypt` → `QueryRouter.TryParseFrame` → `TryDeliver`. ✓ FLOWING end-to-end, proven by the server-shaped B tracer fact and the loopback round trips. The chain no longer ends in misparse.
 
 ### Behavioral Spot-Checks (re-run by this verifier, not quoted from SUMMARYs)
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
 | Build warnings-as-errors | `dotnet build Iwasug.WhatsApp.Sdk.sln -warnaserror --nologo` | `Build succeeded. 0 Warning(s) 0 Error(s)` | ✓ PASS |
-| Full suite via direct-DLL fallback (`dotnet test` MTP discovery returns zero in this env) | `dotnet ./tests/.../Iwasug.WhatsApp.Sdk.Tests.dll` | `Total: 288, Errors: 0, Failed: 0, Skipped: 0` | ✓ PASS |
-| Upstream envelope numbers | fetch `WAProto/index.js @0af2386`, read `HandshakeMessage.encode/decode` | tags 18/26/34, cases 2/3/4 | ✓ PASS (proves CR-01) |
-| Upstream framing rule | fetch `src/Utils/noise-handler.ts @0af2386`, read `encodeFrame` | intro-once + 3-byte BE prefix per frame | ✓ PASS (proves CR-02 rule) |
-| No TLS bypass under `src/` | grep `ServerCertificate\|ValidationCallback\|Certificate` in Connection/Noise/Codec/Transport | zero hits | ✓ PASS |
-| No stub markers in phase source | grep `TODO\|FIXME\|XXX` in Connection/Noise/Codec/Transport | zero hits | ✓ PASS |
-| NOTICE handshake provenance row | grep `handshake\|noise-handler\|socket.ts` in NOTICE.md | zero hits — WR-10 still open | ⚠️ noted (non-blocking, see below) |
+| Full suite via direct-DLL fallback (`dotnet test` MTP discovery returns zero in this env — exit 5) | `dotnet ./tests/.../Iwasug.WhatsApp.Sdk.Tests.dll` | `Total: 300, Errors: 0, Failed: 0, Skipped: 0, Not Run: 0` | ✓ PASS |
+| Gap-closure commits in history | `git merge-base --is-ancestor` × 8 (`94023f8`, `88525af`, `74a9e36`, `8c73812`, `74f778d`, `951b930`, `8baa41c`, `12fa837`) | all 8 ancestors of HEAD | ✓ PASS |
+| FrameReader is sole production inbound parser | grep `\.Decrypt\(|TryReadFrame` under `src/` | only `WaConnection.cs:694` (FrameReader) feeds `Noise.Decrypt`; other hits are Noise internals/tests/PublicAPI list | ✓ PASS |
+| No TLS bypass under `src/` | grep `ServerCertificate\|ValidationCallback\|DangerousAcceptAny` in Connection/Noise | zero hits | ✓ PASS |
+| No key-material logging | grep `Log.*[Kk]ey\|Log.*[Ss]ecret\|Convert.ToHexString` in WaConnection | zero hits | ✓ PASS |
+| No debt markers in gap-closure files | grep `TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER` across 6 modified/new files | zero hits | ✓ PASS |
+| No dead hand-rolled framing | grep `WatchAsync_OLD\|hand-rolled` in `src/` | only a comment asserting its absence | ✓ PASS |
 
-Single full-suite run per the once-per-verification rule; no per-truth re-runs. Working tree carries unrelated uncommitted style-pass edits (incl. `STATE.md`, Phase 1 kit files); verification ran against the working tree — build 0W/0E and 288/288 hold with them, and none of the gap findings depend on those hunks.
+Single full-suite run per the once-per-verification rule. Working tree carries uncommitted unrelated style-pass edits; build 0W/0E and 300/300 hold against the working tree, and none of the verdicts depend on those hunks.
 
 ### Probe Execution
 
@@ -145,36 +146,38 @@ No `scripts/*/tests/probe-*.sh` probes declared; no PLAN/SUMMARY mentions a prob
 
 | Requirement | Source Plans | Description | Status | Evidence |
 |-------------|--------------|-------------|--------|----------|
-| CONN-04 | 02-01, 02-02, 02-03, 02-04, 02-05 | Auto-reconnect with backoff; discriminate disconnect reasons | ⚠️ PARTIAL | Classification + backoff + reconnect mechanics fully proven (50 tests); live-server session blocked by CR-01/CR-02 gaps |
-| CONN-05 | 02-01, 02-02, 02-04, 02-05 | Typed per-account state events | ✓ SATISFIED | connecting/open/closing/logged_out asserted across drops, incl. exactly-once terminal |
+| CONN-04 | 02-01…02-05 + 02-06, 02-08 | Auto-reconnect with backoff; discriminate disconnect reasons | ✓ SATISFIED | Classification + backoff + reconnect mechanics green (50+ tests); handshake/framing now server-shaped (envelope 2/3/4, intro-once, prefixed frames, bounded decoder) — the prior PARTIAL verdict's blocker is closed |
+| CONN-05 | 02-01, 02-02, 02-04, 02-05 + 02-07 | Typed per-account state events | ✓ SATISFIED | connecting/open/closing/logged_out asserted across drops, incl. exactly-once terminal, over the corrected framing |
 
-No orphaned requirement IDs: REQUIREMENTS.md maps exactly CONN-04/CONN-05 to Phase 2 and all five plans claim them.
+No orphaned requirement IDs: REQUIREMENTS.md maps exactly CONN-04/CONN-05 to Phase 2; all eight plans claim them (02-06→CONN-04, 02-07→CONN-04/05, 02-08→CONN-04).
 
-### Phase 1 Regression Lens (01-VERIFICATION.md)
+### Anti-Patterns Found
 
-Full suite 288/288 with zero failures subsumes the Phase 1 contract tests (161 at Phase 1 gate; phase totals grew monotonically 188→199→217→257→288 with no drops). No regressions observed. Uncommitted style-pass edits to Phase 1 kit files are present in the tree but the suite is green with them.
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| — | — | none | — | Zero debt markers, stubs, empty implementations, or bypass strings in phase-modified files |
 
-### Prohibitions (all three plan-level must-NOTs)
+### Prohibitions (all plan-level must-NOTs, re-verified)
 
 | Prohibition | Tier | Verdict | Evidence |
 |-------------|------|---------|----------|
-| MUST NOT log key material / handshake secrets | judgment | honored | 02-REVIEW audited all 19 `WaConnection` log sites (codes/attempts/account/endpoint only); handshake/router log nothing by design; my greps add no counter-evidence |
-| MUST NOT auto-retry 401 or 440 | test | honored | `Decide(401/440)` no-retry pinned at depth incl. attempt-100; close-gate tests assert zero reconnect arms; 288/288 green |
+| MUST NOT log key material / handshake secrets | judgment | honored | No key/secret logging at any WaConnection site (my grep); handshake/router log nothing by design |
+| MUST NOT auto-retry 401 or 440 | test | honored (wired enforcement present) | `Decide(401/440)` no-retry pinned at depth incl. attempt-100; close-gate tests assert zero reconnect arms; 300/300 green |
 | MUST NOT disable TLS cert validation | judgment | honored | Zero bypass strings under `src/` (my grep); loopback uses plaintext `ws://` only |
 
-### Non-blocking observations (02-REVIEW warnings — left `open` for the secure-phase/fix pass, not gaps)
+### Human Verification Required
 
-- **WR-01** (serverHello cert chain discarded): real responder-authentication gap, but cert verification belongs to Phase 3 pairing semantics; the handshake API must first *carry* the payload (fix alongside CR-01/CR-02). Not a Phase 2 success-criterion failure on its own.
-- **WR-02** (abandoned `WatchAsync` / unobserved ODE): robustness defect worth fixing in gap closure, but no test or inspection here shows dropped reconnects because of it; not blocking the phase goal.
-- **WR-10** (NOTICE.md missing handshake-envelope provenance row): confirmed still missing (grep zero hits); process/provenance item, fixable in the gap-closure commit.
+The single remaining item is inherently non-automatable in this environment (no live WhatsApp endpoint or credentials; CI deliberately has no live dependency — live gating is Phase 9 OPS-02 scope). Everything else in this phase is covered by executed tests, including the server-shaped wire-format down-payment this item's prior iteration demanded.
 
-### Human / Live-Server Verification Note
+#### 1. Live-server handshake and session proof
 
-Live-server interop **cannot be automated here**: there is no live WhatsApp endpoint, credential, or sanctioned interop harness in this environment, and CI deliberately has no live dependency (live-interop gating is Phase 9 OPS-02 scope). After gap closure, a human (or the Phase 9 job) must prove, against the real `wss://web.whatsapp.com` or a Baileys-`encodeFrame`-shaped fixture reviewed by a human: (a) message A is accepted and message B parses; (b) the pump sustains a session past the handshake without 408-looping. The server-shaped golden-fixture tests required in the gaps above are the automatable down-payment; the final live proof is human territory. No other human verification is required — everything else in this phase is covered by executed tests.
+**Test:** Run a host application using the SDK against the real `wss://web.whatsapp.com` (with a linked-account pairing flow, or the Phase 3 harness once available): connect, complete the Noise handshake, sustain a session with at least one correlated query/reply, then induce a network drop (e.g. airplane-mode the socket) and observe recovery.
+**Expected:** Message A is accepted and message B parses (envelope tags 18/26/34, intro ‖ length-prefixed frame); the pump sustains the session without a 408-retry loop; after the induced drop the SDK reconnects autonomously with jittered backoff and emits the typed state sequence `connecting → open → closing → connecting → open`.
+**Why human:** Live-server interop and real-network behavior cannot be exercised programmatically here. The automatable down-payment — a server-shaped (upstream-observed) message B consumed to agreeing keys, pinned envelope tags, and real-socket reconnect mechanics — is now proven by executed tests; only the actual server's response remains human-territory. (Phase 3's QR-pairing work will also exercise this path in development.)
 
 ### Gaps Summary
 
-The phase built genuinely strong reconnect machinery (policy table, backoff math, close gate, state events, Noise crypto core — all re-proven green by this verifier) inside a **self-consistent test bubble**: every handshake/codec/router test passes because both ends speak the SDK's own wire format. Three defects pierce the bubble, all in Phase 2 files, none covered by any later phase: **(1)** invented handshake-envelope field numbers (CR-01, upstream-confirmed), **(2)** handshake/pump framing that duplicates the intro, omits length prefixes, demands a header the server never sends, and bypasses the phase's own `FrameReader` (CR-02, code- + upstream-confirmed), **(3)** an unbounded-recursion remote-crash in the decoder (CR-03, code-confirmed). Together (1)+(2) mean the phase goal — a *live* WhatsApp connection — is not achieved; (3) means adversarial wire bytes can kill the host process. Fix shape is small and well-specified in the gaps frontmatter above. Recommend `/gsd-plan-phase --gaps` against this report, then re-verification focused on the two failed truths plus a server-shaped-fixture review.
+**No gaps.** Both prior FAILED truths are closed against the current codebase, each with code-mechanical re-inspection plus green behavioral tests in this verifier's own full-suite run (300/300, 0 warnings): the handshake envelope now carries server-compatible field numbers pinned by golden-wire tests; one framing helper owns every length prefix; the intro is sent once and validated once at the edge; a real-shaped message B is provably consumable with agreeing transport keys; `FrameReader` is wired as the sole production inbound parser; and the decoder rejects adversarial nesting with a bounded budget instead of crashing the process. All 6 truths verify, both requirements are satisfied, and all prohibitions hold. The phase moves to `human_needed` solely for the live-server interop proof that no test in this environment can provide — the natural checkpoint before Phase 3 builds pairing on top.
 
 ---
 
