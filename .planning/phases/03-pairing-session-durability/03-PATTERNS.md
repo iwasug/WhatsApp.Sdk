@@ -18,7 +18,7 @@ All analog paths below were verified git-tracked (`git ls-files -- <path>` non-e
 | `src/…/Pairing/LinkCodeCrypto.cs` (new) | utility (crypto composition) | transform | `src/…/Noise/NoiseHandshake.cs` | role-match |
 | `src/…/Pairing/ClientPayloadFactory.cs` (new) | service/factory | transform (protobuf) | `Proto/handshake.proto` provenance + `NoiseHandshake.cs` payload seam | role-match |
 | `src/…/Pairing/PairSuccessVerifier.cs` (new) | service (fail-closed gate) | transform | `src/…/Codec/BinaryNode.cs:41-46` (Decode/TryDecode fail-closed convention) + `NoiseTransport` zeroization discipline | role-match |
-| `src/…/Pairing/WaVersionResolver.cs` (new) | service | request-response (HTTP) | **none** — no `HttpClient` usage in `src/` | no analog |
+| `src/…/Connection/WaVersionResolver.cs` (new) | service | request-response (HTTP) | **none** — no `HttpClient` usage in `src/` | no analog |
 | `src/…/Proto/client_payload.proto` (new) | schema | transform | `src/…/Proto/handshake.proto` | exact |
 | `src/…/Proto/adv.proto` (new) | schema | transform | `src/…/Proto/handshake.proto` | exact |
 | `src/…/Proto/companion_reg.proto` (new) | schema | transform | `src/…/Proto/handshake.proto` | exact |
@@ -517,7 +517,7 @@ Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory.CreateAsync(...) -> System.Th
 
 | File | Role | Data Flow | Reason |
 |------|------|-----------|--------|
-| `src/…/Pairing/WaVersionResolver.cs` | service | request-response (HTTP) | No `HttpClient`/`SocketsHttpHandler` usage exists anywhere in `src/` (grep verified) — Phase 2 was WebSocket-only. Planner should fall back to RESEARCH Pattern 4 (fetch `sw.js`, regex `/\\?"client_revision\\?":\s*(\d+)/`, 6h cache, bundled pin fallback `[2, 3000, 1043857760]`, invalidate on 405) + `ConnectionOptions` injection for tests; log-only failure mode per Pitfall "fall back to bundled pin + log loudly". |
+| `src/…/Connection/WaVersionResolver.cs` | service | request-response (HTTP) | No `HttpClient`/`SocketsHttpHandler` usage exists anywhere in `src/` (grep verified) — Phase 2 was WebSocket-only. Planner should fall back to RESEARCH Pattern 4 (fetch `sw.js`, regex `/\\?"client_revision\\?":\s*(\d+)/`, 6h cache, bundled pin fallback `[2, 3000, 1043857760]`, invalidate on 405) + `ConnectionOptions` injection for tests; log-only failure mode per Pitfall "fall back to bundled pin + log loudly". |
 
 ## Metadata
 
