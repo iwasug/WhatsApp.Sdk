@@ -1,0 +1,15 @@
+{
+  "provenance": "Hand-written schema (src/.../Proto/client_payload.proto + companion_reg.proto); field roles learned read-only from Baileys MIT commit 0af2386 src/Utils/validate-connection.ts (generateRegistrationNode: md5 build hash, 4-byte big-endian eRegid, KEY_BUNDLE_TYPE [5], 3-byte big-endian eSkeyId, companion DeviceProps) and src/Utils/generics.ts (encodeBigEndian) + src/Defaults/index.ts (bundled version); no whatsmeow bytes were involved. These bytes are THIS repository's own protoc output for its hand-written schema — the regression intent is that any field-number edit fails CI here instead of the live server.",
+  "direction": "registration",
+  "inputs": {
+    "identityPublicHex": "1112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30",
+    "signedPreKeyId": 7,
+    "signedPreKeyValueHex": "3132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f50",
+    "signedPreKeySignatureHex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+    "registrationId": 42,
+    "platform": "android",
+    "appVersion": "2.3000.1043857760",
+    "note": "passive=false, pull=false, no web_info on android; eKeytype is the single byte 0x05"
+  },
+  "payloadHex": "080110011a360a0b080210b81718e082e0f103100118012203302e312a074465736b746f703203302e313a02656e42033030304a033030305202555352d2010a10f6f65c0607a1cdffd8752b051fc95edf122a0a07616e64726f6964100118012213088050100120012801300138014001480150012a06080a100f18071a040000002a2201052a201112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3032030000073a203132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f504240a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
+}

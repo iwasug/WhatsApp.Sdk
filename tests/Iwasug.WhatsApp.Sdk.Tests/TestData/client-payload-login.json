@@ -1,0 +1,12 @@
+{
+  "provenance": "Hand-written schema (src/.../Proto/client_payload.proto + companion_reg.proto); field roles learned read-only from Baileys MIT commit 0af2386 src/Utils/validate-connection.ts (generateLoginNode); no whatsmeow bytes were involved. These bytes are THIS repository's own protoc output for its hand-written schema — the regression intent is that any field-number edit fails CI here instead of the live server.",
+  "direction": "login",
+  "inputs": {
+    "username": "1234567890",
+    "device": 1,
+    "platform": "android",
+    "appVersion": "2.3000.1043857760",
+    "note": "identity/signed-prekey inputs unused on the login branch; passive=true, pull=true, lidDbMigrated=false, no web_info on android"
+  },
+  "payloadHex": "080110011a360a0b080210b81718e082e0f103100118012203302e312a074465736b746f703203302e313a02656e42033030304a03303030520255533001380140d285d8cc044801"
+}
