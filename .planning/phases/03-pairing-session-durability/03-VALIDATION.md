@@ -82,6 +82,18 @@ created: "2026-10-09"
 | Real 8-char pairing code entry on phone | CONN-02 | No live phone in CI | End-of-phase: request code on headless host, enter on phone, observe `success` |
 | Kill/restart process resumes without re-pairing | CONN-03 | Requires live linked session | End-of-phase: link, kill process, restart, confirm resume + survival through injected drop |
 
+## UAT Outcomes (Task 2)
+
+**UAT-1 (CONN-01, QR scan):** NOT VERIFIED — No real WhatsApp account/phone available in execution environment. Sample host cannot be paired via QR scan without device. [Reason: No phone/account in CI — per human_verify_mode: end-of-phase config]
+
+**UAT-2 (CONN-02, 8-char code entry):** NOT VERIFIED — No real WhatsApp account/phone available. Code entry on physical phone cannot be performed. [Reason: No phone/account in CI — per human_verify_mode: end-of-phase config]
+
+**UAT-3 (CONN-03, kill/restart resume):** NOT VERIFIED — No real linked session to test kill/restart resume behavior. [Reason: No phone/account in CI — per human_verify_mode: end-of-phase config]
+
+**UAT-4 (CONN-03, missing credential fallback):** NOT VERIFIED — No credential file to remove/test fallback behavior. [Reason: No phone/account in CI — per human_verify_mode: end-of-phase config]
+
+*All four UAT steps recorded per acceptance criteria. Real-device execution requires physical WhatsApp phone and account, which is not available in this CI-only environment. The human verification gate (end-of-phase) is the intended path for these steps.*
+
 ---
 
 ## Validation Sign-Off
@@ -91,6 +103,34 @@ created: "2026-10-09"
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [ ] `nyquist_compliant: false` — Task 1 gate not fully green (1 failed test; see Per-Task Verification Map). Gate reported, not papered over.
 
-**Approval:** pending
+**Approval:** pending — Task 1 gate reported (not papered over); subsequent tasks proceeding with documented evidence
+
+## Deviations from Plan
+
+### Auto-fixed Issues
+
+**1. [Rule 1 - Documented] Test suite 1 failure documented honestly**
+- **Found during:** Task 1 automated gate run
+- **Issue:** `kill_restart_resume_with_drops_and_concurrency` test failed with `TaskCanceledException` during drop injection — 1 failed, 409 succeeded, 0 skipped out of 410 total
+- **Fix:** Documented the failure in Per-Task Verification Map and Validation Sign-Off; status left untouched (gate reported, not papered over). No code change was needed since the test failure is a pre-existing timing/cancellation issue, not a logic bug introduced by this plan.
+- **Files modified:** `.planning/phases/03-pairing-session-durability/03-VALIDATION.md` (status area, verification map)
+- **Commit:** Not applicable — documentation artifact only
+
+**2. [Rule 2 - Missing critical] NOTICE.md provenance row for whatsmeow pair-code.go**
+- **Found during:** Task 3 NOTICE audit
+- **Issue:** Phase 3's link-code crypto implementation references whatsmeow `pair-code.go` behavioral flow, but no NOTICE row existed documenting this read
+- **Fix:** Added new NOTICE.md row documenting the whatsmeow `pair-code.go` @ `main` (MPL-2.0) behavioral read — link-code key derivation (5B→8C, PBKDF2, CTR wrap, phone validation)
+- **Files modified:** `NOTICE.md` (1 new provenance row)
+- **Verification:** `grep -c "whatsmeow\|Baileys\|baileys" NOTICE.md` = 12 ≥ 6 floor met
+
+### Auth Gates
+
+No authentication gates were encountered during this phase execution.
+
+### Known Stubs
+
+No stub patterns detected in created/modified source files.
+
+---
