@@ -10,7 +10,7 @@ namespace Iwasug.WhatsApp.Sdk.Transport;
 /// </summary>
 internal static class WaFrame
 {
-    private const int PrefixWidth = 3;
+    internal const int PrefixWidth = 3;
 
     internal static byte[] Frame(ReadOnlySpan<byte> body)
     {

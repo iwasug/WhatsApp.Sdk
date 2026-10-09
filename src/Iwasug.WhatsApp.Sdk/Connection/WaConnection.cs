@@ -511,61 +511,118 @@ public sealed class WaConnection : IAsyncDisposable
                 return (transport.CloseStatusCode, false);
             }
 
-            ReadOnlyMemory<byte>? messageB;
-            try
+            // Server shape is intro || length-prefixed body: the intro must be
+            // validated and stripped BEFORE deframing — the intro's own bytes are
+            // not a length prefix, so deframe-first would misread them as one.
+            // Headerless B (loopback shape) skips straight to deframing.
+            // Fragmentation is structural (Pitfall 3): the intro and/or the frame
+            // may arrive split across receives, so accumulate until one complete
+            // frame is buffered — a partial frame retries the read, only a
+            // definitively malformed frame halts (Rule 2). The attempt timeout
+            // bounds the assembly.
+            var pending = new ArrayBufferWriter<byte>();
+            bool introChecked = false;
+            byte[]? messageBBody = null;
+            while (messageBBody is null)
             {
-                messageB = await transport.ReceiveAsync(attemptToken).ConfigureAwait(false);
-            }
-            catch (SdkTransportException)
-            {
-                _logger?.LogInformation(
-                    "Handshake read failed for account {AccountId}: recycling as 408 (socket-error class, distinct from attempt-timeout 408).",
-                    _accountId.Value);
-                return (transport.CloseStatusCode ?? 408, false);
-            }
-
-            if (messageB is null)
-            {
-                int nullCode = transport.CloseStatusCode ?? 408;
-                if (transport.CloseStatusCode is null)
+                ReadOnlyMemory<byte>? chunk;
+                try
+                {
+                    chunk = await transport.ReceiveAsync(attemptToken).ConfigureAwait(false);
+                }
+                catch (SdkTransportException)
                 {
                     _logger?.LogInformation(
-                        "Handshake stream ended without a close code for account {AccountId}: recycling as 408 (socket-error class).",
+                        "Handshake read failed for account {AccountId}: recycling as 408 (socket-error class, distinct from attempt-timeout 408).",
                         _accountId.Value);
+                    return (transport.CloseStatusCode ?? 408, false);
                 }
 
-                return (nullCode, false);
+                if (chunk is null)
+                {
+                    int nullCode = transport.CloseStatusCode ?? 408;
+                    if (transport.CloseStatusCode is null)
+                    {
+                        _logger?.LogInformation(
+                            "Handshake stream ended without a close code for account {AccountId}: recycling as 408 (socket-error class).",
+                            _accountId.Value);
+                    }
+
+                    return (nullCode, false);
+                }
+
+                chunk.Value.Span.CopyTo(pending.GetSpan(chunk.Value.Length));
+                pending.Advance(chunk.Value.Length);
+
+                ReadOnlySpan<byte> buffered = pending.WrittenMemory.Span;
+                if (!introChecked && buffered.Length >= WaFrame.PrefixWidth)
+                {
+                    if (buffered[0] == NoiseProtocol.WaHeader[0]
+                        && buffered[1] == NoiseProtocol.WaHeader[1]
+                        && buffered[2] == NoiseProtocol.WaHeader[2])
+                    {
+                        if (buffered.Length < NoiseProtocol.WaHeader.Length)
+                        {
+                            continue; // The intro's last byte is still in flight.
+                        }
+
+                        try
+                        {
+                            NoiseHandshake.ValidateIntroHeader(buffered[..NoiseProtocol.WaHeader.Length]);
+                        }
+                        catch (SdkConnectionException ex)
+                        {
+                            throw new ProtocolHaltException(ex);
+                        }
+
+                        int introLength = NoiseProtocol.WaHeader.Length;
+                        pending = new ArrayBufferWriter<byte>();
+                        buffered[introLength..].CopyTo(pending.GetSpan(buffered.Length - introLength));
+                        pending.Advance(buffered.Length - introLength);
+                    }
+
+                    introChecked = true;
+                }
+
+                buffered = pending.WrittenMemory.Span;
+                if (buffered.Length < WaFrame.PrefixWidth)
+                {
+                    continue; // Not even a full length prefix yet.
+                }
+
+                int declaredLength = (buffered[0] << 16) | (buffered[1] << 8) | buffered[2];
+                if (declaredLength > NoiseProtocol.MaxFrameBytes)
+                {
+                    throw new ProtocolHaltException(
+                        new SdkConnectionException(
+                            "Handshake message B failed validation.",
+                            new SdkTransportException("Frame length exceeds the maximum frame size.")));
+                }
+
+                if (buffered.Length - WaFrame.PrefixWidth < declaredLength)
+                {
+                    continue; // The frame body is still arriving — retry the read.
+                }
+
+                try
+                {
+                    messageBBody = WaFrame.Deframe(buffered).ToArray();
+                }
+                catch (SdkTransportException ex)
+                {
+                    // Trailing bytes after a complete frame: definitively malformed.
+                    throw new ProtocolHaltException(
+                        new SdkConnectionException("Handshake message B failed validation.", ex));
+                }
             }
 
             try
             {
-                // Server shape is intro || length-prefixed body: the intro must be
-                // validated and stripped BEFORE deframing — the intro's own bytes are
-                // not a length prefix, so deframe-first would misread them as one.
-                // Headerless B (loopback shape) skips straight to deframing.
-                ReadOnlySpan<byte> received = messageB.Value.Span;
-                if (received.Length >= NoiseProtocol.WaHeader.Length
-                    && received[0] == NoiseProtocol.WaHeader[0]
-                    && received[1] == NoiseProtocol.WaHeader[1]
-                    && received[2] == NoiseProtocol.WaHeader[2])
-                {
-                    NoiseHandshake.ValidateIntroHeader(received[..NoiseProtocol.WaHeader.Length]);
-                    received = received[NoiseProtocol.WaHeader.Length..];
-                }
-
-                received = WaFrame.Deframe(received);
-                noise = handshake.ReadMessageB(received.ToArray());
+                noise = handshake.ReadMessageB(messageBBody);
             }
             catch (SdkConnectionException ex)
             {
                 throw new ProtocolHaltException(ex);
-            }
-            catch (SdkTransportException ex)
-            {
-                // A framing violation on B is a protocol error, not a transport blip:
-                // fail closed instead of recycling the attempt forever (Rule 2).
-                throw new ProtocolHaltException(
-                    new SdkConnectionException("Handshake message B failed validation.", ex));
             }
 
             byte[] messageC = handshake.WriteMessageC();
