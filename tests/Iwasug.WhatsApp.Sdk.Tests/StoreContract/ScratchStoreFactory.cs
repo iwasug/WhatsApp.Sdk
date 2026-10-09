@@ -23,7 +23,8 @@ public sealed class ScratchStoreFactory
       IIdentityStoreFactory,
       IPreKeyStoreFactory,
       IRecentMessageCacheStoreFactory,
-      ISafetyStateStoreFactory
+      ISafetyStateStoreFactory,
+      ICredentialStoreFactory
 {
     // One gate for ALL state on this factory instance — the deliberate anti-pattern
     // (vs. per-account concurrent maps) that proves the contract kit is impl-agnostic.
@@ -40,6 +41,8 @@ public sealed class ScratchStoreFactory
 
     private readonly Dictionary<AccountId, SafetyStateRecord> _safetyRows = new();
 
+    private readonly Dictionary<AccountId, CredentialRecord> _credentialRows = new();
+
     /// <inheritdoc />
     public ValueTask<ISignalSessionStore> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
@@ -47,7 +50,7 @@ public sealed class ScratchStoreFactory
         return ValueTask.FromResult<ISignalSessionStore>(new SignalSessionView(this, accountId));
     }
 
-    // Explicit implementations for the remaining four seams: C# forbids members that
+    // Explicit implementations for the remaining five seams: C# forbids members that
     // differ only by return type (CS0111) — callers reach them through the interface,
     // exactly how the contract-kit bindings bind them.
 
@@ -77,6 +80,13 @@ public sealed class ScratchStoreFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult<ISafetyStateStore>(new SafetyView(this, accountId));
+    }
+
+    /// <inheritdoc />
+    ValueTask<ICredentialStore> ICredentialStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<ICredentialStore>(new CredentialView(this, accountId));
     }
 
     private sealed class SignalSessionView(ScratchStoreFactory factory, AccountId account) : ISignalSessionStore
@@ -361,5 +371,51 @@ public sealed class ScratchStoreFactory
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class CredentialView(ScratchStoreFactory factory, AccountId account) : ICredentialStore
+    {
+        public Task<CredentialRecord?> GetAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                return Task.FromResult(factory._credentialRows.TryGetValue(account, out CredentialRecord? row) ? Clone(row) : null);
+            }
+        }
+
+        public Task PutAsync(CredentialRecord credentials, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(credentials);
+            lock (factory._gate)
+            {
+                factory._credentialRows[account] = Clone(credentials);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> RemoveAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                return Task.FromResult(factory._credentialRows.Remove(account));
+            }
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        // Same boundary-copy discipline as the reference store: callers must never
+        // alias the persisted key buffers.
+        private static CredentialRecord Clone(CredentialRecord record) =>
+            record with
+            {
+                NoiseKeyPrivate = (byte[])record.NoiseKeyPrivate.Clone(),
+                IdentityKeyPrivate = (byte[])record.IdentityKeyPrivate.Clone(),
+                SigningKeyPrivate = (byte[])record.SigningKeyPrivate.Clone(),
+                AdvSecret = (byte[])record.AdvSecret.Clone(),
+            };
     }
 }

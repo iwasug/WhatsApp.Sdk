@@ -240,6 +240,8 @@ Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.CreateSessionAsync(Iwasug.WhatsApp.Sdk.
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.StoreRegistry(Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions! options, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Stores.StoreRegistry!>? logger = null) -> void
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.set -> void
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory?
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.set -> void
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.PreKeyFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory?
@@ -252,6 +254,7 @@ Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.get -> Iwas
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.set -> void
 Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.StoreRegistryOptions() -> void
 Iwasug.WhatsApp.Sdk.Stores.StoreSession
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.Credentials.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.Identity.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStore!
 Iwasug.WhatsApp.Sdk.Stores.StoreSession.PreKeys.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore!

@@ -44,9 +44,9 @@ public enum FaultMode
 /// created it (D-23 ownership stays with the creator).
 /// </para>
 /// <para>
-/// Binding pattern: all five factory interfaces share the <c>CreateAsync</c> signature but
+/// Binding pattern: all six factory interfaces share the <c>CreateAsync</c> signature but
 /// differ by return type, so only the Signal-session implementation is implicit and the
-/// other four are explicit interface implementations. Bind the decorator to the seam
+/// other five are explicit interface implementations. Bind the decorator to the seam
 /// under test through an interface-typed variable —
 /// <c>IPreKeyStoreFactory factory = new FaultingStoreFactory(preKey: inner) { Mode = ... };</c>
 /// — and call <c>factory.CreateAsync(...)</c> so the correct store type is produced.
@@ -58,6 +58,7 @@ public sealed class FaultingStoreFactory :
     IPreKeyStoreFactory,
     IRecentMessageCacheStoreFactory,
     ISafetyStateStoreFactory,
+    ICredentialStoreFactory,
     IAsyncDisposable
 {
     private readonly ISignalSessionStoreFactory? _signalSession;
@@ -65,6 +66,7 @@ public sealed class FaultingStoreFactory :
     private readonly IPreKeyStoreFactory? _preKey;
     private readonly IRecentMessageCacheStoreFactory? _recentMessageCache;
     private readonly ISafetyStateStoreFactory? _safetyState;
+    private readonly ICredentialStoreFactory? _credential;
 
     /// <summary>
     /// Wraps whichever factories are supplied; a seam without an inner factory cannot
@@ -75,18 +77,21 @@ public sealed class FaultingStoreFactory :
     /// <param name="preKey">Inner factory for the pre-key seam.</param>
     /// <param name="recentMessageCache">Inner factory for the recent-message cache seam.</param>
     /// <param name="safetyState">Inner factory for the safety-state seam.</param>
+    /// <param name="credential">Inner factory for the credential seam.</param>
     public FaultingStoreFactory(
         ISignalSessionStoreFactory? signalSession = null,
         IIdentityStoreFactory? identity = null,
         IPreKeyStoreFactory? preKey = null,
         IRecentMessageCacheStoreFactory? recentMessageCache = null,
-        ISafetyStateStoreFactory? safetyState = null)
+        ISafetyStateStoreFactory? safetyState = null,
+        ICredentialStoreFactory? credential = null)
     {
         _signalSession = signalSession;
         _identity = identity;
         _preKey = preKey;
         _recentMessageCache = recentMessageCache;
         _safetyState = safetyState;
+        _credential = credential;
     }
 
     /// <summary>
@@ -129,6 +134,13 @@ public sealed class FaultingStoreFactory :
     {
         ISafetyStateStoreFactory inner = _safetyState ?? throw NotWired(nameof(ISafetyStateStoreFactory));
         return new FaultingSafetyStateStore(this, await inner.CreateAsync(accountId, cancellationToken));
+    }
+
+    /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
+    async ValueTask<ICredentialStore> ICredentialStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        ICredentialStoreFactory inner = _credential ?? throw NotWired(nameof(ICredentialStoreFactory));
+        return new FaultingCredentialStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <summary>
@@ -390,6 +402,47 @@ public sealed class FaultingSafetyStateStore : ISafetyStateStore
     {
         FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(PutAsync));
         return _inner.PutAsync(state, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> RemoveAsync(CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(RemoveAsync));
+        return _inner.RemoveAsync(cancellationToken);
+    }
+
+    /// <summary>Disposes nothing of the wrapped store (decorator lifecycle rules).</summary>
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+/// <summary>
+/// Account-scoped pass-through/faulting decorator around an <see cref="ICredentialStore"/>
+/// (fault semantics as for <see cref="FaultingSignalSessionStore"/>, single-row shape).
+/// </summary>
+public sealed class FaultingCredentialStore : ICredentialStore
+{
+    private readonly FaultingStoreFactory _factory;
+    private readonly ICredentialStore _inner;
+
+    /// <summary>Wraps <paramref name="inner"/> with the fault control of <paramref name="factory"/>.</summary>
+    public FaultingCredentialStore(FaultingStoreFactory factory, ICredentialStore inner)
+    {
+        _factory = factory;
+        _inner = inner;
+    }
+
+    /// <inheritdoc />
+    public Task<CredentialRecord?> GetAsync(CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailReads, nameof(GetAsync));
+        return _inner.GetAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task PutAsync(CredentialRecord credentials, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(PutAsync));
+        return _inner.PutAsync(credentials, cancellationToken);
     }
 
     /// <inheritdoc />
