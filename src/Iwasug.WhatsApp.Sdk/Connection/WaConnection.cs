@@ -158,6 +158,8 @@ public sealed class WaConnection : IAsyncDisposable
     private readonly CancellationTokenSource _monitorCts = new();
 
     private volatile Channel? _channel;
+    private PairingCoordinator? _pairing;
+    private readonly object _pairingGate = new();
     private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
@@ -200,6 +202,18 @@ public sealed class WaConnection : IAsyncDisposable
     internal event EventHandler<PairingTerminalEventArgs>? PairingTerminal;
 
     /// <summary>
+    /// Raised whenever a fresh channel is installed for a connect attempt (after
+    /// the handshake, before the open gate resolves). Internal by design: the
+    /// pairing coordinator (plan 03-03) waits on it to send or re-issue pairing
+    /// frames on the live channel; hosts never observe it.
+    /// </summary>
+    /// <remarks>
+    /// Same handler contract as <see cref="StateChanged"/>: return quickly, never call
+    /// <see cref="DisposeAsync"/>, exceptions are logged and swallowed.
+    /// </remarks>
+    internal event EventHandler? ChannelReady;
+
+    /// <summary>
     /// Creates one account's connection. No I/O happens here — call
     /// <see cref="ConnectAsync"/> to start the lifecycle.
     /// </summary>
@@ -237,6 +251,28 @@ public sealed class WaConnection : IAsyncDisposable
 
     /// <summary>Current host-observable state (written by the monitor loop only).</summary>
     public ConnectionState State => _state;
+
+    /// <summary>
+    /// The pairing entry point (03-03): one coordinator per connection, driving a
+    /// single QR pairing attempt at a time over the stanza and channel seams.
+    /// Created on first access (which must happen before <see cref="ConnectAsync"/>
+    /// so no channel-ready pulse is missed) and wired to the internal
+    /// stanza-received, pairing-terminal, and channel-ready events.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The handshake payloads are not credential-aware (pre-Phase-3 doubles carry
+    /// no pairing material).
+    /// </exception>
+    internal PairingCoordinator Pairing
+    {
+        get
+        {
+            lock (_pairingGate)
+            {
+                return _pairing ??= CreatePairingCoordinator();
+            }
+        }
+    }
 
     /// <summary>
     /// Version resolver for the handshake payload (03-02 wiring): when set, each
@@ -569,6 +605,110 @@ public sealed class WaConnection : IAsyncDisposable
         RaisePairingTerminal((DisconnectReason)answered);
     }
 
+    /// <summary>
+    /// Creates and wires the pairing coordinator (03-03): the credential-aware
+    /// payload provider supplies the registration-bootstrap seam and the
+    /// credential store; the connection supplies the pairing-frame sender, the
+    /// channel-presence check, the clock, and the live version-resolver lookup.
+    /// Exactly one coordinator ever exists per connection.
+    /// </summary>
+    private PairingCoordinator CreatePairingCoordinator()
+    {
+        if (_payloads is not HandshakePayloadProvider provider)
+        {
+            throw new InvalidOperationException(
+                "Pairing requires credential-aware handshake payloads: connections built over bare payload doubles carry no pairing material.");
+        }
+
+        var coordinator = new PairingCoordinator(
+            _accountId,
+            provider,
+            provider.Credentials,
+            SendPairingNodeAsync,
+            () => _channel is not null,
+            _timeProvider,
+            () => VersionResolver,
+            logger: null);
+        StanzaReceived += coordinator.OnStanzaReceived;
+        PairingTerminal += coordinator.OnPairingTerminal;
+        ChannelReady += coordinator.OnChannelReady;
+        return coordinator;
+    }
+
+    /// <summary>
+    /// Sends one pairing node (03-03 coordinator path) on the current channel:
+    /// same encrypt-flag-frame shape as routed queries but without correlation —
+    /// pairing replies arrive as uncorrelated stanzas the coordinator matches by
+    /// node id. Fails fast when no channel is installed (the coordinator waits
+    /// for <see cref="ChannelReady"/> instead of spinning).
+    /// </summary>
+    /// <param name="node">The pairing node to send.</param>
+    /// <param name="cancellationToken">Caller cancellation (unwrapped).</param>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    /// <exception cref="SdkConnectionException">No channel is installed or the send raced a teardown.</exception>
+    internal async ValueTask SendPairingNodeAsync(BinaryNode node, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+        Channel? channel = _channel
+            ?? throw new SdkConnectionException("The connection has no open channel: the pairing frame was not sent.");
+
+        byte[] encrypted;
+        try
+        {
+            encrypted = channel.Noise.Encrypt(BinaryNodeCodec.Encode(node));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            throw new SdkConnectionException("The connection has no open channel: the pairing frame was not sent.", ex);
+        }
+
+        try
+        {
+            byte[] flagged = new byte[encrypted.Length + 1];
+            encrypted.CopyTo(flagged.AsSpan(1));
+            await channel.Transport.SendAsync(WaFrame.Frame(flagged), cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (SdkConnectionException)
+        {
+            throw;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            throw new SdkConnectionException("The connection has no open channel: the pairing frame was not sent.", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new SdkTransportException("Pairing frame send failed.", ex);
+        }
+    }
+
+    private void RaiseChannelReady()
+    {
+        EventHandler? handlers = ChannelReady;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        try
+        {
+            handlers.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(
+                ex,
+                "Channel-ready handler failed for account {AccountId}.",
+                _accountId.Value);
+        }
+    }
+
     private void RaisePairingTerminal(DisconnectReason reason)
     {
         EventHandler<PairingTerminalEventArgs>? handlers = PairingTerminal;
@@ -812,6 +952,7 @@ public sealed class WaConnection : IAsyncDisposable
             transport = null;
             noise = null;
             _channel = current;
+            RaiseChannelReady();
 
             // The open gate (03-01 tracer): no probe is sent — the pump resolves
             // this gate only for a <success> stanza whose credential row is

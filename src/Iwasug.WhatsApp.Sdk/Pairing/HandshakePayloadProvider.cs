@@ -133,6 +133,34 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     /// <summary>The account this provider loads credentials for.</summary>
     internal AccountId AccountId => _accountId;
 
+    /// <summary>
+    /// The account's credential store (the instance IS the namespace, D-02): the
+    /// pairing coordinator reads QR key material from the same row the handshake
+    /// path loads, so both directions observe one persisted identity.
+    /// </summary>
+    internal ICredentialStore Credentials => _credentials;
+
+    /// <summary>
+    /// Registration-bootstrap seam (03-03 Task 2): verifies persisted pairing
+    /// material exists before the coordinator sends its first pairing frame.
+    /// </summary>
+    /// <remarks>
+    /// This task proves only the read path against seeded rows — a missing row
+    /// fails closed here. Task 3 replaces the throw with generate-and-persist
+    /// (X25519 noise keypair, Ed25519 signing key, identity key, 32-byte adv
+    /// secret, awaited <c>PutAsync</c> before any frame — the D-06 write rule).
+    /// </remarks>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="Errors.SdkStoreException">No credential row exists — pairing cannot start.</exception>
+    internal async Task EnsureRegistrationMaterialAsync(CancellationToken cancellationToken)
+    {
+        CredentialRecord? row = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (row is null)
+        {
+            throw new SdkStoreException("Pairing requires persisted credential material, but no credential row exists.");
+        }
+    }
+
     /// <inheritdoc />
     public byte[] GetClientHello()
     {
