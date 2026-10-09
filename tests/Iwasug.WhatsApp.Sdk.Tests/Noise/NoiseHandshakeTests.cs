@@ -3,6 +3,7 @@ using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Tests.Transport;
+using Iwasug.WhatsApp.Sdk.Transport;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Tests.Noise;
@@ -305,5 +306,52 @@ public sealed class NoiseHandshakeTests
         wrongMagic.Should()
             .Throw<SdkConnectionException>()
             .WithMessage("*Unexpected protocol header*", "any other prefix names the protocol-header rule");
+    }
+
+    [Fact]
+    public async Task Server_shaped_message_b_intro_plus_frame_is_consumed_and_keys_agree()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        (LoopbackFrameTransport client, LoopbackFrameTransport peer) = LoopbackFrameTransport.CreatePair();
+        await using var clientLifetime = client;
+        await using var peerLifetime = peer;
+
+        var payloads = new StaticPayloads("client-hello", "client-finish");
+        byte[] serverHello = Encoding.ASCII.GetBytes("server-hello");
+        using var initiator = new NoiseHandshake(payloads);
+        using var responder = new NoiseHandshakeResponder(serverHello);
+
+        await client.SendAsync(initiator.WriteMessageA(), testToken);
+        byte[] messageA = await ReceiveOrThrowAsync(peer, testToken);
+        responder.ReadMessageA(messageA);
+
+        // Server shape, exactly as observed upstream: intro header bytes, then the
+        // 3-byte big-endian length, then the bare ServerHello envelope.
+        byte[] framedB = WaFrame.Frame(responder.WriteMessageB());
+        byte[] serverShapedB = [.. NoiseProtocol.WaHeader, .. framedB];
+        await peer.SendAsync(serverShapedB, testToken);
+        byte[] reply = await ReceiveOrThrowAsync(client, testToken);
+
+        // Initiator edge: validate the intro once, strip it, deframe the remainder,
+        // then feed the bare envelope to the message-B reader.
+        NoiseHandshake.ValidateIntroHeader(reply.AsSpan(0, NoiseProtocol.WaHeader.Length));
+        ReadOnlySpan<byte> body = WaFrame.Deframe(reply.AsSpan(NoiseProtocol.WaHeader.Length));
+        NoiseTransport initiatorTransport = initiator.ReadMessageB(body.ToArray());
+
+        await client.SendAsync(initiator.WriteMessageC(), testToken);
+        byte[] messageC = await ReceiveOrThrowAsync(peer, testToken);
+        NoiseTransport responderTransport = responder.ReadMessageC(messageC);
+
+        Convert.ToHexString(initiator.HandshakeHash).Should().Be(Convert.ToHexString(responder.HandshakeHash));
+
+        // Consuming the server-shaped reply must have produced agreeing keys:
+        // responder-encrypt → initiator-decrypt, byte-for-byte.
+        byte[] probe = Encoding.ASCII.GetBytes("server-shape-probe");
+        byte[] encrypted = responderTransport.Encrypt(probe);
+        initiatorTransport.Decrypt(encrypted).Should().Equal(probe);
+
+        initiatorTransport.Dispose();
+        responderTransport.Dispose();
     }
 }
