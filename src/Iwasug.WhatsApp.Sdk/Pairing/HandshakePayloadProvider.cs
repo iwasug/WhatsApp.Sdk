@@ -1,9 +1,11 @@
+using System.Security.Cryptography;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Stores;
+using NSec.Cryptography;
 
 namespace Iwasug.WhatsApp.Sdk.Pairing;
 
@@ -81,8 +83,8 @@ internal sealed record RegistrationDefaults(
 /// Secret hygiene (T-3-01): this provider never logs and never embeds key material
 /// in exceptions — messages name rules and operations only. It retains no private
 /// key bytes between calls: <see cref="LoadCredentialsAsync"/> returns a fresh copy
-/// the handshake imports and zeroizes, and the finish snapshot keeps only the public
-/// login decision (username/device/platform), never key material.
+/// the handshake imports and zeroizes, and the finish snapshot keeps only public
+/// material (username/device/platform/identity public), never private key bytes.
 /// </para>
 /// </remarks>
 internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
@@ -141,23 +143,30 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     internal ICredentialStore Credentials => _credentials;
 
     /// <summary>
-    /// Registration-bootstrap seam (03-03 Task 2): verifies persisted pairing
-    /// material exists before the coordinator sends its first pairing frame.
+    /// Registration-bootstrap seam (03-03 Task 3): when no credential row exists,
+    /// generates fresh identity material (X25519 noise keypair, Ed25519 signing
+    /// key, identity key, 32-byte adv secret) and persists it before returning —
+    /// the write is awaited (D-06) before any handshake or registration payload
+    /// is constructed from it, so a crash after generation still resumes.
     /// </summary>
     /// <remarks>
-    /// This task proves only the read path against seeded rows — a missing row
-    /// fails closed here. Task 3 replaces the throw with generate-and-persist
-    /// (X25519 noise keypair, Ed25519 signing key, identity key, 32-byte adv
-    /// secret, awaited <c>PutAsync</c> before any frame — the D-06 write rule).
+    /// Implemented as a snapshot-refreshing load (the handshake's own
+    /// <see cref="LoadCredentialsAsync"/>): one generation path serves the
+    /// coordinator-first start and the connect handshake alike, and any later
+    /// <c>GetClientFinish</c> is row-based either way. A present row is never
+    /// overwritten (idempotent resume). A throwing read or <c>PutAsync</c>
+    /// propagates unwrapped — pairing fails closed instead of continuing
+    /// undegraded. The returned static copy is zeroized here (unlike the
+    /// handshake, this caller imports nothing).
     /// </remarks>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="Errors.SdkStoreException">No credential row exists — pairing cannot start.</exception>
+    /// <exception cref="Errors.SdkStoreException">The read or persist failed — pairing cannot start.</exception>
     internal async Task EnsureRegistrationMaterialAsync(CancellationToken cancellationToken)
     {
-        CredentialRecord? row = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
-        if (row is null)
+        byte[]? unused = await LoadCredentialsAsync(cancellationToken).ConfigureAwait(false);
+        if (unused is not null)
         {
-            throw new SdkStoreException("Pairing requires persisted credential material, but no credential row exists.");
+            CryptographicOperations.ZeroMemory(unused);
         }
     }
 
@@ -191,13 +200,23 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
                 version.Tertiary);
         }
 
+        // Row-based registration (03-03 Task 3): the identity public and the
+        // registration id come from the persisted row (generated-and-persisted
+        // before this payload could exist); the signed-prekey triple stays on
+        // the injected defaults until prekey lifecycle lands (documented
+        // boundary — the row carries no prekey fields). Without a row the
+        // injected defaults serve both, as before.
+        bool rowRegistration = snapshot.IdentityPublic is not null;
+        byte[] eIdent = rowRegistration ? snapshot.IdentityPublic! : _registrationDefaults.IdentityPublic;
+        int eRegid = rowRegistration ? snapshot.RegistrationId : _registrationDefaults.RegistrationId;
+        string ePlatform = rowRegistration ? snapshot.Platform : _registrationDefaults.Platform;
         return ClientPayloadFactory.Registration(
-            _registrationDefaults.IdentityPublic,
+            eIdent,
             _registrationDefaults.SignedPreKeyId,
             _registrationDefaults.SignedPreKeyValue,
             _registrationDefaults.SignedPreKeySignature,
-            _registrationDefaults.RegistrationId,
-            _registrationDefaults.Platform,
+            eRegid,
+            ePlatform,
             version.Primary,
             version.Secondary,
             version.Tertiary);
@@ -207,18 +226,92 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     public async Task<byte[]?> LoadCredentialsAsync(CancellationToken cancellationToken)
     {
         CredentialRecord? row = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
-        if (row is null || string.IsNullOrEmpty(row.PairedUser))
+        if (row is null)
         {
-            // No row (or a row with no paired identity yet): the handshake mints a
-            // fresh identity and message C carries registration. A throwing read
-            // propagates to the connection, which recycles it as a 408 — failure is
-            // never conflated with missing (D-19).
-            Volatile.Write(ref _snapshot, Snapshot.Registration);
-            return null;
+            // No row: generate and persist fresh identity (awaited, D-06), then
+            // handshake with the persisted static — a crash after generation
+            // resumes from the row instead of minting a second identity. A
+            // throwing read or write propagates to the connection, which
+            // recycles it as a 408 — failure is never conflated with missing
+            // (D-19).
+            row = await GenerateAndPersistAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        Volatile.Write(ref _snapshot, new Snapshot(true, row.PairedUser, row.Device, row.Platform));
+        if (string.IsNullOrEmpty(row.PairedUser))
+        {
+            // A row with no paired identity yet (freshly generated or seeded):
+            // the handshake still uses the persisted static (stable across
+            // restarts) while message C carries row-based registration. The
+            // derived public transfers to the snapshot (public key material is
+            // safe to retain; private bytes never are).
+            byte[] identityPublic = DeriveX25519Public(row.IdentityKeyPrivate);
+            Volatile.Write(ref _snapshot, Snapshot.FromUnpairedRow(row, identityPublic));
+            return (byte[])row.NoiseKeyPrivate.Clone();
+        }
+
+        Volatile.Write(ref _snapshot, new Snapshot(true, row.PairedUser, row.Device, row.Platform, null, 0));
         return (byte[])row.NoiseKeyPrivate.Clone();
+    }
+
+    /// <summary>
+    /// Generates fresh pairing identity material and persists it (D-06: the
+    /// <c>PutAsync</c> is awaited before the row is returned or used).
+    /// </summary>
+    /// <remarks>
+    /// Platform CSPRNG only — any 32 bytes is a valid X25519/Ed25519 seed
+    /// (clamping derives the scalar), so no curve math runs here; NSec derives
+    /// the publics. On a persist failure the fresh buffers are zeroized before
+    /// the exception propagates (fail-closed, nothing half-stored is trusted).
+    /// </remarks>
+    private async Task<CredentialRecord> GenerateAndPersistAsync(CancellationToken cancellationToken)
+    {
+        byte[] noise = RandomNumberGenerator.GetBytes(32);
+        byte[] identity = RandomNumberGenerator.GetBytes(32);
+        byte[] signing = RandomNumberGenerator.GetBytes(32);
+        byte[] adv = RandomNumberGenerator.GetBytes(32);
+        var row = new CredentialRecord(
+            DateTimeOffset.UtcNow,
+            _registrationDefaults.Platform,
+            noise,
+            identity,
+            signing,
+            adv,
+            null,
+            0,
+            RandomNumberGenerator.GetInt32(0, 16384));
+
+        bool persisted = false;
+        try
+        {
+            await _credentials.PutAsync(row, cancellationToken).ConfigureAwait(false);
+            persisted = true;
+        }
+        finally
+        {
+            if (!persisted)
+            {
+                CryptographicOperations.ZeroMemory(noise);
+                CryptographicOperations.ZeroMemory(identity);
+                CryptographicOperations.ZeroMemory(signing);
+                CryptographicOperations.ZeroMemory(adv);
+            }
+        }
+
+        return row;
+    }
+
+    private static byte[] DeriveX25519Public(byte[] privateKey)
+    {
+        byte[] copy = (byte[])privateKey.Clone();
+        try
+        {
+            using Key key = Key.Import(KeyAgreementAlgorithm.X25519, copy, KeyBlobFormat.RawPrivateKey);
+            return key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(copy);
+        }
     }
 
     /// <inheritdoc />
@@ -227,15 +320,20 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
 
     private sealed class Snapshot
     {
-        internal static readonly Snapshot Registration = new(false, null, 0, string.Empty);
+        internal static readonly Snapshot Registration = new(false, null, 0, string.Empty, null, 0);
 
-        internal Snapshot(bool hasRow, string? username, int device, string platform)
+        internal Snapshot(bool hasRow, string? username, int device, string platform, byte[]? identityPublic, int registrationId)
         {
             HasRow = hasRow;
             Username = username;
             Device = device;
             Platform = platform;
+            IdentityPublic = identityPublic;
+            RegistrationId = registrationId;
         }
+
+        internal static Snapshot FromUnpairedRow(CredentialRecord row, byte[] identityPublic) =>
+            new(true, null, row.Device, row.Platform, identityPublic, row.RegistrationId);
 
         internal bool HasRow { get; }
 
@@ -244,5 +342,9 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
         internal int Device { get; }
 
         internal string Platform { get; }
+
+        internal byte[]? IdentityPublic { get; }
+
+        internal int RegistrationId { get; }
     }
 }

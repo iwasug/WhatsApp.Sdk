@@ -320,32 +320,67 @@ public sealed class ResumeTests
         await store.DisposeAsync();
     }
 
+    /// <summary>
+    /// Missing-row registration bootstrap (03-03 Task 3, CONN-01/CONN-03): with an
+    /// empty store, loading credentials generates fresh identity material,
+    /// persists it through <c>ICredentialStore</c> (awaited, D-06), hands the
+    /// handshake the persisted static (never a throwaway), and builds the
+    /// registration payload from the persisted row.
+    /// </summary>
     [Fact]
-    public async Task Resume_missing_row_builds_registration_payload()
+    public async Task Resume_missing_row_generates_persists_and_builds_registration_from_row()
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken testToken = testCts.Token;
         AccountId account = NewAccount("registration");
-
-        // No row seeded: the provider takes the registration branch with the injected
-        // defaults, and the handshake would mint a fresh identity (null static).
         ICredentialStoreFactory factory = new InMemoryStoreFactory();
         ICredentialStore store = await factory.CreateAsync(account, testToken);
         var payloads = new HandshakePayloadProvider(account, store, DummyRegistrationDefaults());
 
         byte[]? staticKey = await payloads.LoadCredentialsAsync(testToken);
-        staticKey.Should().BeNull("a missing row keeps the fresh-identity registration path");
+        staticKey.Should().NotBeNull("a missing row generates fresh identity instead of minting a throwaway");
+
+        // The row is observable by an independent read before any payload exists.
+        CredentialRecord? row = await store.GetAsync(testToken);
+        row.Should().NotBeNull("generation persists before the handshake proceeds");
+        staticKey.Should().Equal(row!.NoiseKeyPrivate, "the handshake uses the persisted static");
+        row.PairedUser.Should().BeNull("fresh material is unpaired until pair-success");
 
         byte[] finish = payloads.GetClientFinish();
         ClientPayload payload = ClientPayload.Parser.ParseFrom(finish);
         payload.Passive.Should().BeFalse("registration is not passive");
         payload.Pull.Should().BeFalse("registration does not pull");
         payload.DevicePairingData.Should().NotBeNull("registration carries device pairing data");
-        payload.DevicePairingData!.EIdent.Should().Equal(FixedBytes(0x11), "registration carries the injected identity");
+        payload.DevicePairingData!.EIdent.Should().Equal(
+            ExpectedStaticPublic(row.IdentityKeyPrivate),
+            "registration carries the persisted identity public (never the injected default)");
+        payload.DevicePairingData.ERegid.Should().Equal(
+            ToBigEndian4(row.RegistrationId),
+            "registration carries the persisted registration id");
+        payload.DevicePairingData.ESkeyVal.Should().Equal(
+            FixedBytes(0x31),
+            "the signed-prekey triple stays on the injected defaults until prekey lifecycle lands");
         payload.Username.Should().Be(0, "registration carries no paired username");
 
         await store.DisposeAsync();
     }
+
+    private static byte[] ExpectedStaticPublic(byte[] staticPrivate)
+    {
+        byte[] copy = (byte[])staticPrivate.Clone();
+        try
+        {
+            using Key key = Key.Import(KeyAgreementAlgorithm.X25519, copy, KeyBlobFormat.RawPrivateKey);
+            return key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(copy);
+        }
+    }
+
+    private static byte[] ToBigEndian4(int value) =>
+        [(byte)((value >> 24) & 0xFF), (byte)((value >> 16) & 0xFF), (byte)((value >> 8) & 0xFF), (byte)(value & 0xFF)];
 
     [Fact]
     public async Task Resume_second_connect_sends_login_payload_again()
