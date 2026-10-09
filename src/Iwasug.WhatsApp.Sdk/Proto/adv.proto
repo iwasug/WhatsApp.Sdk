@@ -1,0 +1,63 @@
+// Copyright (c) Iwa Sugriwa. Licensed under the MIT License.
+//
+// PROVENANCE (NOTICE.md "whatsmeow rule" + provenance-recording policy):
+//   - This schema is HAND-WRITTEN for this repository. No bytes were copied
+//     from whatsmeow (MPL-2.0) or from any other upstream .proto file.
+//   - Field ROLES (the pair-success container: HMAC-covered adv details,
+//     the HMAC itself, the account signature, the device signature, and the
+//     identity/device fields the success path extracts) were learned
+//     read-only from the MIT-licensed Baileys sources at commit 0af2386:
+//     src/Utils/validate-connection.ts (configureSuccessfulPairing — the
+//     ADV verification roles) and from the recorded 03-RESEARCH.md Code
+//     Example 4 (HMAC-SHA256 over the details with the adv secret, account
+//     signature prefix {6,0}, device signature prefix {6,1}, verify-first
+//     ordering). No whatsmeow bytes were involved.
+//   - Field NUMBERS are repo-local v1 assignments in declaration order, NOT
+//     upstream wire values: the live numbers are not observable read-only.
+//     The committed golden fixture
+//     (tests/.../TestData/pair-success-container.json) pins these bytes, so
+//     any number change fails CI loudly; live-server parity is confirmed
+//     during the end-of-phase human proof (03-RESEARCH.md A2) before any
+//     number is treated as final.
+//
+// SCOPE (03-04): the pair-success container the phone sends when the user
+// scans our QR. The HMAC authenticates the details envelope (only a holder
+// of the adv secret — the phone that scanned our QR — can produce it); the
+// two Ed25519 signatures bind the details to the account and device keys.
+// PairSuccessVerifier is the only reader; nothing else in the SDK parses
+// these bytes.
+syntax = "proto3";
+
+package wa.adv;
+
+option csharp_namespace = "Iwasug.WhatsApp.Sdk.Pairing";
+
+// The HMAC-covered adv fields. Serialized deterministically by this repo's
+// protoc output, so the verifier recomputes the HMAC over
+// details.ToByteArray() and compares it in fixed time.
+message AdvDetails {
+  // Paired JID user (digits), e.g. "1234567890".
+  string paired_user = 1;
+  // Companion device index.
+  uint32 device = 2;
+  // Server-issued Signal registration id refresh (14-bit).
+  uint32 registration_id = 3;
+  // Claimed Ed25519 account public key (32 bytes). Carried INSIDE the
+  // HMAC envelope (not top-level) so swapping it breaks the HMAC: the
+  // account signature is verified under this HMAC-authenticated key, while
+  // the device signature is verified under the row-pinned device key.
+  bytes account_public = 4;
+}
+
+// One pair-success container as carried by the scripted
+// <notification><pair-success/></notification> stanza (binary content).
+message PairSuccessContainer {
+  // The HMAC-covered adv fields (field 1 is length-delimited by construction).
+  AdvDetails details = 1;
+  // HMAC-SHA256(adv_secret, details-bytes), 32 bytes.
+  bytes hmac = 2;
+  // Ed25519(account_priv, {6,0} || details-bytes), 64 bytes.
+  bytes account_signature = 3;
+  // Ed25519(device_priv, {6,1} || details-bytes || account_public), 64 bytes.
+  bytes device_signature = 4;
+}

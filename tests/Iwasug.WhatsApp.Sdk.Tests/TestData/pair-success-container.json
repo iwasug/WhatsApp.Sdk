@@ -1,0 +1,17 @@
+{
+  "provenance": "Hand-written schema (src/.../Proto/adv.proto); field roles learned read-only from Baileys MIT commit 0af2386 src/Utils/validate-connection.ts (configureSuccessfulPairing) and 03-RESEARCH.md Code Example 4 (HMAC-SHA256 over the details with the adv secret; {6,0}/{6,1} signature prefixes; verify-first ordering); field numbers are repo-local v1 assignments pinned here; no whatsmeow bytes were involved. Container built by this repo's protoc output + NSec Ed25519 over fixed seeds (account 0x50.., device 0x70.., secret 0x61..) — no live server bytes. Seeds are test-only fixture material; only public values are stored below.",
+  "containerHex": "0a320a0a313233343536373839301001182a22203f7708d5f5cc2bc633b59d2b3a2ed92e7479220c6f08ade208bebcd8580ab93b122073f6572fce329c4ee767b5935608b4aa94d72b9ec0f58f990a61d5927890bb921a408ca4d32e4d148dff42abe577f86ab5b4cee012492cfa77845b6a566369eb77e005a0e9de553846be9ef2d2432a99f2ec391fa04bf2c06174c9345976aa4670022240e0d50404e9b056f1ba88b775e0976616f50b0cee871055933a741389fb03c3e280931b513028f48779118a32d67f3005c5e46a400b54e4c0a95cae2cc921ca0e",
+  "inputs": {
+    "pairedUser": "1234567890",
+    "device": 1,
+    "registrationId": 42,
+    "accountPublicHex": "3f7708d5f5cc2bc633b59d2b3a2ed92e7479220c6f08ade208bebcd8580ab93b",
+    "devicePublicHex": "1ce56a48c82ff99162a14bc544612674e5d61fb9317e65d4055780fdbcb4dc35"
+  },
+  "expected": {
+    "verified": true,
+    "pairedUser": "1234567890",
+    "device": 1,
+    "registrationId": 42
+  }
+}

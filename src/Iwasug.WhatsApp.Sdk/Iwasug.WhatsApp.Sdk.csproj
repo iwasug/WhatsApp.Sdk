@@ -46,6 +46,11 @@
     -->
     <Protobuf Include="Proto\client_payload.proto" GrpcServices="None" OutputOptions="internal_access" />
     <Protobuf Include="Proto\companion_reg.proto" GrpcServices="None" OutputOptions="internal_access" />
+    <!--
+      Pair-success container (03-04): hand-written ADV schema with the same
+      provenance discipline and internal_access as the payload schemas above.
+    -->
+    <Protobuf Include="Proto\adv.proto" GrpcServices="None" OutputOptions="internal_access" />
   </ItemGroup>
 
   <!--
