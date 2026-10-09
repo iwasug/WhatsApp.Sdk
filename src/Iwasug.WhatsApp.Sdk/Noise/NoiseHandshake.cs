@@ -582,11 +582,9 @@ public sealed class NoiseHandshake : IDisposable
     /// <summary>
     /// Writes bare <c>HandshakeMessage{client_hello}</c>; the connection sends the
     /// WA intro once and wraps this body in the shared three-byte frame.
-    /// the fresh ephemeral in the clear and the opaque hello alongside it
-    /// (XX: key empty at this point — authenticate only, never encrypt).
     /// Exactly one call per instance — the ephemeral is never reused.
     /// </summary>
-    /// <returns>The message-A frame bytes.</returns>
+    /// <returns>The bare <c>HandshakeMessage{client_hello}</c> envelope bytes (unframed).</returns>
     /// <exception cref="ObjectDisposedException">The handshake is disposed.</exception>
     /// <exception cref="InvalidOperationException">
     /// Message A was already written, or the payload provider returned no data.
@@ -1119,12 +1117,13 @@ internal sealed class NoiseHandshakeResponder : IDisposable
     }
 
     /// <summary>
-    /// Reads message A (<c>WA-header || HandshakeMessage{client_hello}</c>),
-    /// validates it fail-closed, and processes the initiator ephemeral.
+    /// Reads bare <c>HandshakeMessage{client_hello}</c>, validates it fail-closed,
+    /// and processes the initiator ephemeral. The intro shape and dictionary version
+    /// are validated by the connection edge (<see cref="NoiseHandshake.ValidateIntroHeader"/>), not here.
     /// </summary>
     /// <exception cref="SdkConnectionException">
-    /// Framing is inconsistent, the header or dictionary version mismatches, or
-    /// a required field is missing or missized. Messages name the rule only.
+    /// Framing is inconsistent or a required field is missing or missized. Messages
+    /// name the rule only.
     /// </exception>
     internal void ReadMessageA(ReadOnlyMemory<byte> message)
     {
@@ -1142,8 +1141,9 @@ internal sealed class NoiseHandshakeResponder : IDisposable
 
     /// <summary>
     /// Writes bare <c>HandshakeMessage{server_hello}</c>; the connection wraps this
-    /// body in the shared three-byte frame after the intro has been sent once.
-    /// fresh ephemeral in the clear, encrypted static, encrypted hello.
+    /// body in the shared three-byte frame after the intro has been sent once. The
+    /// envelope carries the fresh ephemeral in the clear, the encrypted static, and
+    /// the encrypted hello.
     /// </summary>
     internal byte[] WriteMessageB()
     {
