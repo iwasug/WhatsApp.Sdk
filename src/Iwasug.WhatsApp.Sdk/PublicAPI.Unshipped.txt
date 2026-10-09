@@ -37,6 +37,7 @@ Iwasug.WhatsApp.Sdk.Connection.ConnectionStateChangedEventArgs.StatusCode.get ->
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.AuthExpired = 419 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.BadSession = 500 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
+Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ClientOutdated = 405 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionClosed = 428 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionLost = 408 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason
 Iwasug.WhatsApp.Sdk.Connection.DisconnectReason.ConnectionReplaced = 440 -> Iwasug.WhatsApp.Sdk.Connection.DisconnectReason

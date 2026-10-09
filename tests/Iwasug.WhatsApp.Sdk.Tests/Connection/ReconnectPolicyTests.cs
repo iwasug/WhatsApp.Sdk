@@ -7,7 +7,7 @@ namespace Iwasug.WhatsApp.Sdk.Tests.Connection;
 
 /// <summary>
 /// The CONN-04 code→action table, proven without sockets (Decide is a pure function):
-/// 401/403/411/419 terminal with no retry arm at any attempt, 440 surface-and-stop, 515
+/// 401/403/405/411/419 terminal with no retry arm at any attempt, 440 surface-and-stop, 515
 /// immediate restart, 408/428/500/503 and unknown codes bounded jittered retry, and
 /// <see cref="ConnectionOptions"/> defaults matching the spike-confirmed Baileys socket
 /// config (02-SPIKE-NOTES.md F5). Backoff proofs ride <see cref="ReconnectBackoff"/>
@@ -19,6 +19,7 @@ public sealed class ReconnectPolicyTests
     [Theory]
     [InlineData(401)]
     [InlineData(403)]
+    [InlineData(405)]
     [InlineData(411)]
     [InlineData(419)]
     public void Decide_terminal_codes_return_Terminal_at_any_attempt(int statusCode)
@@ -50,6 +51,20 @@ public sealed class ReconnectPolicyTests
         ReconnectDecision decision = ReconnectPolicy.Decide(419, 3);
 
         decision.Should().BeSameAs(ReconnectDecision.Terminal.Instance);
+    }
+
+    [Fact]
+    public void Decide_405_client_outdated_never_retries_at_any_depth()
+    {
+        // 03-RESEARCH.md Pitfall 1: 405 is a stale-client rejection, not drift — a
+        // bounded retry here loops forever against a server-rejected build instead of
+        // surfacing client_outdated. Terminal at every depth, exactly like 401.
+        foreach (int attempt in new[] { 0, 1, 100 })
+        {
+            ReconnectPolicy.Decide(405, attempt).Should().BeSameAs(
+                ReconnectDecision.Terminal.Instance,
+                $"405 must stay terminal at attempt {attempt}");
+        }
     }
 
     [Fact]
@@ -85,7 +100,6 @@ public sealed class ReconnectPolicyTests
     }
 
     [Theory]
-    [InlineData(405)]
     [InlineData(418)]
     [InlineData(999)]
     public void Decide_unknown_codes_retry_bounded_for_drift_safety(int statusCode)
@@ -192,7 +206,6 @@ public sealed class ReconnectPolicyTests
     [InlineData(428)]
     [InlineData(500)]
     [InlineData(503)]
-    [InlineData(405)]
     public void Decide_huge_attempt_counts_stay_bounded_without_overflow(int statusCode)
     {
         // Unbounded 408/428 attempts (02-RESEARCH A6) and bounded drift codes alike:

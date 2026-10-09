@@ -46,6 +46,17 @@ public enum DisconnectReason
     Forbidden = 403,
 
     /// <summary>
+    /// Stale client rejected by the server (Baileys <c>clientOutdated</c>, surfaced
+    /// from a <c>failure</c> stanza with <c>reason=405</c> or a 405 stream error).
+    /// <b>Terminal:</b> never retry — the server rejects this build, so reconnecting
+    /// loops forever against a permanently-unsupported version (03-RESEARCH.md
+    /// Pitfall 1). The connection clears the cached WA Web revision
+    /// (<c>WaVersionResolver</c>) on this path so the next pairing attempt
+    /// re-resolves instead of retrying the rejected value.
+    /// </summary>
+    ClientOutdated = 405,
+
+    /// <summary>
     /// Network lost or query timed out (Baileys <c>connectionLost</c> / <c>timedOut</c>,
     /// same code — see the 408 overload note in remarks). <b>Retry</b> with full-jitter
     /// backoff; in-flight queries fail as connection-lost, never silently (Pitfall 5).
