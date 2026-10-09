@@ -5,27 +5,27 @@ titles: json
 findings:
   - id: CR-01
     severity: critical
-    disposition: open
+    disposition: fixed
     title: "Decoder depth bound bypassed by recursive JID string forms — remote StackOverflowException"
   - id: CR-02
     severity: critical
-    disposition: open
+    disposition: fixed
     title: "FrameReader violation escapes WatchAsync — hostile frame becomes unbounded 408-retry loop and skips channel teardown"
   - id: WR-01
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "Handshake message B assumes one complete frame per single ReceiveAsync — benign re-segmentation permanently halts the connection"
   - id: IN-01
     severity: info
-    disposition: open
+    disposition: fixed
     title: "WriteMessageA doc carries a dangling pre-02-07 fragment and a stale `<returns>`"
   - id: IN-02
     severity: info
-    disposition: open
+    disposition: fixed
     title: "ReadMessageA doc still describes the pre-02-07 `WA-header ||` shape and checks it no longer performs"
   - id: IN-03
     severity: info
-    disposition: open
+    disposition: fixed
     title: "WriteMessageB doc has a dangling sentence fragment"
   - id: CR-03
     severity: critical
@@ -99,21 +99,21 @@ findings:
     severity: info
     disposition: open
     title: "Protocol-halt emits Closing(null), indistinguishable from host-initiated stop"
-open: 24
+open: 18
 total: 24
-recorded: 2026-10-09T04:41:19.697Z
+recorded: 2026-10-09T06:47:17.277Z
 ---
 
 # Phase 02: Code Review Disposition
 
 | Finding | Severity | Disposition | Source |
 |---------|----------|-------------|--------|
-| CR-01 | critical | open | - |
-| CR-02 | critical | open | - |
-| WR-01 | warning | open | - |
-| IN-01 | info | open | - |
-| IN-02 | info | open | - |
-| IN-03 | info | open | - |
+| CR-01 | critical | fixed | 02-REVIEW-FIX.md |
+| CR-02 | critical | fixed | 02-REVIEW-FIX.md |
+| WR-01 | warning | fixed | 02-REVIEW-FIX.md |
+| IN-01 | info | fixed | 02-REVIEW-FIX.md |
+| IN-02 | info | fixed | 02-REVIEW-FIX.md |
+| IN-03 | info | fixed | 02-REVIEW-FIX.md |
 | CR-03 | critical | open | 02-REVIEW.md (not in the current review) |
 | WR-02 | warning | open | 02-REVIEW.md (not in the current review) |
 | WR-03 | warning | open | 02-REVIEW.md (not in the current review) |
