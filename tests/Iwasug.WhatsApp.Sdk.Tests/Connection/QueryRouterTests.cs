@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Transport;
@@ -179,10 +180,32 @@ public sealed class QueryRouterTests
         create.Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Fact]
+    public void BuildFrame_encodes_an_iq_node_with_the_id_attribute()
+    {
+        byte[] frame = QueryRouter.BuildFrame("q-7", new byte[] { 0x01, 0x02 });
+
+        BinaryNode node = BinaryNodeCodec.Decode(frame);
+        node.Tag.Should().Be("iq", "outbound queries ride binary-node correlation after the Phase-3 migration");
+        node.Attrs.Should().ContainKey("id").WhoseValue.Should().Be("q-7");
+        node.Data.Should().Equal([0x01, 0x02]);
+    }
+
+    [Fact]
+    public void TryParseFrame_rejects_non_node_bytes_and_nodes_without_an_id()
+    {
+        QueryRouter.TryParseFrame([0x00], out _, out _).Should().BeFalse("garbage is not a node");
+
+        byte[] noId = BinaryNodeCodec.Encode(BinaryNode.FromBytes("iq", [0x01]));
+        QueryRouter.TryParseFrame(noId, out string? missingId, out byte[]? missingBody).Should().BeFalse("correlation needs the id attribute");
+        missingId.Should().BeNull();
+        missingBody.Should().BeNull();
+    }
+
     /// <summary>
     /// Test harness (StoreRegistryTests <c>CreateWrappedFactory</c> precedent): one
     /// router over a substituted transport, sends captured with ids, replies delivered
-    /// through the production envelope helpers (the single source of truth).
+    /// through the production node helpers (the single source of truth).
     /// </summary>
     private sealed class RouterHarness
     {
@@ -217,7 +240,7 @@ public sealed class QueryRouterTests
         internal async Task DeliverCannedReplyAsync(string id, byte[] body)
         {
             // Canned reply through the substituted transport (StoreRegistryTests
-            // Returns-pattern): the pump parses the production envelope and delivers.
+            // Returns-pattern): the pump parses the production node and delivers.
             byte[] frame = QueryRouter.BuildFrame(id, body);
             Transport.ReceiveAsync(Arg.Any<CancellationToken>()).Returns(ValueTask.FromResult<ReadOnlyMemory<byte>?>(frame));
 

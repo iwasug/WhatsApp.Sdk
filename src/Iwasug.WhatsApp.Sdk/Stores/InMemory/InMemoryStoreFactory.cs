@@ -5,7 +5,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 namespace Iwasug.WhatsApp.Sdk.Stores.InMemory;
 
 /// <summary>
-/// In-memory reference implementation filling ALL five factory seams (D-03: one factory
+/// In-memory reference implementation filling ALL six factory seams (D-03: one factory
 /// fills any gap a host leaves unregistered; STR-02 reference implementation).
 /// </summary>
 /// <remarks>
@@ -37,6 +37,7 @@ public sealed class InMemoryStoreFactory
       IPreKeyStoreFactory,
       IRecentMessageCacheStoreFactory,
       ISafetyStateStoreFactory,
+      ICredentialStoreFactory,
       IAsyncDisposable
 {
     private const string SignalSessionCapability = "signal-session";
@@ -44,6 +45,7 @@ public sealed class InMemoryStoreFactory
     private const string PreKeyCapability = "prekey";
     private const string RecentMessageCacheCapability = "recent-message-cache";
     private const string SafetyStateCapability = "safety-state";
+    private const string CredentialCapability = "credential";
 
     private readonly ConcurrentDictionary<(string Capability, AccountId Account), object> _state = new();
 
@@ -65,9 +67,9 @@ public sealed class InMemoryStoreFactory
         return ValueTask.FromResult<ISignalSessionStore>(new InMemorySignalSessionStore(records));
     }
 
-    // The four factories beyond ISignalSessionStoreFactory are explicit interface
+    // The five factories beyond ISignalSessionStoreFactory are explicit interface
     // implementations: C# forbids members that differ only by return type (CS0111), and
-    // all five factory signatures share (AccountId, CancellationToken). Callers reach
+    // all six factory signatures share (AccountId, CancellationToken). Callers reach
     // them through the interface, which is exactly how the contract kit binds them.
 
     /// <inheritdoc />
@@ -112,6 +114,17 @@ public sealed class InMemoryStoreFactory
         object state = GetOrAdd(accountId, SafetyStateCapability, () => new SafetyStateRow());
 
         return ValueTask.FromResult<ISafetyStateStore>(new InMemorySafetyStateStore((SafetyStateRow)state));
+    }
+
+    /// <inheritdoc />
+    ValueTask<ICredentialStore> ICredentialStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+
+        object state = GetOrAdd(accountId, CredentialCapability, () => new CredentialRow());
+
+        return ValueTask.FromResult<ICredentialStore>(new InMemoryCredentialStore((CredentialRow)state));
     }
 
     /// <inheritdoc />
@@ -486,5 +499,70 @@ public sealed class InMemoryStoreFactory
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>Per-account single credential row (last-write-wins).</summary>
+    private sealed class CredentialRow
+    {
+        internal object Gate { get; } = new();
+
+        internal CredentialRecord? Value;
+    }
+
+    /// <summary>Account-scoped view over the single credential row.</summary>
+    private sealed class InMemoryCredentialStore(CredentialRow row) : ICredentialStore
+    {
+        public Task<CredentialRecord?> GetAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (row.Gate)
+            {
+                return Task.FromResult(CloneRecord(row.Value));
+            }
+        }
+
+        public Task PutAsync(CredentialRecord credentials, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(credentials);
+            // Observable to any subsequent read before the task completes (D-06 store-side).
+            lock (row.Gate)
+            {
+                row.Value = CloneRecord(credentials);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> RemoveAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (row.Gate)
+            {
+                if (row.Value is null)
+                {
+                    return Task.FromResult(false);
+                }
+
+                row.Value = null;
+                return Task.FromResult(true);
+            }
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        // Credential rows carry mutable key buffers: clone on both boundaries so a
+        // caller mutating its own array after a write (or after a read) cannot
+        // silently rewrite or observe the persisted row (WR-02 precedent).
+        private static CredentialRecord? CloneRecord(CredentialRecord? record) =>
+            record is null
+                ? null
+                : record with
+                {
+                    NoiseKeyPrivate = (byte[])record.NoiseKeyPrivate.Clone(),
+                    IdentityKeyPrivate = (byte[])record.IdentityKeyPrivate.Clone(),
+                    SigningKeyPrivate = (byte[])record.SigningKeyPrivate.Clone(),
+                    AdvSecret = (byte[])record.AdvSecret.Clone(),
+                };
     }
 }

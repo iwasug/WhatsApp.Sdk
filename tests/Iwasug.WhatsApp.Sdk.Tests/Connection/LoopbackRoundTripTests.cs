@@ -4,9 +4,14 @@ using System.Security.Cryptography;
 using System.Text;
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
+using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
+using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.InMemory;
 using Iwasug.WhatsApp.Sdk.Tests.Transport;
 using Iwasug.WhatsApp.Sdk.Transport;
 using Microsoft.Extensions.Logging;
@@ -108,6 +113,42 @@ public sealed class LoopbackRoundTripTests
 
     private static AccountId NewAccount(string hint) =>
         AccountId.Create($"loopback-{hint}-" + Guid.NewGuid().ToString("N"));
+
+    // Phase-3 open gate (03-01): every connection below opens on <success> plus an
+    // observable credential row, so each peer script seeds a row and sends <success>
+    // after the handshake. Registration defaults are loopback-only fixture material.
+    private static readonly RegistrationDefaults SeededRegistrationDefaults = new(
+        new byte[32], 7, new byte[32], new byte[64], 42, "android", 2, 3000, 1043857760);
+
+    private static async Task<INoiseHandshakePayloads> CreateSeededPayloadsAsync(AccountId account, CancellationToken cancellationToken)
+    {
+        ICredentialStoreFactory factory = new InMemoryStoreFactory();
+        ICredentialStore store = await factory.CreateAsync(account, cancellationToken).ConfigureAwait(false);
+        var row = new CredentialRecord(
+            DateTimeOffset.UtcNow,
+            "android",
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            "15551234567",
+            1,
+            42);
+        await store.PutAsync(row, cancellationToken).ConfigureAwait(false);
+        return new HandshakePayloadProvider(account, store, SeededRegistrationDefaults);
+    }
+
+    private static async Task SendPeerSuccessAsync(
+        IFrameTransport peer,
+        NoiseTransport noise,
+        CancellationToken cancellationToken)
+    {
+        byte[] nodeBytes = BinaryNodeCodec.Encode(BinaryNode.Create("success"));
+        byte[] encrypted = noise.Encrypt(nodeBytes);
+        byte[] flagged = new byte[encrypted.Length + 1];
+        encrypted.CopyTo(flagged.AsSpan(1));
+        await peer.SendAsync(WaFrame.Frame(flagged), cancellationToken).ConfigureAwait(false);
+    }
 
     private static ConnectionOptions TracerOptions() => new()
     {
@@ -256,10 +297,11 @@ public sealed class LoopbackRoundTripTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId happyAccount = NewAccount("happy");
         await using var connection = new WaConnection(
-            NewAccount("happy"),
+            happyAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(happyAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -270,6 +312,7 @@ public sealed class LoopbackRoundTripTests
                 peer,
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
+            await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
             await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, int.MaxValue, testToken);
             await peer.DisposeAsync();
             return handshake;
@@ -299,10 +342,11 @@ public sealed class LoopbackRoundTripTests
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
         var messageAFrames = new ConcurrentQueue<byte[]>();
+        AccountId reconnectAccount = NewAccount("reconnect");
         await using var connection = new WaConnection(
-            NewAccount("reconnect"),
+            reconnectAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(reconnectAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -314,7 +358,8 @@ public sealed class LoopbackRoundTripTests
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
             messageAFrames.Enqueue(firstHandshake.ClientMessageA);
-            await RunPeerEchoLoopAsync(first, firstHandshake.Transport, body => body, 2, testToken);
+            await SendPeerSuccessAsync(first, firstHandshake.Transport, testToken);
+            await RunPeerEchoLoopAsync(first, firstHandshake.Transport, body => body, 1, testToken);
             await first.CloseAsync(428, testToken);
 
             LoopbackFrameTransport second = await TakePeerAsync(pairs, testToken);
@@ -323,6 +368,7 @@ public sealed class LoopbackRoundTripTests
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
             messageAFrames.Enqueue(secondHandshake.ClientMessageA);
+            await SendPeerSuccessAsync(second, secondHandshake.Transport, testToken);
             await RunPeerEchoLoopAsync(second, secondHandshake.Transport, body => body, int.MaxValue, testToken);
             await second.DisposeAsync();
         }, testToken);
@@ -360,10 +406,11 @@ public sealed class LoopbackRoundTripTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId terminalAccount = NewAccount("terminal");
         await using var connection = new WaConnection(
-            NewAccount("terminal"),
+            terminalAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(terminalAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -374,7 +421,8 @@ public sealed class LoopbackRoundTripTests
                 peer,
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
-            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, 2, testToken);
+            await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, 1, testToken);
             await peer.CloseAsync(401, testToken);
         }, testToken);
 
@@ -405,10 +453,11 @@ public sealed class LoopbackRoundTripTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId restartAccount = NewAccount("restart");
         await using var connection = new WaConnection(
-            NewAccount("restart"),
+            restartAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(restartAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -422,6 +471,7 @@ public sealed class LoopbackRoundTripTests
                 peer,
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
+            await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
             await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, int.MaxValue, testToken);
             await peer.DisposeAsync();
         }, testToken);
@@ -523,10 +573,11 @@ public sealed class LoopbackRoundTripTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId replacedAccount = NewAccount("replaced");
         await using var connection = new WaConnection(
-            NewAccount("replaced"),
+            replacedAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(replacedAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -537,7 +588,8 @@ public sealed class LoopbackRoundTripTests
                 peer,
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
-            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, 2, testToken);
+            await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+            await RunPeerEchoLoopAsync(peer, handshake.Transport, body => body, 1, testToken);
             await peer.CloseAsync(440, testToken);
         }, testToken);
 
@@ -632,10 +684,11 @@ public sealed class LoopbackRoundTripTests
             RetryBaseDelayMs = 0,
             RetryMaxDelayMs = 0,
         };
+        AccountId quietAccount = NewAccount("quiet-peer");
         await using var connection = new WaConnection(
-            NewAccount("quiet-peer"),
+            quietAccount,
             pairs.CreateClient,
-            new StaticPayloads("client-hello", "client-finish"),
+            await CreateSeededPayloadsAsync(quietAccount, testToken),
             options,
             timeProvider: null,
             logger: logger);
@@ -648,8 +701,7 @@ public sealed class LoopbackRoundTripTests
                 peer,
                 Encoding.ASCII.GetBytes("server-hello"),
                 testToken);
-            (string probeId, byte[] probeBody) = await ReceivePeerQueryAsync(peer, handshake.Transport, testToken);
-            await SendPeerReplyAsync(peer, handshake.Transport, probeId, probeBody, testToken);
+            await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
 
             (string id, byte[] body) = await ReceivePeerQueryAsync(peer, handshake.Transport, testToken);
             await Task.Delay(800, testToken);

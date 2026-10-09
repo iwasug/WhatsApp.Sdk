@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
+using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Errors;
 
 namespace Iwasug.WhatsApp.Sdk.Connection;
@@ -15,14 +16,17 @@ namespace Iwasug.WhatsApp.Sdk.Connection;
 /// <remarks>
 /// <para>
 /// Payload-agnostic by design (02-SPIKE-NOTES.md F4 fallback): the router correlates by
-/// id and enforces timeouts — it never parses node semantics. The skeleton correlation
-/// envelope is <c>idLength(u8) || id(ASCII) || body</c>, framed by
-/// <see cref="BuildFrame"/> and parsed by <see cref="TryParseFrame"/> (both internal so
-/// the loopback peer and the connection pump share the single source of truth). The
-/// envelope stays through 02-04 by plan scope: Task 3 owns timeout/discard/closing
-/// semantics only, and migrating correlation onto binary-node id attributes waits
-/// for real node traffic in Phase 4, when the loopback peer and pump can move
-/// together.
+/// id and enforces timeouts — it never parses node semantics. Correlation rides the
+/// binary-node <c>id</c> attribute: <see cref="BuildFrame"/> encodes one node carrying
+/// the opaque body with the allocated id stamped in its attributes, and
+/// <see cref="TryParseFrame"/> matches inbound nodes on that attribute (both internal
+/// so the loopback peer and the connection pump share the single source of truth).
+/// This migration landed in Phase 3 (plan 03-01) as a planned deviation: live pairing
+/// is the real node traffic the Phase-2 skeleton envelope
+/// (<c>idLength(u8) || id(ASCII) || body</c>) was waiting for, so the pump, the
+/// loopback peer, and this router moved together. Tag dispatch
+/// (<c>success</c>/<c>failure</c>/<c>iq</c>/<c>notification</c>) lives in the
+/// connection pump, never here.
 /// </para>
 /// <para>
 /// Ids are <c>q-{n}</c> from a 64-bit monotonic counter that never resets while the
@@ -43,6 +47,12 @@ public sealed class QueryRouter : IAsyncDisposable
 {
     /// <summary>Maximum encodable query-id length in bytes (ids are short counters).</summary>
     internal const int MaxIdBytes = 64;
+
+    /// <summary>Node tag for outbound queries and their replies (iq stanza shape).</summary>
+    internal const string QueryTag = "iq";
+
+    /// <summary>Node attribute carrying the correlation id.</summary>
+    internal const string IdAttribute = "id";
 
     private readonly Func<string, ReadOnlyMemory<byte>, CancellationToken, ValueTask> _sender;
     private readonly ConnectionOptions _options;
@@ -180,52 +190,54 @@ public sealed class QueryRouter : IAsyncDisposable
     }
 
     /// <summary>
-    /// Frames one query for the wire (skeleton envelope): <c>idLength(u8) || id ||
-    /// body</c>. Shared with the loopback peer — the single source of truth.
+    /// Frames one query for the wire as a binary node: the opaque body as byte content
+    /// with the correlation id stamped in the <c>id</c> attribute. Shared with the
+    /// loopback peer — the single source of truth.
     /// </summary>
     /// <param name="id">Correlation id (short ASCII).</param>
     /// <param name="body">Opaque query body.</param>
-    /// <returns>The framed bytes.</returns>
+    /// <returns>The encoded node bytes.</returns>
     internal static byte[] BuildFrame(string id, ReadOnlyMemory<byte> body)
     {
-        byte[] idBytes = Encoding.ASCII.GetBytes(id);
-        if (idBytes.Length == 0 || idBytes.Length > MaxIdBytes)
+        if (string.IsNullOrEmpty(id) || Encoding.ASCII.GetByteCount(id) > MaxIdBytes)
         {
             throw new InvalidOperationException("Query id is outside the encodable range.");
         }
 
-        byte[] frame = new byte[1 + idBytes.Length + body.Length];
-        frame[0] = (byte)idBytes.Length;
-        idBytes.CopyTo(frame, 1);
-        body.CopyTo(frame.AsMemory(1 + idBytes.Length));
-        return frame;
+        BinaryNode node = BinaryNode.FromBytes(
+            QueryTag,
+            body.Span,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [IdAttribute] = id });
+        return BinaryNodeCodec.Encode(node);
     }
 
     /// <summary>
-    /// Parses the skeleton envelope, bounds-checked (untrusted input): rejects short
-    /// frames, empty or oversized ids, and length lies.
+    /// Parses node-attribute correlation, bounds-checked (untrusted input): decodes the
+    /// node, requires a non-empty <c>id</c> attribute, and returns the content bytes —
+    /// byte content when present, UTF-8 text content next, otherwise the re-encoded node
+    /// (a children-carrying reply keeps its bytes observable to the waiter).
     /// </summary>
     /// <param name="frame">Candidate frame bytes.</param>
     /// <param name="id">The correlation id, when the frame is well-formed.</param>
-    /// <param name="body">The body bytes (possibly empty), when well-formed.</param>
-    /// <returns>True when the frame is a well-formed envelope.</returns>
+    /// <param name="body">The body bytes, when well-formed.</param>
+    /// <returns>True when the frame is a well-formed correlated node.</returns>
     internal static bool TryParseFrame(byte[] frame, out string? id, out byte[]? body)
     {
         id = null;
         body = null;
-        if (frame.Length < 2)
+        if (!BinaryNodeCodec.TryDecode(frame, out BinaryNode? node) || node is null)
         {
             return false;
         }
 
-        int idLength = frame[0];
-        if (idLength <= 0 || idLength > MaxIdBytes || 1 + idLength > frame.Length)
+        if (!node.Attrs.TryGetValue(IdAttribute, out id) || string.IsNullOrEmpty(id))
         {
+            id = null;
             return false;
         }
 
-        id = Encoding.ASCII.GetString(frame, 1, idLength);
-        body = frame[(1 + idLength)..];
+        body = node.Data
+            ?? (node.Text is not null ? Encoding.UTF8.GetBytes(node.Text) : BinaryNodeCodec.Encode(node));
         return true;
     }
 

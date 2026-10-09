@@ -541,6 +541,45 @@ public sealed class NoiseHandshake : IDisposable
     }
 
     /// <summary>
+    /// Creates a handshake with a fresh NSec X25519 ephemeral key and the PERSISTED
+    /// static key (Phase 3 resume): the same static identity across restarts, so the
+    /// server recognizes the session instead of demanding a re-pair (CONN-03).
+    /// </summary>
+    /// <param name="payloads">Opaque payload provider (Phase 3 supplies semantics).</param>
+    /// <param name="staticPrivateKey">
+    /// The persisted 32-byte X25519 static private key (a credential-row copy — imported
+    /// into libsodium secure memory, then zeroized here so the caller keeps no live copy).
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="payloads"/> or <paramref name="staticPrivateKey"/> is null.</exception>
+    /// <exception cref="SdkConnectionException">The static key is not a usable 32-byte key (message names the rule only).</exception>
+    internal NoiseHandshake(INoiseHandshakePayloads payloads, byte[] staticPrivateKey)
+    {
+        _payloads = payloads ?? throw new ArgumentNullException(nameof(payloads));
+        ArgumentNullException.ThrowIfNull(staticPrivateKey);
+        if (staticPrivateKey.Length != PublicKeySize)
+        {
+            throw new SdkConnectionException("Handshake static keys must be 32 bytes.");
+        }
+
+        KeyCreationParameters creationParameters = default;
+        _ephemeral = Key.Create(KeyAgreementAlgorithm.X25519, creationParameters);
+        try
+        {
+            _static = Key.Import(KeyAgreementAlgorithm.X25519, staticPrivateKey, KeyBlobFormat.RawPrivateKey, creationParameters);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _ephemeral.Dispose();
+            throw new SdkConnectionException("Handshake static keys must be usable private keys.", ex);
+        }
+
+        CryptographicOperations.ZeroMemory(staticPrivateKey);
+        _ephemeralPublic = _ephemeral.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        _staticPublic = _static.PublicKey.Export(KeyBlobFormat.RawPublicKey);
+        _state = new NoiseSymmetricState(PaddedProtocolName(), NoiseProtocol.WaHeader.ToArray());
+    }
+
+    /// <summary>
     /// Test/vector seam: fixed static + ephemeral private keys and an explicit
     /// prologue (the vector prologue under test, the WA header in production).
     /// Invisible to the public surface.
@@ -1040,6 +1079,7 @@ internal sealed class NoiseHandshakeResponder : IDisposable
     private readonly NoiseSymmetricState _state;
     private readonly byte[] _serverHello;
     private byte[]? _initiatorEphemeral;
+    private byte[]? _initiatorStaticPublic;
     private int _step;
     private int _disposed;
 
@@ -1322,6 +1362,12 @@ internal sealed class NoiseHandshakeResponder : IDisposable
         byte[] se = NoiseSymmetricState.DhAgree(_ephemeral, initiatorStatic);
         _state.MixKey(se);
         CryptographicOperations.ZeroMemory(se);
+
+        // Tracer observability (03-01): the resume proof asserts server-side that the
+        // initiator encrypted its PERSISTED static key into message C. The decrypted
+        // public is stashed (private copy) for the loopback peer to read — production
+        // never consults it, and disposal zeroizes it with the rest.
+        _initiatorStaticPublic = (byte[])initiatorStatic.Clone();
         CryptographicOperations.ZeroMemory(initiatorStatic);
 
         byte[] payload;
@@ -1337,6 +1383,28 @@ internal sealed class NoiseHandshakeResponder : IDisposable
         (byte[] k1, byte[] k2) = _state.Split();
         _step = 3;
         return (k2, k1, payload);
+    }
+
+    /// <summary>
+    /// The initiator's decrypted static public key from message C (tracer
+    /// observability for the resume proof: the loopback peer asserts it equals the
+    /// seeded credential row's static identity). Available after message C is
+    /// processed; wiped on <see cref="Dispose"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Message C was not processed yet.</exception>
+    /// <exception cref="ObjectDisposedException">The responder is disposed.</exception>
+    internal byte[]? InitiatorStaticPublic
+    {
+        get
+        {
+            ThrowIfDisposed();
+            if (_step != 3 || _initiatorStaticPublic is null)
+            {
+                throw new InvalidOperationException("The initiator static key is available only after message C.");
+            }
+
+            return (byte[])_initiatorStaticPublic.Clone();
+        }
     }
 
     /// <summary>
@@ -1377,6 +1445,7 @@ internal sealed class NoiseHandshakeResponder : IDisposable
                 && IsZero(_staticPublic)
                 && IsZero(_serverHello)
                 && (_initiatorEphemeral is null || IsZero(_initiatorEphemeral))
+                && (_initiatorStaticPublic is null || IsZero(_initiatorStaticPublic))
                 && _state.IsWiped;
         }
     }
@@ -1473,6 +1542,11 @@ internal sealed class NoiseHandshakeResponder : IDisposable
         if (_initiatorEphemeral is not null)
         {
             CryptographicOperations.ZeroMemory(_initiatorEphemeral);
+        }
+
+        if (_initiatorStaticPublic is not null)
+        {
+            CryptographicOperations.ZeroMemory(_initiatorStaticPublic);
         }
     }
 

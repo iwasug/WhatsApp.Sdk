@@ -39,6 +39,13 @@
   -->
   <ItemGroup>
     <Protobuf Include="Proto\handshake.proto" GrpcServices="None" OutputOptions="internal_access" />
+    <!--
+      Pairing payload schemas (03-01 tracer): hand-written ClientPayload envelope
+      (registration + login contents) and the DeviceProps descriptor it embeds.
+      Same provenance discipline and internal_access as handshake.proto.
+    -->
+    <Protobuf Include="Proto\client_payload.proto" GrpcServices="None" OutputOptions="internal_access" />
+    <Protobuf Include="Proto\companion_reg.proto" GrpcServices="None" OutputOptions="internal_access" />
   </ItemGroup>
 
   <!--

@@ -1,7 +1,11 @@
 using System.Buffers;
+using System.Text;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Codec;
+using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
+using Iwasug.WhatsApp.Sdk.Pairing;
 using Iwasug.WhatsApp.Sdk.Transport;
 using Microsoft.Extensions.Logging;
 
@@ -55,11 +59,15 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// <para>
 /// Connect flow per attempt: fresh transport from the factory → spike-confirmed WA
 /// header (<see cref="NoiseProtocol"/>) → fresh <see cref="NoiseHandshake"/> (fresh
-/// ephemeral, never reused) → fresh <see cref="QueryRouter"/> bound to the attempt's
-/// channel → one opaque liveness-probe query through the router (proves framing,
-/// id-correlation, and the fresh AEAD keys end-to-end; the probe's content is ignored)
-/// → <see cref="ConnectionState.Open"/> (which resets the backoff counter and records
-/// the transcript hash for the store seam).
+/// ephemeral, never reused; the static identity is the persisted credential-row key
+/// when the payload provider carries one, fresh only on the registration path) →
+/// fresh <see cref="QueryRouter"/> bound to the attempt's channel → the pump decodes
+/// every inbound frame (<c>FrameReader → NoiseTransport.Decrypt →
+/// BinaryNodeCodec.Decode</c>) and dispatches on the node tag: <c>success</c> opens
+/// through the credential-row gate below, <c>failure</c> maps its <c>reason</c> onto
+/// the drop-code table, <c>iq</c>/<c>notification</c> raise the internal
+/// stanza-received event, <c>stream:error</c> halts fail-closed. Correlated query
+/// replies match on the node <c>id</c> attribute.
 /// </para>
 /// <para>
 /// Drop path (02-05 close gate): the uninstall latches the attempt's router via
@@ -82,9 +90,10 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// instead of deadlocking.
 /// </para>
 /// <para>
-/// Stillborn rule: the first open is reported only when the liveness probe succeeds
-/// while the channel is still alive. A drop that lands between the probe reply and the
-/// open emit (or a terminal code for the very first attempt) surfaces the terminal
+/// Stillborn rule: the first open is reported only when a <c>success</c> stanza arrives
+/// AND the account's credential row is observable by an independent read
+/// (persist-before-continue, D-06). A drop that lands between the success dispatch and
+/// the open emit (or a terminal code for the very first attempt) surfaces the terminal
 /// outcome to the <see cref="ConnectAsync"/> caller with no <c>Open</c> event — a
 /// connection that died before its open was reported never opens. Every later drop
 /// flows through <see cref="ReconnectPolicy.Decide"/> with the events above.
@@ -100,7 +109,6 @@ public sealed class ConnectionStateChangedEventArgs : EventArgs
 /// </remarks>
 public sealed class WaConnection : IAsyncDisposable
 {
-    private static readonly byte[] ProbeBody = "wa-probe"u8.ToArray();
     private static readonly HashSet<int> KnownCodes = [401, 403, 411, 419, 408, 428, 440, 500, 503, 515];
 
     private readonly AccountId _accountId;
@@ -131,6 +139,18 @@ public sealed class WaConnection : IAsyncDisposable
     /// Handler exceptions are logged and swallowed.
     /// </summary>
     public event EventHandler<ConnectionStateChangedEventArgs>? StateChanged;
+
+    /// <summary>
+    /// Raised (on the pump loop) for inbound <c>iq</c> and <c>notification</c> stanzas
+    /// that no query waiter consumed. Internal by design: the pairing coordinator
+    /// (plan 03-03) plugs in here; hosts never observe it.
+    /// </summary>
+    /// <remarks>
+    /// Same handler contract as <see cref="StateChanged"/>: return quickly, never call
+    /// <see cref="DisposeAsync"/>, exceptions are logged and swallowed. The node is
+    /// passed by reference and must not be mutated.
+    /// </remarks>
+    internal event EventHandler<BinaryNode>? StanzaReceived;
 
     /// <summary>
     /// Creates one account's connection. No I/O happens here — call
@@ -173,8 +193,8 @@ public sealed class WaConnection : IAsyncDisposable
 
     /// <summary>
     /// Starts the connection lifecycle and completes at the first
-    /// <see cref="ConnectionState.Open"/>: header → Noise handshake → liveness-probe
-    /// query → open. A background monitor then owns reconnects until
+    /// <see cref="ConnectionState.Open"/>: header → Noise handshake → success-gated
+    /// open. A background monitor then owns reconnects until
     /// <see cref="DisposeAsync"/>. May be called once.
     /// </summary>
     /// <param name="cancellationToken">
@@ -229,8 +249,9 @@ public sealed class WaConnection : IAsyncDisposable
     /// <summary>
     /// The handshake transcript hash of the latest successful handshake (both parties
     /// agree it once the exchange completes). Public-channel value, never secret — the
-    /// minimal Phase 1 store-seam proof round-trips these bytes; full credential
-    /// persistence and resume-without-repair are Phase 3 scope.
+    /// minimal Phase 1 store-seam proof round-trips these bytes; the Phase 3 resume
+    /// proof additionally gates <see cref="ConnectionState.Open"/> on the durable
+    /// credential row, not on this hash.
     /// </summary>
     internal byte[]? LastHandshakeHash
     {
@@ -496,7 +517,36 @@ public sealed class WaConnection : IAsyncDisposable
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(monitorToken, attemptTimeout.Token);
             CancellationToken attemptToken = linked.Token;
 
-            handshake = new NoiseHandshake(_payloads);
+            // Phase 3 resume (03-01 tracer): when the payload provider carries a
+            // credential snapshot seam, load it BEFORE the handshake so message C uses
+            // the persisted static identity (whatsmeow handshake.go behavior: the
+            // static comes from the store NoiseKey) instead of a fresh one. A throwing
+            // read recycles as 408 — failure is never conflated with missing (D-19);
+            // a missing row keeps the fresh-identity registration path.
+            byte[]? resumeStatic = null;
+            if (_payloads is ICredentialHandshakePayloads credentialPayloads)
+            {
+                try
+                {
+                    resumeStatic = await credentialPayloads.LoadCredentialsAsync(attemptToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (SdkException ex)
+                {
+                    _logger?.LogWarning(
+                        ex,
+                        "Credential read failed for account {AccountId}: recycling as 408 (read-failure class, never conflated with missing).",
+                        _accountId.Value);
+                    return (transport.CloseStatusCode ?? 408, false);
+                }
+            }
+
+            handshake = resumeStatic is null
+                ? new NoiseHandshake(_payloads)
+                : new NoiseHandshake(_payloads, resumeStatic);
             try
             {
                 await transport.SendAsync(NoiseProtocol.WaHeader.ToArray(), attemptToken).ConfigureAwait(false);
@@ -654,40 +704,31 @@ public sealed class WaConnection : IAsyncDisposable
             noise = null;
             _channel = current;
 
-            Task<int?> watch = WatchAsync(current, monitorToken);
-            Task<byte[]> probe;
-            try
-            {
-                probe = router.SendQueryAsync(ProbeBody, attemptToken).AsTask();
-            }
-            catch (SdkException)
-            {
-                return await AbortChannelAsync(current).ConfigureAwait(false);
-            }
+            // The open gate (03-01 tracer): no probe is sent — the pump resolves
+            // this gate only for a <success> stanza whose credential row is
+            // observable by an independent read. The attempt timeout still bounds
+            // the wait (an attempt that exceeds ConnectTimeoutMs recycles as 408,
+            // the same class as the handshake attempt-timeout).
+            var openGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<int?> watch = WatchAsync(current, monitorToken, openGate);
+            Task openTimeout = Task.Delay(TimeSpan.FromMilliseconds(_options.ConnectTimeoutMs), _timeProvider, monitorToken);
 
-            Task winner = await Task.WhenAny(probe, watch).ConfigureAwait(false);
+            Task winner = await Task.WhenAny(openGate.Task, watch, openTimeout).ConfigureAwait(false);
             if (ReferenceEquals(winner, watch))
             {
                 int? dropCode = await watch.ConfigureAwait(false);
                 await UninstallChannelAsync().ConfigureAwait(false);
-                try
-                {
-                    await probe.ConfigureAwait(false);
-                }
-                catch (SdkException)
-                {
-                }
-
                 return (dropCode, false);
             }
 
-            try
+            if (!ReferenceEquals(winner, openGate.Task) || !openGate.Task.IsCompletedSuccessfully)
             {
-                await probe.ConfigureAwait(false);
-            }
-            catch (SdkException)
-            {
-                return await AbortChannelAsync(current).ConfigureAwait(false);
+                monitorToken.ThrowIfCancellationRequested();
+                _logger?.LogInformation(
+                    "Connect attempt exceeded the configured timeout waiting for success for account {AccountId}: recycling as 408 (success-wait class, distinct from socket-error 408).",
+                    _accountId.Value);
+                await UninstallChannelAsync().ConfigureAwait(false);
+                return (408, false);
             }
 
             Emit(ConnectionState.Open, statusCode: null, _backoff.Attempt);
@@ -720,18 +761,7 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
-    private async Task<(int? Code, bool Opened)> AbortChannelAsync(Channel channel)
-    {
-        int? code = channel.Transport.CloseStatusCode;
-        _logger?.LogInformation(
-            "Probe query failed for account {AccountId}: recycling as status code {StatusCode} (probe class — query-timeout-or-drop, distinct from socket-error 408).",
-            _accountId.Value,
-            code ?? 408);
-        await UninstallChannelAsync().ConfigureAwait(false);
-        return (code ?? 408, false);
-    }
-
-    private async Task<int?> WatchAsync(Channel channel, CancellationToken monitorToken)
+    private async Task<int?> WatchAsync(Channel channel, CancellationToken monitorToken, TaskCompletionSource openGate)
     {
         var buffered = new ArrayBufferWriter<byte>();
         while (!monitorToken.IsCancellationRequested)
@@ -763,8 +793,11 @@ public sealed class WaConnection : IAsyncDisposable
             buffered.Advance(chunk.Value.Length);
 
             // Production pump: every buffered byte is drained through the shared
-            // FrameReader (flag strip + compression) before NoiseTransport.Decrypt —
-            // zero hand-rolled framing remains on the inbound path.
+            // FrameReader (flag strip + compression) before NoiseTransport.Decrypt,
+            // then decoded as a binary node and dispatched on its tag — with
+            // id-attribute correlation checked first so query replies complete
+            // their waiter before any stanza handling. Zero hand-rolled framing
+            // remains on the inbound path.
             ReadOnlySequence<byte> buffer = new(buffered.WrittenMemory);
             try
             {
@@ -788,18 +821,58 @@ public sealed class WaConnection : IAsyncDisposable
                         return channel.Transport.CloseStatusCode ?? 408;
                     }
 
-                    if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
+                    BinaryNode? node;
+                    try
+                    {
+                        node = BinaryNodeCodec.Decode(plain);
+                    }
+                    catch (SdkFormatException ex)
                     {
                         _logger?.LogWarning(
-                            "Frame correlation failed for account {AccountId}: frame discarded.",
+                            ex,
+                            "Frame node decode failed for account {AccountId}: frame discarded.",
                             _accountId.Value);
+                        continue;
                     }
-                    else if (!channel.Router.TryDeliver(id, body))
+
+                    if (node.Attrs.TryGetValue(QueryRouter.IdAttribute, out string? id)
+                        && !string.IsNullOrEmpty(id))
                     {
+                        byte[] body = node.Data
+                            ?? (node.Text is not null ? Encoding.UTF8.GetBytes(node.Text) : BinaryNodeCodec.Encode(node));
+                        if (channel.Router.TryDeliver(id, body))
+                        {
+                            continue;
+                        }
+
                         _logger?.LogDebug(
                             "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
                             id,
                             _accountId.Value);
+                        // An uncorrelated iq/notification still reaches the stanza
+                        // event below; other tags fall through to their dispatch.
+                    }
+
+                    switch (node.Tag)
+                    {
+                        case "success":
+                            await HandleSuccessAsync(openGate, monitorToken).ConfigureAwait(false);
+                            break;
+                        case "failure":
+                            return MapFailureCode(node);
+                        case "iq":
+                        case "notification":
+                            RaiseStanzaReceived(node);
+                            break;
+                        case "stream:error":
+                            throw new ProtocolHaltException(
+                                new SdkConnectionException("Stream error received: halting without retry."));
+                        default:
+                            _logger?.LogDebug(
+                                "Unknown stanza tag {Tag} discarded for account {AccountId}.",
+                                node.Tag,
+                                _accountId.Value);
+                            break;
                     }
                 }
             }
@@ -829,6 +902,94 @@ public sealed class WaConnection : IAsyncDisposable
         }
 
         throw new OperationCanceledException(monitorToken);
+    }
+
+    /// <summary>
+    /// The Open gate (03-01 tracer): <c>Open</c> fires only for a received
+    /// <c>success</c> stanza whose credential row is observable by an INDEPENDENT
+    /// read — a second read after dispatch, proving the row is durable (D-06), not
+    /// the same read that fed message C. Failure ≠ missing (D-19): a throwing read
+    /// withholds Open and keeps waiting (the attempt still ends on drop or timeout);
+    /// a missing row withholds Open the same way. Either way nothing is emitted —
+    /// the prohibition is "no success-plus-row, no Open", on every input.
+    /// </summary>
+    private async Task HandleSuccessAsync(TaskCompletionSource openGate, CancellationToken monitorToken)
+    {
+        CredentialRecord? row = null;
+        if (_payloads is ICredentialHandshakePayloads credentialPayloads)
+        {
+            try
+            {
+                row = await credentialPayloads.ReadCredentialsAsync(monitorToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SdkException ex)
+            {
+                _logger?.LogWarning(
+                    ex,
+                    "Credential read failed for account {AccountId}: success observed but open withheld (read-failure class, never conflated with missing).",
+                    _accountId.Value);
+                return;
+            }
+        }
+
+        if (row is null)
+        {
+            _logger?.LogWarning(
+                "Success stanza arrived with no observable credential row for account {AccountId}: open withheld.",
+                _accountId.Value);
+            return;
+        }
+
+        openGate.TrySetResult();
+    }
+
+    /// <summary>
+    /// Maps a <c>failure</c> stanza's <c>reason</c> attribute onto the drop-code table:
+    /// the numeric code stays observable even when no <see cref="DisconnectReason"/>
+    /// member exists yet (plan 03-02 adds <c>ClientOutdated = 405</c>) — the policy
+    /// classifies it from here. A missing or unparsable reason recycles as 408.
+    /// </summary>
+    private int MapFailureCode(BinaryNode node)
+    {
+        if (node.Attrs.TryGetValue("reason", out string? reason)
+            && int.TryParse(reason, out int code))
+        {
+            _logger?.LogWarning(
+                "Server failure stanza received for account {AccountId}: status code {StatusCode}.",
+                _accountId.Value,
+                code);
+            return code;
+        }
+
+        _logger?.LogWarning(
+            "Server failure stanza without a reason code for account {AccountId}: recycling as 408.",
+            _accountId.Value);
+        return 408;
+    }
+
+    private void RaiseStanzaReceived(BinaryNode node)
+    {
+        EventHandler<BinaryNode>? handlers = StanzaReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        try
+        {
+            handlers.Invoke(this, node);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(
+                ex,
+                "Stanza handler failed for account {AccountId}.",
+                _accountId.Value);
+        }
     }
 
     private async ValueTask SendRoutedAsync(Channel channel, string id, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)

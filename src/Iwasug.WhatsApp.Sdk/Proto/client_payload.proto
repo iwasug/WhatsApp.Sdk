@@ -1,0 +1,101 @@
+// Copyright (c) Iwa Sugriwa. Licensed under the MIT License.
+//
+// PROVENANCE (NOTICE.md "whatsmeow rule" + provenance-recording policy):
+//   - This schema is HAND-WRITTEN for this repository. No bytes were copied
+//     from whatsmeow (MPL-2.0) or from any other upstream .proto file.
+//   - Field ROLES (registration vs login contents: passive/pull flags, paired
+//     username + device on login, devicePairingData children buildHash /
+//     deviceProps / eRegid / eKeytype / eIdent / eSkeyId / eSkeyVal / eSkeySig
+//     on registration, connectType/connectReason/userAgent/webInfo base) were
+//     learned read-only from the MIT-licensed Baileys sources at commit
+//     0af2386: src/Utils/validate-connection.ts (generateRegistrationNode,
+//     generateLoginNode, getClientPayload, getUserAgent, getWebInfo).
+//     No whatsmeow bytes were involved.
+//   - Field NUMBERS are repo-local v1 assignments in declaration order, NOT
+//     upstream wire values: Baileys ships compiled WAProto, not .proto
+//     sources, so the live numbers are not observable read-only. Both payload
+//     directions are byte-pinned by committed fixtures
+//     (tests/.../TestData/client-payload-*.json), so any number change fails
+//     CI loudly; live-server parity is confirmed during the end-of-phase
+//     human proof (03-RESEARCH.md A2) before any number is treated as final.
+//   - Companion constants were read from Baileys at the same commit:
+//     KEY_BUNDLE_TYPE = [5] (src/Defaults/index.ts), encodeBigEndian(e, t=4)
+//     big-endian fixed-width encoding (src/Utils/generics.ts), bundled app
+//     version [2, 3000, 1043857760] (src/Defaults/index.ts, baileysVersion).
+//
+// SCOPE (03-01): the ClientPayload envelope carried opaquely in Noise message C.
+// Registration (no stored credentials) and login (stored credentials) are two
+// contents of this ONE message — the same GetClientFinish seam carries both
+// (whatsmeow handshake.go behavior: ClientFinish.Payload is the marshalled
+// ClientPayload, read-only reference). Pair-success ADV schemas arrive in
+// adv.proto (plan 03-04); this file never carries verification state.
+syntax = "proto3";
+
+package wa.pairing;
+
+option csharp_namespace = "Iwasug.WhatsApp.Sdk.Pairing";
+
+// One handshake-finish payload. Exactly one direction is populated per
+// connection: the registration message carries device_pairing_data (with
+// passive=false, pull=false); the login message carries username + device
+// (with passive=true, pull=true). A message carrying both, or carrying the
+// wrong flags for its content, is a factory-construction bug — the factory
+// is the only writer and the fixtures pin both directions.
+message ClientPayload {
+  uint32 connect_type = 1;
+  uint32 connect_reason = 2;
+  UserAgent user_agent = 3;
+  // Absent on android companions (Baileys getClientPayload behavior).
+  WebInfo web_info = 4;
+  string push_name = 5;
+  bool passive = 6;
+  bool pull = 7;
+  // Login only: paired JID user as a number (Baileys username: +user).
+  uint64 username = 8;
+  // Login only: companion device index.
+  uint32 device = 9;
+  // Registration only.
+  DevicePairingData device_pairing_data = 10;
+  // Login only: Baileys hard-sets false (marked TODO upstream).
+  bool lid_db_migrated = 11;
+
+  message AppVersion {
+    uint32 primary = 1;
+    uint32 secondary = 2;
+    uint32 tertiary = 3;
+  }
+
+  message UserAgent {
+    AppVersion app_version = 1;
+    uint32 platform = 2;
+    uint32 release_channel = 3;
+    string os_version = 4;
+    string device = 5;
+    string os_build_number = 6;
+    string locale_language_iso6391 = 7;
+    string mnc = 8;
+    string mcc = 9;
+    string locale_country_iso31661_alpha2 = 10;
+  }
+
+  message WebInfo {
+    uint32 web_sub_platform = 1;
+  }
+
+  message DevicePairingData {
+    // md5(app_version.join('.')) (Baileys generateRegistrationNode behavior).
+    bytes build_hash = 1;
+    // Encoded DeviceProps (companion_reg.proto), opaque bytes here.
+    bytes device_props = 2;
+    // 4-byte big-endian registration id (Baileys encodeBigEndian default width).
+    bytes e_regid = 3;
+    // Key-bundle type, the single byte [5] (Baileys KEY_BUNDLE_TYPE).
+    bytes e_keytype = 4;
+    // Registration identity public key.
+    bytes e_ident = 5;
+    // 3-byte big-endian signed-prekey id (Baileys encodeBigEndian(keyId, 3)).
+    bytes e_skey_id = 6;
+    bytes e_skey_val = 7;
+    bytes e_skey_sig = 8;
+  }
+}

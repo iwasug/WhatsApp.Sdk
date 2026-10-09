@@ -103,6 +103,29 @@ Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.Equals(Iwasug.WhatsApp.Sdk.Domain.S
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.SafetyStateRecord(System.DateTimeOffset CreatedAt, int WarmupStage) -> void
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.WarmupStage.get -> int
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.WarmupStage.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.CredentialRecord!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.AdvSecret.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.AdvSecret.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.CreatedAt.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.CreatedAt.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.CredentialRecord(System.DateTimeOffset CreatedAt, string! Platform, byte[]! NoiseKeyPrivate, byte[]! IdentityKeyPrivate, byte[]! SigningKeyPrivate, byte[]! AdvSecret, string? PairedUser, int Device, int RegistrationId) -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Deconstruct(out System.DateTimeOffset CreatedAt, out string! Platform, out byte[]! NoiseKeyPrivate, out byte[]! IdentityKeyPrivate, out byte[]! SigningKeyPrivate, out byte[]! AdvSecret, out string? PairedUser, out int Device, out int RegistrationId) -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Device.get -> int
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Device.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Equals(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? other) -> bool
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.IdentityKeyPrivate.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.IdentityKeyPrivate.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.NoiseKeyPrivate.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.NoiseKeyPrivate.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.PairedUser.get -> string?
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.PairedUser.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Platform.get -> string!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Platform.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.RegistrationId.get -> int
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.RegistrationId.init -> void
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.SigningKeyPrivate.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.SigningKeyPrivate.init -> void
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord!
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Deconstruct(out string? IdentityKeyPublic) -> void
@@ -165,6 +188,12 @@ Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain
 Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory
 Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!>
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.GetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.CredentialRecord?>!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord! credentials, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!>
 Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore
 Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord?>!
 Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord! session, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
@@ -279,6 +308,9 @@ override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.ToString() -> string!
@@ -329,6 +361,8 @@ static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator !=(Iwasug.WhatsApp.
 static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator ==(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator !=(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool

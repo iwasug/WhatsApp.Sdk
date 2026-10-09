@@ -1,0 +1,56 @@
+// Copyright (c) Iwa Sugriwa. Licensed under the MIT License.
+//
+// PROVENANCE (NOTICE.md "whatsmeow rule" + provenance-recording policy):
+//   - This schema is HAND-WRITTEN for this repository. No bytes were copied
+//     from whatsmeow (MPL-2.0) or from any other upstream .proto file.
+//   - Field ROLES (companion descriptor carried inside registration
+//     devicePairingData: os label, platform type, full-sync requirement,
+//     history-sync config flags, companion version triple) were learned
+//     read-only from the MIT-licensed Baileys sources at commit 0af2386:
+//     src/Utils/validate-connection.ts (the companion object in
+//     generateRegistrationNode, including the fixed companion version
+//     primary 10 / secondary 15 / tertiary 7). No whatsmeow bytes were involved.
+//   - Field NUMBERS are repo-local v1 assignments in declaration order, under
+//     the same caveat as client_payload.proto: pinned by the registration
+//     fixture, confirmed live during the end-of-phase human proof.
+//
+// SCOPE (03-01): the DeviceProps blob embedded opaquely (as encoded bytes) in
+// the registration DevicePairingData. This file defines the descriptor only —
+// pairing-code companion_reg flows (hello/finish) arrive in later plans.
+syntax = "proto3";
+
+package wa.pairing;
+
+option csharp_namespace = "Iwasug.WhatsApp.Sdk.Pairing";
+
+// Companion descriptor for registration. Encoded once by the factory and
+// carried as opaque bytes in ClientPayload.DevicePairingData.device_props.
+message DeviceProps {
+  string os = 1;
+  uint32 platform_type = 2;
+  bool require_full_sync = 3;
+  HistorySyncConfig history_sync_config = 4;
+  AppVersion version = 5;
+
+  message AppVersion {
+    uint32 primary = 1;
+    uint32 secondary = 2;
+    uint32 tertiary = 3;
+  }
+
+  // History-sync capability flags, mirroring the roles Baileys sets on the
+  // companion object. Fields Baileys leaves undefined stay unset here too.
+  message HistorySyncConfig {
+    uint32 storage_quota_mb = 1;
+    bool inline_initial_payload_in_e2ee_msg = 2;
+    bool support_call_log_history = 3;
+    bool support_bot_user_agent_chat_history = 4;
+    bool support_cag_reactions_and_polls = 5;
+    bool support_biz_hosted_msg = 6;
+    bool support_recent_sync_chunk_message_count_tuning = 7;
+    bool support_hosted_group_msg = 8;
+    bool support_fbid_bot_chat_history = 9;
+    bool support_message_association = 10;
+    bool support_group_history = 11;
+  }
+}

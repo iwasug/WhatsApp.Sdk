@@ -1,11 +1,16 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text;
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
+using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Noise;
+using Iwasug.WhatsApp.Sdk.Pairing;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.InMemory;
 using Iwasug.WhatsApp.Sdk.Tests.Transport;
 using Iwasug.WhatsApp.Sdk.Transport;
 using Microsoft.Extensions.Logging;
@@ -27,11 +32,40 @@ public sealed class ConnectionStateTests
     private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan SettleWindow = TimeSpan.FromMilliseconds(300);
 
-    private sealed class StaticPayloads : INoiseHandshakePayloads
-    {
-        public byte[] GetClientHello() => Encoding.ASCII.GetBytes("client-hello");
+    // Phase-3 open gate (03-01): every connection below opens on <success> plus an
+    // observable credential row, so each peer script seeds a row and sends <success>
+    // after the handshake. Registration defaults are loopback-only fixture material.
+    private static readonly RegistrationDefaults SeededRegistrationDefaults = new(
+        new byte[32], 7, new byte[32], new byte[64], 42, "android", 2, 3000, 1043857760);
 
-        public byte[] GetClientFinish() => Encoding.ASCII.GetBytes("client-finish");
+    private static async Task<INoiseHandshakePayloads> CreateSeededPayloadsAsync(AccountId account, CancellationToken cancellationToken)
+    {
+        ICredentialStoreFactory factory = new InMemoryStoreFactory();
+        ICredentialStore store = await factory.CreateAsync(account, cancellationToken).ConfigureAwait(false);
+        var row = new CredentialRecord(
+            DateTimeOffset.UtcNow,
+            "android",
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            RandomNumberGenerator.GetBytes(32),
+            "15551234567",
+            1,
+            42);
+        await store.PutAsync(row, cancellationToken).ConfigureAwait(false);
+        return new HandshakePayloadProvider(account, store, SeededRegistrationDefaults);
+    }
+
+    private static async Task SendPeerSuccessAsync(
+        IFrameTransport peer,
+        NoiseTransport noise,
+        CancellationToken cancellationToken)
+    {
+        byte[] nodeBytes = BinaryNodeCodec.Encode(BinaryNode.Create("success"));
+        byte[] encrypted = noise.Encrypt(nodeBytes);
+        byte[] flagged = new byte[encrypted.Length + 1];
+        encrypted.CopyTo(flagged.AsSpan(1));
+        await peer.SendAsync(WaFrame.Frame(flagged), cancellationToken).ConfigureAwait(false);
     }
 
     private sealed class CaptureLogger<T> : ILogger<T>
@@ -222,10 +256,11 @@ public sealed class ConnectionStateTests
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
         var logger = new CaptureLogger<WaConnection>();
         ConnectionOptions options = TracerOptions();
+        AccountId sequenceAccount = NewAccount("sequence");
         await using var connection = new WaConnection(
-            NewAccount("sequence"),
+            sequenceAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(sequenceAccount, testToken),
             options,
             timeProvider: null,
             logger: logger);
@@ -238,7 +273,8 @@ public sealed class ConnectionStateTests
                 first, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (firstHandshake.Transport)
             {
-                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(first, firstHandshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 1, testToken);
             }
 
             await first.CloseAsync(428, testToken);
@@ -248,6 +284,7 @@ public sealed class ConnectionStateTests
                 second, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (secondHandshake.Transport)
             {
+                await SendPeerSuccessAsync(second, secondHandshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(second, secondHandshake.Transport, int.MaxValue, testToken);
             }
 
@@ -292,10 +329,11 @@ public sealed class ConnectionStateTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId terminalAccount = NewAccount("terminal-401");
         await using var connection = new WaConnection(
-            NewAccount("terminal-401"),
+            terminalAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(terminalAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -306,7 +344,8 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
-                await RunPeerEchoLoopAsync(peer, handshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(peer, handshake.Transport, 1, testToken);
             }
 
             await peer.CloseAsync(401, testToken);
@@ -337,10 +376,11 @@ public sealed class ConnectionStateTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId replacedAccount = NewAccount("replaced");
         await using var connection = new WaConnection(
-            NewAccount("replaced"),
+            replacedAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(replacedAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -351,7 +391,8 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
-                await RunPeerEchoLoopAsync(peer, handshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(peer, handshake.Transport, 1, testToken);
             }
 
             await peer.CloseAsync(440, testToken);
@@ -384,10 +425,11 @@ public sealed class ConnectionStateTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId outdatedAccount = NewAccount("outdated");
         await using var connection = new WaConnection(
-            NewAccount("outdated"),
+            outdatedAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(outdatedAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -398,7 +440,8 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
-                await RunPeerEchoLoopAsync(peer, handshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(peer, handshake.Transport, 1, testToken);
             }
 
             await peer.CloseAsync(411, testToken);
@@ -427,10 +470,11 @@ public sealed class ConnectionStateTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId retryAccount = NewAccount("retry-then-restart");
         await using var connection = new WaConnection(
-            NewAccount("retry-then-restart"),
+            retryAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(retryAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -441,7 +485,8 @@ public sealed class ConnectionStateTests
                 first, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (firstHandshake.Transport)
             {
-                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(first, firstHandshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 1, testToken);
             }
 
             await first.CloseAsync(428, testToken);
@@ -451,7 +496,8 @@ public sealed class ConnectionStateTests
                 second, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (secondHandshake.Transport)
             {
-                await RunPeerEchoLoopAsync(second, secondHandshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(second, secondHandshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(second, secondHandshake.Transport, 1, testToken);
             }
 
             await second.CloseAsync(515, testToken);
@@ -461,6 +507,7 @@ public sealed class ConnectionStateTests
                 third, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (thirdHandshake.Transport)
             {
+                await SendPeerSuccessAsync(third, thirdHandshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(third, thirdHandshake.Transport, int.MaxValue, testToken);
             }
 
@@ -505,10 +552,11 @@ public sealed class ConnectionStateTests
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
         int peerReceived = 0;
         var allReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        AccountId parallelAccount = NewAccount("parallel-drop");
         await using var connection = new WaConnection(
-            NewAccount("parallel-drop"),
+            parallelAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(parallelAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -518,10 +566,9 @@ public sealed class ConnectionStateTests
             PeerHandshakeResult firstHandshake = await CompletePeerHandshakeAsync(
                 first, Encoding.ASCII.GetBytes("server-hello"), testToken);
 
-            // Serve the probe so the connection opens, then hold 8 queries without
+            // Send <success> so the connection opens, then hold 8 queries without
             // replying: all 8 must fail as connection-lost on the injected drop.
-            (string probeId, byte[] probeBody) = await ReceivePeerQueryAsync(first, firstHandshake.Transport, testToken);
-            await SendPeerReplyAsync(first, firstHandshake.Transport, probeId, probeBody, testToken);
+            await SendPeerSuccessAsync(first, firstHandshake.Transport, testToken);
             for (int i = 0; i < 8; i++)
             {
                 _ = await ReceivePeerQueryAsync(first, firstHandshake.Transport, testToken);
@@ -539,6 +586,7 @@ public sealed class ConnectionStateTests
                 second, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (secondHandshake.Transport)
             {
+                await SendPeerSuccessAsync(second, secondHandshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(second, secondHandshake.Transport, int.MaxValue, testToken);
             }
 
@@ -585,10 +633,11 @@ public sealed class ConnectionStateTests
             RetryBaseDelayMs = 2_000,
             RetryMaxDelayMs = 8_000,
         };
+        AccountId backoffAccount = NewAccount("backoff-hold");
         await using var connection = new WaConnection(
-            NewAccount("backoff-hold"),
+            backoffAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(backoffAccount, testToken),
             options,
             fake);
         connection.StateChanged += (_, e) => states.Enqueue(e);
@@ -600,7 +649,8 @@ public sealed class ConnectionStateTests
                 first, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (firstHandshake.Transport)
             {
-                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(first, firstHandshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(first, firstHandshake.Transport, 1, testToken);
             }
 
             await first.CloseAsync(428, testToken);
@@ -610,6 +660,7 @@ public sealed class ConnectionStateTests
                 second, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (secondHandshake.Transport)
             {
+                await SendPeerSuccessAsync(second, secondHandshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(second, secondHandshake.Transport, int.MaxValue, testToken);
             }
 
@@ -653,10 +704,11 @@ public sealed class ConnectionStateTests
             RetryBaseDelayMs = 2_000,
             RetryMaxDelayMs = 8_000,
         };
+        AccountId disposeAccount = NewAccount("dispose-backoff");
         await using var connection = new WaConnection(
-            NewAccount("dispose-backoff"),
+            disposeAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(disposeAccount, testToken),
             options,
             fake);
         connection.StateChanged += (_, e) => states.Enqueue(e);
@@ -668,7 +720,8 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
-                await RunPeerEchoLoopAsync(peer, handshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(peer, handshake.Transport, 1, testToken);
             }
 
             await peer.CloseAsync(428, testToken);
@@ -699,10 +752,11 @@ public sealed class ConnectionStateTests
         CancellationToken testToken = testCts.Token;
         var pairs = new PairSource();
         var states = new ConcurrentQueue<ConnectionStateChangedEventArgs>();
+        AccountId raceAccount = NewAccount("drop-close-race");
         await using var connection = new WaConnection(
-            NewAccount("drop-close-race"),
+            raceAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(raceAccount, testToken),
             TracerOptions());
         connection.StateChanged += (_, e) => states.Enqueue(e);
 
@@ -713,7 +767,8 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
-                await RunPeerEchoLoopAsync(peer, handshake.Transport, 2, testToken);
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
+                await RunPeerEchoLoopAsync(peer, handshake.Transport, 1, testToken);
             }
 
             await peer.CloseAsync(401, testToken);
@@ -758,10 +813,11 @@ public sealed class ConnectionStateTests
             RetryBaseDelayMs = 0,
             RetryMaxDelayMs = 0,
         };
+        AccountId timeoutAccount = NewAccount("attempt-timeout");
         await using var connection = new WaConnection(
-            NewAccount("attempt-timeout"),
+            timeoutAccount,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(timeoutAccount, testToken),
             options,
             timeProvider: null,
             logger: logger);
@@ -799,6 +855,7 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(peer, handshake.Transport, int.MaxValue, testToken);
             }
 
@@ -912,7 +969,7 @@ public sealed class ConnectionStateTests
         await using var connection = new WaConnection(
             account,
             pairs.CreateClient,
-            new StaticPayloads(),
+            await CreateSeededPayloadsAsync(account, testToken),
             TracerOptions());
 
         var peerTask = Task.Run(async () =>
@@ -922,6 +979,7 @@ public sealed class ConnectionStateTests
                 peer, Encoding.ASCII.GetBytes("server-hello"), testToken);
             using (handshake.Transport)
             {
+                await SendPeerSuccessAsync(peer, handshake.Transport, testToken);
                 await RunPeerEchoLoopAsync(peer, handshake.Transport, int.MaxValue, testToken);
             }
 
