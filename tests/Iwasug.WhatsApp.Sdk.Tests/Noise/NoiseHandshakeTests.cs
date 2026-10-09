@@ -253,14 +253,14 @@ public sealed class NoiseHandshakeTests
         byte[] rawC = await ReceiveOrThrowAsync(peer, testToken);
         NoiseTransport responderTransport = responder.ReadMessageC(rawC);
 
-        HandshakeMessage messageA = HandshakeMessage.Parser.ParseFrom(rawA.AsSpan(4).ToArray());
+        HandshakeMessage messageA = HandshakeMessage.Parser.ParseFrom(rawA);
         messageA.ClientHello.Should().NotBeNull();
         messageA.ServerHello.Should().BeNull();
         messageA.ClientFinish.Should().BeNull();
         messageA.ClientHello.Ephemeral.Length.Should().Be(32);
         messageA.ClientHello.Payload.ToByteArray().Should().Equal(hello);
 
-        HandshakeMessage messageB = HandshakeMessage.Parser.ParseFrom(rawB.AsSpan(4).ToArray());
+        HandshakeMessage messageB = HandshakeMessage.Parser.ParseFrom(rawB);
         messageB.ServerHello.Should().NotBeNull();
         messageB.ClientHello.Should().BeNull();
         messageB.ClientFinish.Should().BeNull();
@@ -277,5 +277,33 @@ public sealed class NoiseHandshakeTests
 
         initiatorTransport.Dispose();
         responderTransport.Dispose();
+    }
+
+    [Fact]
+    public void Writer_output_starts_with_the_client_hello_wire_tag_0x12()
+    {
+        using var initiator = new NoiseHandshake(new StaticPayloads("hello", "finish"));
+        byte[] messageA = initiator.WriteMessageA();
+        messageA.Should().NotBeEmpty();
+        messageA[0].Should().Be(
+            0x12,
+            "the bare client_hello envelope opens with protobuf tag 18 (field 2, length-delimited) — no WA header prepended");
+    }
+
+    [Fact]
+    public void Intro_header_validation_accepts_the_current_version_and_rejects_mismatches()
+    {
+        Action current = () => NoiseHandshake.ValidateIntroHeader(new byte[] { 0x57, 0x41, 0x06, 0x03 });
+        current.Should().NotThrow("the pinned dictionary version is the only accepted intro");
+
+        Action staleDictionary = () => NoiseHandshake.ValidateIntroHeader(new byte[] { 0x57, 0x41, 0x06, 0x02 });
+        staleDictionary.Should()
+            .Throw<SdkConnectionException>()
+            .WithMessage("*dictionary version mismatch*", "a wrong version byte names the dictionary rule");
+
+        Action wrongMagic = () => NoiseHandshake.ValidateIntroHeader(new byte[] { 0x57, 0x41, 0x05, 0x03 });
+        wrongMagic.Should()
+            .Throw<SdkConnectionException>()
+            .WithMessage("*Unexpected protocol header*", "any other prefix names the protocol-header rule");
     }
 }

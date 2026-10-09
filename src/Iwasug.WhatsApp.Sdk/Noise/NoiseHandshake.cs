@@ -469,14 +469,12 @@ internal sealed class NoiseSymmetricState : IDisposable
 /// identity binding with pairing).
 /// </para>
 /// <para>
-/// Wire shape (F2: header + <c>HandshakeMessage</c> protobuf, never a bare
-/// pubkey): message A and B are <c>WA-header(4) || HandshakeMessage</c>
-/// (client_hello / server_hello envelopes); message C is a bare
-/// <c>HandshakeMessage</c> (client_finish envelope). The protobuf is the
-/// carrier — the crypto tokens inside are raw XX byte strings produced by the
-/// spec core, which the cacophony vectors prove byte-for-byte. Peer bytes are
-/// untrusted: the header (including the <see cref="NoiseProtocol.DictVersion"/>
-/// byte) must match exactly, envelopes must be present, and every length is
+/// Wire shape: the connection sends the four-byte WA intro once, then message A,
+/// B, and C are bare <c>HandshakeMessage</c> protobuf bodies carried in shared
+/// three-byte length-prefixed frames. The protobuf is the carrier — the crypto
+/// tokens inside are raw XX byte strings produced by the spec core, which the
+/// cacophony vectors prove byte-for-byte. Peer bytes are untrusted: the intro is
+/// validated once at the edge, envelopes must be present, and every length is
 /// bounds-checked before any copy — any mismatch aborts with a rule-naming
 /// <see cref="SdkConnectionException"/>, never with peer bytes in the message
 /// (T-2-09; the loud log is the connection owner's job).
@@ -582,7 +580,8 @@ public sealed class NoiseHandshake : IDisposable
     }
 
     /// <summary>
-    /// Writes message A: <c>WA-header || HandshakeMessage{client_hello}</c> with
+    /// Writes bare <c>HandshakeMessage{client_hello}</c>; the connection sends the
+    /// WA intro once and wraps this body in the shared three-byte frame.
     /// the fresh ephemeral in the clear and the opaque hello alongside it
     /// (XX: key empty at this point — authenticate only, never encrypt).
     /// Exactly one call per instance — the ephemeral is never reused.
@@ -626,11 +625,7 @@ public sealed class NoiseHandshake : IDisposable
         CryptographicOperations.ZeroMemory(ephemeral);
         CryptographicOperations.ZeroMemory(payload);
 
-        byte[] body = envelope.ToByteArray();
-        byte[] frame = new byte[4 + body.Length];
-        NoiseProtocol.WaHeader.CopyTo(frame.AsSpan(0, 4));
-        body.CopyTo(frame.AsSpan(4));
-        return frame;
+        return envelope.ToByteArray();
     }
 
     /// <summary>
@@ -920,29 +915,43 @@ public sealed class NoiseHandshake : IDisposable
         return padded;
     }
 
+    internal static void ValidateIntroHeader(ReadOnlySpan<byte> header)
+    {
+        if (header.Length != 4)
+        {
+            throw new SdkConnectionException("Unexpected protocol header.");
+        }
+
+        if (header[0] != 0x57 || header[1] != 0x41 || header[2] != 0x06)
+        {
+            throw new SdkConnectionException("Unexpected protocol header.");
+        }
+
+        if (header[3] != NoiseProtocol.DictVersion)
+        {
+            throw new SdkConnectionException("dictionary version mismatch.");
+        }
+    }
+
     private static byte[] ParseMessageB(ReadOnlyMemory<byte> message)
     {
         ReadOnlySpan<byte> span = message.Span;
-        if (span.Length < 4 + 1)
+        if (span.Length >= 4
+            && span[0] == 0x57 && span[1] == 0x41 && span[2] == 0x06
+            && span[3] != NoiseProtocol.DictVersion)
         {
-            throw new SdkConnectionException("Handshake message B failed validation: inconsistent framing.");
+            throw new SdkConnectionException("Handshake message B failed validation: dictionary version mismatch.");
         }
 
-        if (!span.Slice(0, 4).SequenceEqual(NoiseProtocol.WaHeader))
+        if (span.Length < 1)
         {
-            if (span.Length >= 4
-                && span[0] == 0x57 && span[1] == 0x41 && span[2] == 0x06)
-            {
-                throw new SdkConnectionException("Handshake message B failed validation: dictionary version mismatch.");
-            }
-
-            throw new SdkConnectionException("Handshake message B failed validation: unexpected protocol header.");
+            throw new SdkConnectionException("Handshake message B failed validation: inconsistent framing.");
         }
 
         HandshakeMessage envelope;
         try
         {
-            envelope = HandshakeMessage.Parser.ParseFrom(span.Slice(4).ToArray());
+            envelope = HandshakeMessage.Parser.ParseFrom(span.ToArray());
         }
         catch (InvalidProtocolBufferException ex)
         {
@@ -1132,7 +1141,8 @@ internal sealed class NoiseHandshakeResponder : IDisposable
     }
 
     /// <summary>
-    /// Writes message B (<c>WA-header || HandshakeMessage{server_hello}</c>):
+    /// Writes bare <c>HandshakeMessage{server_hello}</c>; the connection wraps this
+    /// body in the shared three-byte frame after the intro has been sent once.
     /// fresh ephemeral in the clear, encrypted static, encrypted hello.
     /// </summary>
     internal byte[] WriteMessageB()
@@ -1165,11 +1175,7 @@ internal sealed class NoiseHandshakeResponder : IDisposable
         CryptographicOperations.ZeroMemory(encStatic);
         CryptographicOperations.ZeroMemory(encPayload);
 
-        byte[] body = envelope.ToByteArray();
-        byte[] frame = new byte[4 + body.Length];
-        NoiseProtocol.WaHeader.CopyTo(frame.AsSpan(0, 4));
-        body.CopyTo(frame.AsSpan(4));
-        return frame;
+        return envelope.ToByteArray();
     }
 
     /// <summary>
@@ -1378,26 +1384,15 @@ internal sealed class NoiseHandshakeResponder : IDisposable
     private static byte[] ParseMessageA(ReadOnlyMemory<byte> message)
     {
         ReadOnlySpan<byte> span = message.Span;
-        if (span.Length < 4 + 1)
+        if (span.Length < 1)
         {
             throw new SdkConnectionException("Handshake message A failed validation: inconsistent framing.");
-        }
-
-        if (!span.Slice(0, 4).SequenceEqual(NoiseProtocol.WaHeader))
-        {
-            if (span.Length >= 4
-                && span[0] == 0x57 && span[1] == 0x41 && span[2] == 0x06)
-            {
-                throw new SdkConnectionException("Handshake message A failed validation: dictionary version mismatch.");
-            }
-
-            throw new SdkConnectionException("Handshake message A failed validation: unexpected protocol header.");
         }
 
         HandshakeMessage envelope;
         try
         {
-            envelope = HandshakeMessage.Parser.ParseFrom(span.Slice(4).ToArray());
+            envelope = HandshakeMessage.Parser.ParseFrom(span.ToArray());
         }
         catch (InvalidProtocolBufferException ex)
         {
