@@ -338,9 +338,31 @@ public sealed class WaConnection : IAsyncDisposable
             DropOutcome outcome;
             try
             {
-                (int? Code, bool Opened) attempt =
-                    await _reconnectGate.RunAsync(() => ConnectAndWatchAsync(monitorToken), monitorToken).ConfigureAwait(false);
-                await UninstallChannelAsync().ConfigureAwait(false);
+                (int? Code, bool Opened) attempt;
+                try
+                {
+                    attempt = await _reconnectGate.RunAsync(() => ConnectAndWatchAsync(monitorToken), monitorToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    // Teardown runs on EVERY attempt exit — normal, protocol-halt,
+                    // cancellation, or fault — so no path leaves the channel installed
+                    // with a never-latched router (in-flight queries would wait out the
+                    // full query timeout instead of failing fast; 02-REVIEW CR-02).
+                    // The success path inside ConnectAndWatchAsync may have already
+                    // uninstalled; this net is idempotent (null-exchange) and its own
+                    // failure must not mask the attempt's outcome, so it logs instead
+                    // of throwing.
+                    try
+                    {
+                        await UninstallChannelAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "Channel teardown failed for account {AccountId}.", _accountId.Value);
+                    }
+                }
+
                 if (attempt.Opened)
                 {
                     _backoff.Reset();
@@ -691,39 +713,57 @@ public sealed class WaConnection : IAsyncDisposable
             // FrameReader (flag strip + compression) before NoiseTransport.Decrypt —
             // zero hand-rolled framing remains on the inbound path.
             ReadOnlySequence<byte> buffer = new(buffered.WrittenMemory);
-            while (FrameReader.TryReadFrame(ref buffer, out byte[]? payload))
+            try
             {
-                byte[] plain;
-                try
+                while (FrameReader.TryReadFrame(ref buffer, out byte[]? payload))
                 {
-                    plain = channel.Noise.Decrypt(payload!);
-                }
-                catch (ObjectDisposedException)
-                {
-                    return 408;
-                }
-                catch (SdkTransportException ex)
-                {
-                    _logger?.LogWarning(
-                        ex,
-                        "Frame authentication failed for account {AccountId}.",
-                        _accountId.Value);
-                    return channel.Transport.CloseStatusCode ?? 408;
-                }
+                    byte[] plain;
+                    try
+                    {
+                        plain = channel.Noise.Decrypt(payload!);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return 408;
+                    }
+                    catch (SdkTransportException ex)
+                    {
+                        _logger?.LogWarning(
+                            ex,
+                            "Frame authentication failed for account {AccountId}.",
+                            _accountId.Value);
+                        return channel.Transport.CloseStatusCode ?? 408;
+                    }
 
-                if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
-                {
-                    _logger?.LogWarning(
-                        "Frame correlation failed for account {AccountId}: frame discarded.",
-                        _accountId.Value);
+                    if (!QueryRouter.TryParseFrame(plain, out string? id, out byte[]? body) || id is null || body is null)
+                    {
+                        _logger?.LogWarning(
+                            "Frame correlation failed for account {AccountId}: frame discarded.",
+                            _accountId.Value);
+                    }
+                    else if (!channel.Router.TryDeliver(id, body))
+                    {
+                        _logger?.LogDebug(
+                            "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
+                            id,
+                            _accountId.Value);
+                    }
                 }
-                else if (!channel.Router.TryDeliver(id, body))
-                {
-                    _logger?.LogDebug(
-                        "Late or unknown query reply {QueryId} discarded for account {AccountId}.",
-                        id,
-                        _accountId.Value);
-                }
+            }
+            catch (SdkTransportException ex)
+            {
+                // A post-handshake framing violation (empty payload, invalid zlib
+                // envelope, over-cap length) is a hostile-peer protocol violation,
+                // not a network flap: fail closed via ProtocolHaltException (Rule 2,
+                // matching the message-B path) instead of faulting the watch task
+                // into an unbounded 408-retry loop. The monitor's attempt-finally
+                // still uninstalls the channel (02-REVIEW CR-02).
+                _logger?.LogWarning(
+                    ex,
+                    "Frame framing validation failed for account {AccountId}.",
+                    _accountId.Value);
+                throw new ProtocolHaltException(
+                    new SdkConnectionException("The connection framing failed validation.", ex));
             }
 
             buffered.Clear();
