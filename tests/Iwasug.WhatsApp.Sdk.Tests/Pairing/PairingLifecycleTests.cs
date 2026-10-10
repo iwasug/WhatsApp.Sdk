@@ -158,6 +158,47 @@ public sealed class PairingLifecycleTests
         public ValueTask DisposeAsync() => _inner.DisposeAsync();
     }
 
+    /// <summary>
+    /// Delegates the write to the inner store, then (once) jumps the fake
+    /// clock past the attempt window and holds the call briefly — a persist
+    /// that outlives the watchdog deadline, so the Timeout fires while the
+    /// coordinator's persist window is open (WR-02).
+    /// </summary>
+    private sealed class SlowPersistStore : ICredentialStore
+    {
+        private readonly ICredentialStore _inner;
+        private readonly FakeTimeProvider _clock;
+        private readonly TimeSpan _window;
+        private int _advanced;
+
+        internal SlowPersistStore(ICredentialStore inner, FakeTimeProvider clock, TimeSpan window)
+        {
+            _inner = inner;
+            _clock = clock;
+            _window = window;
+        }
+
+        public Task<CredentialRecord?> GetAsync(CancellationToken cancellationToken) =>
+            _inner.GetAsync(cancellationToken);
+
+        public async Task PutAsync(CredentialRecord credentials, CancellationToken cancellationToken)
+        {
+            await _inner.PutAsync(credentials, cancellationToken).ConfigureAwait(false);
+            if (Interlocked.Exchange(ref _advanced, 1) == 0)
+            {
+                // The attempt deadline elapses mid-write: the watchdog's
+                // delay completes while this call is still in flight.
+                _clock.Advance(_window);
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        public Task<bool> RemoveAsync(CancellationToken cancellationToken) =>
+            _inner.RemoveAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => _inner.DisposeAsync();
+    }
+
     private static async Task<ICredentialStore> CreateEmptyStoreAsync(AccountId account, CancellationToken cancellationToken)
     {
         ICredentialStoreFactory factory = new InMemoryStoreFactory();
@@ -1045,6 +1086,77 @@ public sealed class PairingLifecycleTests
 
         CredentialRecord? row = await inner.GetAsync(testToken);
         row.Should().NotBeNull();
+        row!.PairedUser.Should().Be(OrderingUser);
+        row.Device.Should().Be((int)OrderingDevice);
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Persist_window_suppresses_watchdog_timeout_until_durable_success()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("persist-window");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var clock = new FakeTimeProvider();
+        var slowStore = new SlowPersistStore(
+            recording, clock, PairingQrPayload.AttemptTimeout + TimeSpan.FromSeconds(1));
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, slowStore,
+            wrapVerifyPhases: true,
+            timeProvider: clock,
+            randomBytes: randomness.Next);
+        recording.PhaseSink = phase =>
+        {
+            lock (harness.Sender.PhaseGate)
+            {
+                harness.Sender.Phases.Add(phase);
+            }
+        };
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+
+        // The companion handshake runs to the finish; the persist store then
+        // lets the whole attempt window elapse WHILE the write is in flight.
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-1"));
+        await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+
+        byte[] container = BuildSuccessContainer(seed, OrderingUser, OrderingDevice, OrderingRegistrationId);
+        byte[] bundle = ProtectUnder(randomness.BundleKey(), container);
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionFinish("fin-1", bundle));
+
+        // The watchdog fires mid-write (WR-02): the durable outcome wins —
+        // Success is reported, the racing Timeout is discarded.
+        PairingStateChangedEventArgs success = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Success, "durable success outranks the watchdog");
+        success.Payload.Should().Be(OrderingUser);
+
+        // Settle so a late suppressed Timeout could still surface before the
+        // terminal-count assertion — there must be exactly one.
+        await Task.Delay(200, testToken);
+        harness.Events.Count(e =>
+            e.Status is PairingStatus.Success
+                or PairingStatus.Timeout
+                or PairingStatus.LoggedOut
+                or PairingStatus.ClientOutdated)
+            .Should().Be(1, "one terminal event, no discarded success");
+        harness.Events.Should().NotContain(e => e.Status == PairingStatus.Timeout);
+
+        harness.CopyPhases().Should().Equal("Verify", "Put", "Read", "Reply", "Success");
+        recording.Puts.Should().Be(1, "exactly one credential write lands");
+        harness.Sender.Replies.Should().HaveCount(1, "exactly one pair-success ack answers the finish");
+        harness.Sender.Replies.Single().Attrs["id"].Should().Be("fin-1");
+
+        CredentialRecord? row = await inner.GetAsync(testToken);
+        row.Should().NotBeNull("the durable row survives the suppressed timeout");
         row!.PairedUser.Should().Be(OrderingUser);
         row.Device.Should().Be((int)OrderingDevice);
 

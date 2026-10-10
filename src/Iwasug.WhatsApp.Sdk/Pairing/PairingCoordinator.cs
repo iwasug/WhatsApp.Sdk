@@ -682,6 +682,9 @@ public sealed class PairingCoordinator
     /// <summary>
     /// Ends the code attempt in <c>Timeout</c> when the whole-attempt window
     /// elapses without a verified finish (A3: a typed outcome, never a hang).
+    /// Suppressed while the attempt's persist window is open (WR-02): a
+    /// durable pair-success outranks a timer that fired mid-write, and the
+    /// drain terminates with <c>Success</c> once the store sequence lands.
     /// </summary>
     /// <param name="attempt">The live code attempt.</param>
     private async Task WatchdogTimeoutAsync(Attempt attempt)
@@ -989,6 +992,7 @@ public sealed class PairingCoordinator
                     PairSuccessPayload? payload = await CompletePairSuccessAsync(
                         item,
                         Volatile.Read(ref attempt.PendingId),
+                        attempt,
                         attempt.Cts.Token).ConfigureAwait(false);
                     if (payload is not null)
                     {
@@ -1034,10 +1038,13 @@ public sealed class PairingCoordinator
     /// write through an independent read, and only then replies to the
     /// server. Returns the verified payload, or <c>null</c> when the
     /// container was rejected or no row exists (no write, no reply, no
-    /// event — the attempt continues).
+    /// event — the attempt continues). Opens the attempt's persist window
+    /// (WR-02) around the store sequence so a watchdog <c>Timeout</c> racing
+    /// a slow write cannot discard the durable outcome.
     /// </summary>
     /// <param name="item">The enqueued container plus its reply correlation id.</param>
     /// <param name="fallbackReplyId">The pending request id when the stanza carried none.</param>
+    /// <param name="attempt">The live attempt owning the persist window (WR-02).</param>
     /// <param name="cancellationToken">The attempt's token (unwrapped).</param>
     /// <returns>The verified payload, or <c>null</c> for a non-success outcome.</returns>
     /// <exception cref="Errors.SdkStoreException">
@@ -1048,6 +1055,7 @@ public sealed class PairingCoordinator
     private async Task<PairSuccessPayload?> CompletePairSuccessAsync(
         SuccessItem item,
         string? fallbackReplyId,
+        Attempt attempt,
         CancellationToken cancellationToken)
     {
         // Fail-closed first touch: the row supplies the adv secret AND the
@@ -1088,22 +1096,47 @@ public sealed class PairingCoordinator
                     Device = verified.Payload.Device,
                     RegistrationId = verified.Payload.RegistrationId,
                 };
-                await _credentials.PutAsync(updated, cancellationToken).ConfigureAwait(false);
 
-                CredentialRecord? observed = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
-                if (observed is null
-                    || !string.Equals(observed.PairedUser, verified.Payload.PairedUser, StringComparison.Ordinal)
-                    || observed.Device != verified.Payload.Device)
+                // WR-02: open the persist window under the gate before the
+                // first store touch so a watchdog Timeout racing a slow write
+                // cannot cancel it and discard a durable outcome. Closed on
+                // fault below; the success path leaves it open for
+                // Terminate(Success) to clear while taking the terminal.
+                lock (_gate)
                 {
-                    throw new SdkStoreException(
-                        "Pair-success write was not observable by an independent read: success withheld.");
+                    attempt.PersistWindow = 1;
                 }
 
-                string replyId = item.ReplyId
-                    ?? fallbackReplyId
-                    ?? $"pair-success-{Interlocked.Increment(ref _requestSequence)}";
-                await _sender(BuildPairSuccessReply(replyId), cancellationToken).ConfigureAwait(false);
-                return verified.Payload;
+                try
+                {
+                    await _credentials.PutAsync(updated, cancellationToken).ConfigureAwait(false);
+
+                    CredentialRecord? observed = await _credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+                    if (observed is null
+                        || !string.Equals(observed.PairedUser, verified.Payload.PairedUser, StringComparison.Ordinal)
+                        || observed.Device != verified.Payload.Device)
+                    {
+                        throw new SdkStoreException(
+                            "Pair-success write was not observable by an independent read: success withheld.");
+                    }
+
+                    string replyId = item.ReplyId
+                        ?? fallbackReplyId
+                        ?? $"pair-success-{Interlocked.Increment(ref _requestSequence)}";
+                    await _sender(BuildPairSuccessReply(replyId), cancellationToken).ConfigureAwait(false);
+                    return verified.Payload;
+                }
+                catch
+                {
+                    // Fault path: the durable outcome never materialized, so a
+                    // subsequent watchdog Timeout must terminate normally.
+                    lock (_gate)
+                    {
+                        attempt.PersistWindow = 0;
+                    }
+
+                    throw;
+                }
             }
             finally
             {
@@ -1633,6 +1666,19 @@ public sealed class PairingCoordinator
                 return;
             }
 
+            // WR-02: a durable pair-success supersedes the watchdog. The
+            // persist window is open only while the write/read/reply sequence
+            // is in flight; a Timeout firing then would cancel it and discard
+            // an outcome the store already holds. The persist path closes the
+            // window before rethrowing a fault, so a Timeout after a failed
+            // write still terminates normally, and LoggedOut/ClientOutdated
+            // (real server verdicts) are never suppressed.
+            if (status == PairingStatus.Timeout && attempt.PersistWindow != 0)
+            {
+                return;
+            }
+
+            attempt.PersistWindow = 0;
             attempt.Terminal = 1;
             if (ReferenceEquals(_attempt, attempt))
             {
@@ -1758,6 +1804,15 @@ public sealed class PairingCoordinator
         /// surfaced by <c>StartAsync</c> as the pairing failure outcome.
         /// </summary>
         internal Exception? DrainError;
+
+        /// <summary>
+        /// Non-zero while the pair-success persist sequence is in flight
+        /// (WR-02): opened under <c>_gate</c> immediately before the store
+        /// write, closed on a fault or when <c>Terminate</c> takes the terminal.
+        /// While open, a watchdog <c>Timeout</c> is suppressed so a durable
+        /// outcome is not discarded by a timer that fired during a slow store.
+        /// </summary>
+        internal int PersistWindow;
     }
 
     /// <summary>
