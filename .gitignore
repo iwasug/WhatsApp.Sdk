@@ -29,3 +29,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Root-level `dotnet test`/build run logs captured to files (IN-04) — anchored
+# to the repository root so fixture files named test-*.txt under tests/ stay tracked
+/test-*.txt
