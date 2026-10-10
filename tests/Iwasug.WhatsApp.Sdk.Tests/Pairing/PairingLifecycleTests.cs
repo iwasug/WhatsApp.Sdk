@@ -159,6 +159,47 @@ public sealed class PairingLifecycleTests
     }
 
     /// <summary>
+    /// Pass-through store whose NEXT <c>GetAsync</c> (after <see cref="Arm"/>)
+    /// parks until the attempt token cancels — pins a code request inside the
+    /// registration bootstrap, before any iq leaves the fake (WR-03's
+    /// cancellation-before-any-iq scenario).
+    /// </summary>
+    private sealed class GateFirstGetStore : ICredentialStore
+    {
+        private readonly ICredentialStore _inner;
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _armed;
+
+        internal GateFirstGetStore(ICredentialStore inner)
+        {
+            _inner = inner;
+        }
+
+        internal Task Entered => _entered.Task;
+
+        internal void Arm() => Interlocked.Exchange(ref _armed, 1);
+
+        public async Task<CredentialRecord?> GetAsync(CancellationToken cancellationToken)
+        {
+            if (Interlocked.Exchange(ref _armed, 0) == 1)
+            {
+                _entered.TrySetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            }
+
+            return await _inner.GetAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public Task PutAsync(CredentialRecord credentials, CancellationToken cancellationToken) =>
+            _inner.PutAsync(credentials, cancellationToken);
+
+        public Task<bool> RemoveAsync(CancellationToken cancellationToken) =>
+            _inner.RemoveAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => _inner.DisposeAsync();
+    }
+
+    /// <summary>
     /// Delegates the write to the inner store, then (once) jumps the fake
     /// clock past the attempt window and holds the call briefly — a persist
     /// that outlives the watchdog deadline, so the Timeout fires while the
@@ -985,6 +1026,13 @@ public sealed class PairingLifecycleTests
                 CryptographicOperations.ZeroMemory(codeAscii);
             }
         }
+
+        /// <summary>
+        /// The display string the coordinator must have derived from this
+        /// attempt's injected code bytes — the happy path's determinism proof.
+        /// </summary>
+        internal string ExpectedDisplay() =>
+            PairingCodeGenerator.ToDisplay(PairingCodeGenerator.GenerateCode(_ => _calls[_attemptStart]));
     }
 
     private static BinaryNode BuildCodeRefReply(string id, string codeRef) =>
@@ -992,6 +1040,17 @@ public sealed class PairingLifecycleTests
             "iq",
             [BinaryNode.Create("link-code-ref", new Dictionary<string, string> { ["ref"] = codeRef })],
             new Dictionary<string, string> { ["id"] = id, ["type"] = "result" });
+
+    /// <summary>
+    /// A correlated server rejection of the link-code request (the failure
+    /// reply that must reset the attempt — never 405, which is the bounded
+    /// version-refetch path rather than a terminal rejection).
+    /// </summary>
+    private static BinaryNode BuildCodeErrorReply(string id, string code) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.Create("error", new Dictionary<string, string> { ["code"] = code })],
+            new Dictionary<string, string> { ["id"] = id, ["type"] = "error" });
 
     private static BinaryNode BuildCompanionHello(string id) =>
         BinaryNode.FromChildren(
@@ -1351,6 +1410,199 @@ public sealed class PairingLifecycleTests
             harness.Events, e => e.Status == PairingStatus.Success, "live-epoch success");
         success.Payload.Should().Be(OrderingUser);
         recording.Puts.Should().Be(1);
+
+        await inner.DisposeAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // Task 4 (03-05): the pairing-CODE entry contract — the five plan
+    // behaviors: a deterministic happy path, the single-attempt rule across
+    // both entry points, cancellation and server-failure resets, and typed
+    // phone-number validation. The fake never supplies a code; every
+    // assertion re-derives what the coordinator consumed.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Pairing_code_happy_path_display_is_deterministic_under_injected_randomness()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("code-happy");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        string display = await RequestCodeAsync(harness, randomness, testToken);
+
+        // The display is not random noise from the test's point of view: it
+        // is exactly ToDisplay(GenerateCode(injected bytes)) — the
+        // coordinator consumed the scripted code bytes and nothing else.
+        display.Should().Be(
+            randomness.ExpectedDisplay(),
+            "the issued display must re-derive from the exact code bytes the coordinator drew");
+        display.Should().MatchRegex("^[0-9A-Z]{4}-[0-9A-Z]{4}$", "the host receives the XXXX-XXXX display string");
+
+        PairingStateChangedEventArgs code = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+        code.Payload.Should().Be(display, "the Code event carries the same display the call returns");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Pairing_code_single_attempt_rejects_second_entry_point()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("code-single");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "first code issued");
+
+        // The attempt is live until its terminal event: both entry points
+        // must refuse a second attempt rather than silently sharing the
+        // coordinator's single _attempt slot.
+        Func<Task> secondCode = () => harness.Pairing.RequestPairingCodeAsync(CodePhone, testToken);
+        await secondCode.Should().ThrowAsync<InvalidOperationException>(
+            "the code entry must not start a second attempt while one is live");
+
+        Func<Task> qrEntry = () => harness.Pairing.StartAsync(testToken);
+        await qrEntry.Should().ThrowAsync<InvalidOperationException>(
+            "the QR entry obeys the same single-attempt rule");
+
+        // Neither rejection produced wire traffic — the first request's
+        // frame was dequeued by the helper, so the queue proves silence.
+        harness.Sender.CodeRequests.Should().BeEmpty("a rejected entry never reaches the wire");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Pairing_code_cancellation_resets_attempt_before_any_iq()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("code-cancel");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var gate = new GateFirstGetStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, gate, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        // Park the attempt inside the registration bootstrap: the armed gate
+        // blocks the credential read, so cancellation lands BEFORE code
+        // generation and before any iq can leave the fake.
+        gate.Arm();
+        using var cancelCts = new CancellationTokenSource();
+        Task<string> request = harness.Pairing.RequestPairingCodeAsync(CodePhone, cancelCts.Token);
+        await gate.Entered.WaitAsync(testToken);
+        cancelCts.Cancel();
+
+        Func<Task> awaiting = () => request;
+        await awaiting.Should().ThrowAsync<OperationCanceledException>(
+            "host cancellation surfaces unwrapped from the bootstrap");
+
+        harness.Sender.CodeRequests.Should().BeEmpty("the cancel landed before the request reached the wire");
+        harness.Events.Should().BeEmpty("a cancelled request issues no Code event");
+
+        // The attempt was cleared, not wedged: the same coordinator — with
+        // the gate now pass-through — issues a real code on retry.
+        string display = await RequestCodeAsync(harness, randomness, testToken);
+        display.Should().Be(randomness.ExpectedDisplay(), "the retry runs the full derivation again");
+        await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Code, "code issued after the cancellation reset");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Pairing_code_failure_reply_resets_attempt()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("code-failure");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        randomness.BeginAttempt();
+        Task<string> request = harness.Pairing.RequestPairingCodeAsync(CodePhone, testToken);
+        BinaryNode sent = await WaitForSentAsync(harness.Sender.CodeRequests, testToken);
+
+        // A correlated server rejection (never 405 — that is the bounded
+        // version-refetch path, not a terminal rejection): the request fails
+        // descriptively and the attempt is cleared with it.
+        harness.Pairing.OnStanzaReceived(null, BuildCodeErrorReply(sent.Attrs["id"], "406"));
+        Func<Task> awaiting = () => request;
+        await awaiting.Should().ThrowAsync<SdkConnectionException>()
+            .WithMessage("*rejected by the server (code 406)*");
+
+        harness.Events.Should().BeEmpty("a rejected request never issues a Code event");
+        harness.Sender.CodeRequests.Should().BeEmpty("the failed request's frame was consumed above");
+
+        // Reset proof: the same coordinator issues a fresh code afterwards,
+        // deriving the display from the second attempt's own code bytes.
+        string display = await RequestCodeAsync(harness, randomness, testToken);
+        display.Should().Be(randomness.ExpectedDisplay(), "the retry derives from the fresh attempt's bytes");
+        await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Code, "code issued after the failure reset");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Pairing_code_validation_rejects_bad_phone_numbers_with_typed_reasons()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("code-validation");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: new RecordingRandomness().Next);
+
+        (string Input, PairingCodeValidationReason Reason)[] cases =
+        [
+            ("+15551234567", PairingCodeValidationReason.NonDigits),
+            ("1555abc5678", PairingCodeValidationReason.NonDigits),
+            ("123456", PairingCodeValidationReason.TooShort),
+            ("0123456789", PairingCodeValidationReason.LeadingZero),
+        ];
+
+        foreach ((string input, PairingCodeValidationReason reason) in cases)
+        {
+            Func<Task> attempt = () => harness.Pairing.RequestPairingCodeAsync(input, testToken);
+            var thrown = await attempt.Should().ThrowAsync<PairingCodeRequestException>(
+                $"'{input}' violates the {reason} rule before any wire work");
+            thrown.Which.Reason.Should().Be(reason);
+            thrown.Which.Message.Should().NotContain(input, "the offending input is never echoed back");
+        }
+
+        harness.Sender.CodeRequests.Should().BeEmpty("validation runs before generation or the wire");
+        harness.Events.Should().BeEmpty("no Code event fires for rejected input");
 
         await inner.DisposeAsync();
     }
