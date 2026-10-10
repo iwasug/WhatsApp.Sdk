@@ -7,22 +7,25 @@ using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.InMemory;
 using Iwasug.WhatsApp.Sdk.Transport;
 using QRCoder;
-using System.Text.Json;
 
 const string Version = "0.1.0";
 
 // --self-test: runs with no phone and no network
-// --code <digits>: drives the code-entry pairing flow
+// --code <digits>: phone number (E.164 without +) for the code-entry pairing flow
 // --store <dir>: credentials persist to the given directory
 
 ICredentialStore? store = null;
 WaConnection? connection = null;
 PairingCoordinator? pairing = null;
-string? phoneNumber = null;
-string? qrPayload = null;
-int pairingCode = 0;
+string? codeDigits = null;
 bool selfTestRequested = false;
 string? selfTestStoreDir = null;
+
+// Set by the StateChanged handler on the attempt's terminal event
+// (Success/Timeout/LoggedOut/ClientOutdated). The code mode returns from
+// RequestPairingCodeAsync before its companion tail ends, so the sample
+// awaits this before exiting — it never dies mid-attempt.
+var terminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
 var cliArgs = Environment.GetCommandLineArgs();
 if (cliArgs.Length < 2)
@@ -40,19 +43,16 @@ for (int i = 1; i < cliArgs.Length; i++)
             selfTestRequested = true;
             break;
         case "--code":
-            if (i + 1 < cliArgs.Length)
+            // The digits are the phone number (E.164 without '+'). The SDK
+            // owns validation — this sample keeps no second validator that
+            // could disagree with the typed PairingCodeRequestException.
+            if (i + 1 < cliArgs.Length && cliArgs[i + 1].Length > 0)
             {
-                if (int.TryParse(cliArgs[++i], out int code))
-                    pairingCode = code;
-                else
-                {
-                    Console.Error.WriteLine("Error: --code requires a numeric value");
-                    Environment.Exit(1);
-                }
+                codeDigits = cliArgs[++i];
             }
             else
             {
-                Console.Error.WriteLine("Error: --code requires a value");
+                Console.Error.WriteLine("Error: --code requires the phone number's digits");
                 Environment.Exit(1);
             }
             break;
@@ -87,10 +87,8 @@ if (selfTestRequested)
 {
     // If --store dir was provided, persist there for real; otherwise use the
     // in-memory factory (self-test stays network- and disk-contract-bound either way)
-    string storeDir = selfTestStoreDir ?? System.IO.Path.GetTempPath();
-
     store = selfTestStoreDir is not null
-        ? new FileCredentialStore(accId, storeDir)
+        ? new FileCredentialStore(accId, selfTestStoreDir)
         : storeFactory.CreateAsync(accId).Result;
 
     // Initialize the store with some test data
@@ -157,13 +155,21 @@ connection = new WaConnection(
     payloads);
 pairing = connection.Pairing;
 
-// Subscribe to state changes
+// Subscribe to state changes: print every status, render the QR for real
+// Code payloads (QR mode), and signal the terminal event exactly once.
 pairing.StateChanged += (sender, e) =>
 {
     switch (e.Status)
     {
         case PairingStatus.Code:
             Console.WriteLine($"Pairing code/QR payload: {e.Payload}");
+            if (codeDigits is null && e.Payload is not null)
+            {
+                // QR mode: the payload is the coordinator's real server-issued
+                // ref — never the fabricated placeholder this sample printed
+                // before the pairing coordinator was wired up.
+                PrintQr(e.Payload);
+            }
             break;
         case PairingStatus.Success:
             Console.WriteLine($"Success! Paired user: {e.Payload}");
@@ -178,73 +184,118 @@ pairing.StateChanged += (sender, e) =>
             Console.WriteLine("Client outdated - please upgrade");
             break;
     }
+
+    if (e.Status is PairingStatus.Success or PairingStatus.Timeout
+        or PairingStatus.LoggedOut or PairingStatus.ClientOutdated)
+    {
+        terminal.TrySetResult();
+    }
 };
 
-// Default behavior: QR mode
-if (!selfTestRequested && pairingCode == 0 && string.IsNullOrEmpty(selfTestStoreDir))
+// Three live modes, all on the public API only: --code requests a pairing
+// code for the phone digits, --store <dir> persists to disk first, and the
+// default runs QR pairing. Both pairing modes connect first (the coordinator
+// waits for the channel-ready pulse before it can send anything) and exit
+// only after the attempt's terminal event.
+if (codeDigits is not null)
 {
-    // QR code mode
-    GenerateQrCode();
-}
-else if (pairingCode > 0)
-{
-    // Code entry mode
-    RunCodeEntry(pairingCode);
+    await RunCodeEntryAsync(codeDigits);
 }
 else if (!string.IsNullOrEmpty(selfTestStoreDir))
 {
-    // Store persistence mode
     RunStorePersistence(selfTestStoreDir);
 }
 else
 {
-    PrintUsage();
-    Environment.Exit(1);
+    await RunQrModeAsync();
 }
 
-void GenerateQrCode()
+async Task RunQrModeAsync()
 {
-    // Build a QR payload (fixed test data)
-    var payload = new { version = Version, account = accId.Value };
-    var json = JsonSerializer.Serialize(payload);
-    qrPayload = json;
-
-    // Generate QR code using QRCoder (PngByteQRCode — cross-platform, no System.Drawing)
-    var qrGenerator = new QRCoder.QRCodeGenerator();
-    var qrCodeData = qrGenerator.CreateQrCode(json, QRCodeGenerator.ECCLevel.Q);
-    var qrCode = new PngByteQRCode(qrCodeData);
-    var png = qrCode.GetGraphic(20);
-
-    Console.WriteLine("QR Code generated (PNG bytes: {0} - scan with WhatsApp):", png.Length);
-    Console.WriteLine($"Payload (raw): {qrPayload}");
-    Console.WriteLine("Status: QR code generated - scan the above code with WhatsApp");
-    Console.WriteLine("Pairing status: waiting for connection");
-}
-
-void RunCodeEntry(int code)
-{
-    pairingCode = code;
-    phoneNumber = null;
-
-    // Validate phone number format (E.164 without +, digits only)
-    if (!IsValidPhoneNumber(phoneNumber ?? ""))
-    {
-        Console.Error.WriteLine("Error: Phone number must be digits only, 6-16 digits, no leading zero");
-        Environment.Exit(1);
-    }
-
-    // Request pairing code from SDK
-    var cts = new System.Threading.CancellationTokenSource(30000);
+    Console.WriteLine("QR mode: connecting to WhatsApp...");
     try
     {
-        var result = pairing!.RequestPairingCodeAsync(phoneNumber ?? "", cts.Token).GetAwaiter().GetResult();
-        Console.WriteLine($"Pairing code requested for phone {phoneNumber}");
-        Console.WriteLine($"Status: code entry in progress (code: {pairingCode})");
+        // Pairing was already accessed above, so the coordinator exists
+        // before the connection opens and no channel-ready pulse is missed.
+        await connection!.ConnectAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: connection failed: {ex.Message}");
+        Environment.Exit(1);
+        return;
+    }
+
+    Console.WriteLine("Scan the QR code below with WhatsApp (Linked devices > Link a device).");
+    try
+    {
+        // Runs the QR attempt to its terminal event: every Code event above
+        // prints a fresh payload (refs rotate on the server's schedule), and
+        // StartAsync returns only once the attempt ends.
+        await pairing!.StartAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: pairing failed: {ex.Message}");
+        Environment.Exit(1);
+        return;
+    }
+
+    await terminal.Task;
+    Console.WriteLine("Pairing attempt finished (see status above).");
+}
+
+async Task RunCodeEntryAsync(string digits)
+{
+    Console.WriteLine("Code mode: connecting to WhatsApp...");
+    try
+    {
+        await connection!.ConnectAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: connection failed: {ex.Message}");
+        Environment.Exit(1);
+        return;
+    }
+
+    string display;
+    try
+    {
+        // One validator only: the SDK's own. A bad number surfaces as a
+        // typed PairingCodeRequestException naming the violated rule.
+        display = await pairing!.RequestPairingCodeAsync(digits);
+    }
+    catch (PairingCodeRequestException ex)
+    {
+        Console.Error.WriteLine($"Error: invalid phone number ({ex.Reason}): {ex.Message}");
+        Environment.Exit(1);
+        return;
     }
     catch (Exception ex)
     {
         Console.Error.WriteLine($"Error: {ex.Message}");
         Environment.Exit(1);
+        return;
+    }
+
+    Console.WriteLine($"Pairing code for {digits}: {display}");
+    Console.WriteLine("Enter this code in WhatsApp on the phone; waiting for confirmation...");
+    await terminal.Task;
+}
+
+void PrintQr(string payload)
+{
+    try
+    {
+        var qrGenerator = new QRCodeGenerator();
+        using QRCodeData qrCodeData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+        byte[] png = new PngByteQRCode(qrCodeData).GetGraphic(8);
+        Console.WriteLine($"QR code (PNG, {png.Length} bytes) - scan with WhatsApp, Linked devices");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"(QR rendering unavailable: {ex.Message}) Use the payload above as text.");
     }
 }
 
@@ -297,16 +348,6 @@ void RunStorePersistence(string dir)
     Environment.Exit(0);
 }
 
-bool IsValidPhoneNumber(string phone)
-{
-    // E.164 format: digits only, 6-16 digits, no leading zero
-    if (string.IsNullOrWhiteSpace(phone)) return false;
-    if (phone.Length < 6 || phone.Length > 16) return false;
-    if (!phone.All(char.IsDigit)) return false;
-    if (phone[0] == '0') return false;
-    return true;
-}
-
 static byte[] FixedBytes(int start)
 {
     byte[] bytes = new byte[32];
@@ -323,11 +364,11 @@ void PrintUsage()
     Console.WriteLine();
     Console.WriteLine("Options:");
     Console.WriteLine("  --self-test      Run self-test with no phone/network required");
-    Console.WriteLine("  --code <digits>  Drive code-entry pairing flow with the supplied digits");
+    Console.WriteLine("  --code <digits>  Phone number (digits, E.164 without +) - request a pairing code");
     Console.WriteLine("  --store <dir>    Persist credentials to the given directory");
     Console.WriteLine();
     Console.WriteLine("Examples:");
     Console.WriteLine("  Iwasug.WhatsApp.Sdk.PairingSample --self-test");
-    Console.WriteLine("  Iwasug.WhatsApp.Sdk.PairingSample --code 123456");
+    Console.WriteLine("  Iwasug.WhatsApp.Sdk.PairingSample --code 15551234567");
     Console.WriteLine("  Iwasug.WhatsApp.Sdk.PairingSample --store /tmp/whatsapp-creds");
 }
