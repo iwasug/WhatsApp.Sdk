@@ -73,14 +73,28 @@ namespace Iwasug.WhatsApp.Sdk.Pairing;
 /// sends the link-code request iq, and returns the <c>XXXX-XXXX</c> display
 /// string once the server's ref reply arrives — while a companion driver
 /// (watchdog + hello-ack + the shared verify-then-persist drain) owns the
-/// attempt tail. The tail's only outcomes are the same pairing events (a
-/// companion finish that authenticates under the live code's bundle key
-/// reaches <c>Success</c> through the verified path; anything else converges
-/// on <c>Timeout</c>). Epoch binding is implicit in key material: requesting
-/// a new code derives a fresh bundle key, so a finish sealed under a prior
-/// code fails GCM authentication and is ignored — never written, never
-/// emitted. The driver task captures every fault internally (no unobserved
-/// exceptions); hosts observe the tail through events alone.
+/// attempt tail. The tail's only outcomes are the same pairing events.
+/// </para>
+/// <para>
+/// Companion handshake routing (03-05 Task 3, T-3-11): the stanza handler
+/// recognizes <c>companion-hello</c> (iq or notification) and completes the
+/// attempt's hello signal, off which the driver sends the id-correlated
+/// <c>companion-hello-ack</c>. A <c>companion-finish</c> child is processed
+/// ONLY after that hello on the same live attempt (sequence gate — a
+/// notification that skips the handshake is dropped before any
+/// verification), and ONLY under the live attempt's bundle key: the GCM tag
+/// is verified by <see cref="LinkCodeCrypto.UnprotectBundle"/> and a
+/// mismatch fails closed (log-safe reason, no queue, no write, no event).
+/// The authenticated plaintext is a <c>PairSuccessContainer</c> that enters
+/// the SAME drain as the QR path (<see cref="CompletePairSuccessAsync"/>):
+/// the code flow adds zero new paths into credential persistence.
+/// Epoch binding is implicit in key material: requesting a new code starts a
+/// new attempt whose bundle key is derived from that code alone, so a finish
+/// sealed under a prior code fails GCM authentication and is ignored —
+/// never written, never emitted (single live code at any time; the attempt,
+/// not a counter, is the epoch). The driver task captures every fault
+/// internally (no unobserved exceptions); hosts observe the tail through
+/// events alone.
 /// </para>
 /// <para>
 /// Secret hygiene (T-3-06/T-3-07): the reference is opaque pass-through (never
@@ -735,6 +749,40 @@ public sealed class PairingCoordinator
             return;
         }
 
+        if (attempt.IsCodeAttempt && TryExtractCompanionHello(node, out string? helloId))
+        {
+            // Companion handshake step 1 (03-05 Task 3): the first hello on the
+            // live attempt arms the ack waiter. Under the gate so a stale
+            // attempt (already replaced) never arms anything.
+            lock (_gate)
+            {
+                if (!ReferenceEquals(_attempt, attempt) || attempt.Terminal != 0)
+                {
+                    return;
+                }
+
+                if (!attempt.HelloReceived)
+                {
+                    attempt.HelloReceived = true;
+                    attempt.HelloReplyId = helloId;
+                    attempt.HelloSignal.TrySetResult();
+                }
+            }
+
+            return;
+        }
+
+        if (attempt.IsCodeAttempt
+            && TryExtractCompanionFinish(node, out string? finishReplyId, out byte[]? sealedBundle)
+            && sealedBundle is not null)
+        {
+            // Companion handshake step 2: sequence gate, then GCM
+            // authentication under the live code's bundle key — only the
+            // authenticated container reaches the verified drain.
+            HandleCompanionFinish(attempt, finishReplyId, sealedBundle);
+            return;
+        }
+
         if (!string.Equals(node.Tag, "iq", StringComparison.Ordinal))
         {
             return;
@@ -782,6 +830,75 @@ public sealed class PairingCoordinator
 
         // Any other iq error is ignored: rotation and the attempt timeout bound
         // the attempt, and only a 405 carries version meaning.
+    }
+
+    /// <summary>
+    /// Companion-finish handler (03-05 Task 3): sequence-gates the finish on
+    /// the hello of the SAME live attempt, authenticates the sealed bundle
+    /// under the live code's bundle key (GCM tag verified — a stale code's
+    /// material never opens), and hands the authenticated container to the
+    /// shared verify-then-persist drain. Every rejection is log-safe and
+    /// side-effect free: no queue, no write, no reply, no event.
+    /// </summary>
+    /// <param name="attempt">The live code attempt that received the finish.</param>
+    /// <param name="replyId">The stanza's <c>id</c> for reply correlation (may be null).</param>
+    /// <param name="sealedBundle">The GCM-protected bundle (<c>nonce ‖ ciphertext ‖ tag</c>).</param>
+    private void HandleCompanionFinish(Attempt attempt, string? replyId, byte[] sealedBundle)
+    {
+        if (!attempt.HelloReceived)
+        {
+            // Bypass proof (T-3-11): a finish that skips the handshake is
+            // dropped before any verification runs — sequence state, not
+            // timestamps, gates the flow.
+            _logger?.LogWarning(
+                "Companion finish arrived before the companion hello for account {AccountId}: ignored.",
+                _accountId.Value);
+            return;
+        }
+
+        byte[]? bundleKey = Volatile.Read(ref attempt.BundleKey);
+        if (bundleKey is null)
+        {
+            // No live code on this attempt (a rotated or ended attempt): the
+            // finish cannot authenticate and is ignored.
+            _logger?.LogWarning(
+                "Companion finish arrived with no live pairing code for account {AccountId}: ignored.",
+                _accountId.Value);
+            return;
+        }
+
+        byte[]? container;
+        try
+        {
+            container = LinkCodeCrypto.UnprotectBundle(bundleKey, sealedBundle);
+        }
+        catch (ArgumentException)
+        {
+            _logger?.LogWarning(
+                "Companion finish was misshapen for account {AccountId}: ignored.",
+                _accountId.Value);
+            return;
+        }
+        catch (CryptographicException)
+        {
+            // Wrong key (a prior code's epoch) or tampered bytes: fail closed
+            // with a log-safe reason — no code, no key bytes, ever.
+            _logger?.LogWarning(
+                "Companion finish failed bundle authentication for account {AccountId}: ignored.",
+                _accountId.Value);
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_attempt, attempt) || attempt.Terminal != 0)
+            {
+                return;
+            }
+
+            attempt.SuccessQueue.Enqueue(new SuccessItem(container, replyId));
+            attempt.SuccessSignal.TrySetResult();
+        }
     }
 
     /// <summary>
@@ -1439,6 +1556,53 @@ public sealed class PairingCoordinator
 
         replyId = node.Attrs.GetValueOrDefault("id");
         container = (byte[])success.Data.Clone();
+        return true;
+    }
+
+    /// <summary>
+    /// Detects the server's companion handshake opener: any <c>iq</c> or
+    /// <c>notification</c> carrying a <c>companion-hello</c> child. The
+    /// stanza's <c>id</c> correlates the acknowledgement (null when absent —
+    /// the driver then generates one).
+    /// </summary>
+    /// <param name="node">The inbound stanza (never mutated).</param>
+    /// <param name="helloId">The stanza's <c>id</c> attribute for reply correlation (may be null).</param>
+    private static bool TryExtractCompanionHello(BinaryNode node, out string? helloId)
+    {
+        helloId = null;
+        if (FindChild(node, CompanionHelloTag) is null)
+        {
+            return false;
+        }
+
+        helloId = node.Attrs.GetValueOrDefault("id");
+        return true;
+    }
+
+    /// <summary>
+    /// Extracts the GCM-protected bundle from a companion finish: the
+    /// <c>companion-finish</c> child must carry it as binary content (the
+    /// same content-vs-attr discipline as <c>pair-success</c>). A child
+    /// without binary content is not a finish — never routed to the drain.
+    /// </summary>
+    /// <param name="node">The inbound stanza (never mutated).</param>
+    /// <param name="replyId">The stanza's <c>id</c> attribute for reply correlation (may be null).</param>
+    /// <param name="bundle">The sealed bundle bytes (a fresh copy).</param>
+    private static bool TryExtractCompanionFinish(
+        BinaryNode node,
+        out string? replyId,
+        [NotNullWhen(true)] out byte[]? bundle)
+    {
+        replyId = null;
+        bundle = null;
+        BinaryNode? finish = FindChild(node, CompanionFinishTag);
+        if (finish?.Data is null || finish.Data.Length == 0)
+        {
+            return false;
+        }
+
+        replyId = node.Attrs.GetValueOrDefault("id");
+        bundle = (byte[])finish.Data.Clone();
         return true;
     }
 

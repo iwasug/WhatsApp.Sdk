@@ -16,6 +16,7 @@ using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
 using Iwasug.WhatsApp.Sdk.Testing.Rules;
 using Iwasug.WhatsApp.Sdk.Tests.Transport;
 using Iwasug.WhatsApp.Sdk.Transport;
+using Microsoft.Extensions.Time.Testing;
 using NSec.Cryptography;
 using Xunit;
 
@@ -506,6 +507,8 @@ public sealed class PairingLifecycleTests
     private sealed class DirectSender
     {
         internal readonly ConcurrentQueue<BinaryNode> Requests = new();
+        internal readonly ConcurrentQueue<BinaryNode> CodeRequests = new();
+        internal readonly ConcurrentQueue<BinaryNode> HelloAcks = new();
         internal readonly ConcurrentQueue<BinaryNode> Replies = new();
         internal readonly List<string> Phases = new();
         internal readonly object PhaseGate = new();
@@ -513,6 +516,18 @@ public sealed class PairingLifecycleTests
 
         internal async ValueTask SendAsync(BinaryNode node, CancellationToken cancellationToken)
         {
+            if (HasChild(node, "link-code-request"))
+            {
+                CodeRequests.Enqueue(node);
+                return;
+            }
+
+            if (HasChild(node, "companion-hello-ack"))
+            {
+                HelloAcks.Enqueue(node);
+                return;
+            }
+
             if (HasChild(node, "pair-device"))
             {
                 Requests.Enqueue(node);
@@ -546,7 +561,12 @@ public sealed class PairingLifecycleTests
         internal readonly HandshakePayloadProvider Payloads;
         internal readonly PairingCoordinator Pairing;
 
-        internal OrderingHarness(AccountId account, ICredentialStore store, bool wrapVerifyPhases)
+        internal OrderingHarness(
+            AccountId account,
+            ICredentialStore store,
+            bool wrapVerifyPhases,
+            TimeProvider? timeProvider = null,
+            Func<int, byte[]>? randomBytes = null)
         {
             Payloads = new HandshakePayloadProvider(account, store, DummyRegistrationDefaults());
             Func<byte[], byte[], byte[], PairSuccessResult>? verify = null;
@@ -570,9 +590,10 @@ public sealed class PairingLifecycleTests
                 Sender.SendAsync,
                 () => true,
                 pairSuccessVerifier: verify,
-                timeProvider: null,
+                timeProvider: timeProvider,
                 resolver: null,
-                logger: null);
+                logger: null,
+                randomBytes: randomBytes);
             Pairing.StateChanged += (_, e) =>
             {
                 Events.Enqueue(e);
@@ -938,5 +959,358 @@ public sealed class PairingLifecycleTests
         await connection.DisposeAsync();
         await peerTask;
         await store.DisposeAsync();
+    }
+
+    // ------------------------------------------------------------------
+    // Task 3 (03-05): companion handshake routing — companion_hello → ack →
+    // companion notification → GCM bundle authentication → the SAME
+    // verify-then-persist drain. The five plan-mandated behaviors: the full
+    // flow, the sequence bypass proof, the stall-then-typed-timeout proof,
+    // the tampered/foreign bundle proof, and the rotated-epoch rejection.
+    // ------------------------------------------------------------------
+
+    private const string CodePhone = "15551234567";
+
+    /// <summary>
+    /// Scripted pairing randomness for the code path: records every call so the
+    /// test re-derives exactly the code bytes and salt the coordinator consumed
+    /// (plan 03-03's injectable-randomness seam — the fake never supplies the
+    /// code, it only pins the coordinator's own inputs).
+    /// </summary>
+    private sealed class RecordingRandomness
+    {
+        private readonly List<byte[]> _calls = [];
+
+        /// <summary>Index of the current attempt's first consumption (set per request).</summary>
+        private int _attemptStart;
+
+        internal void BeginAttempt() => _attemptStart = _calls.Count;
+
+        internal byte[] Next(int count)
+        {
+            byte[] bytes = new byte[count];
+            for (int i = 0; i < count; i++)
+            {
+                bytes[i] = (byte)(0x30 + (_calls.Count * 7) + i);
+            }
+
+            _calls.Add(bytes);
+            return bytes;
+        }
+
+        /// <summary>The live attempt's bundle key, re-derived exactly as the coordinator does.</summary>
+        internal byte[] BundleKey()
+        {
+            byte[] codeBytes = _calls[_attemptStart];
+            byte[] salt = _calls[_attemptStart + 1];
+            string rawCode = PairingCodeGenerator.GenerateCode(_ => codeBytes);
+            byte[] codeAscii = Encoding.ASCII.GetBytes(rawCode);
+            try
+            {
+                byte[] linkKey = LinkCodeCrypto.DeriveKey(codeAscii, salt);
+                return LinkCodeCrypto.DeriveBundleKey(linkKey, salt);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(codeAscii);
+            }
+        }
+    }
+
+    private static BinaryNode BuildCodeRefReply(string id, string codeRef) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.Create("link-code-ref", new Dictionary<string, string> { ["ref"] = codeRef })],
+            new Dictionary<string, string> { ["id"] = id, ["type"] = "result" });
+
+    private static BinaryNode BuildCompanionHello(string id) =>
+        BinaryNode.FromChildren(
+            "iq",
+            [BinaryNode.Create("companion-hello")],
+            new Dictionary<string, string> { ["id"] = id, ["type"] = "get" });
+
+    private static BinaryNode BuildCompanionFinish(string id, byte[] bundle) =>
+        BinaryNode.FromChildren(
+            "notification",
+            [BinaryNode.FromBytes("companion-finish", bundle)],
+            new Dictionary<string, string> { ["id"] = id });
+
+    /// <summary>
+    /// Issues one pairing code through the coordinator's public entry and
+    /// answers the request with a scripted ref reply (the fake never
+    /// supplies the code itself).
+    /// </summary>
+    private static async Task<string> RequestCodeAsync(
+        OrderingHarness harness,
+        RecordingRandomness randomness,
+        CancellationToken cancellationToken)
+    {
+        randomness.BeginAttempt();
+        Task<string> request = harness.Pairing.RequestPairingCodeAsync(CodePhone, cancellationToken);
+        if (request.IsFaulted)
+        {
+            // An immediate rejection (single-attempt rule) surfaces here —
+            // no wire traffic follows, so never wait for a reply.
+            await request;
+        }
+
+        BinaryNode sent = await WaitForSentAsync(harness.Sender.CodeRequests, cancellationToken);
+        harness.Pairing.OnStanzaReceived(null, BuildCodeRefReply(sent.Attrs["id"], "CODEREF-SCRIPTED"));
+        return await request.WaitAsync(cancellationToken);
+    }
+
+    private static byte[] ProtectUnder(byte[] bundleKey, byte[] container) =>
+        LinkCodeCrypto.ProtectBundle(bundleKey, FixedBytes(0x90, LinkCodeCrypto.NonceSize), container);
+
+    [Fact]
+    public async Task Companion_hello_ack_finish_reaches_verified_success()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("companion");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+        recording.PhaseSink = phase =>
+        {
+            lock (harness.Sender.PhaseGate)
+            {
+                harness.Sender.Phases.Add(phase);
+            }
+        };
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        string display = await RequestCodeAsync(harness, randomness, testToken);
+        display.Should().MatchRegex("^[0-9A-Z]{4}-[0-9A-Z]{4}$", "the caller gets the XXXX-XXXX display string");
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+
+        // Step 1: the hello is acknowledged, id-correlated to the hello stanza.
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-1"));
+        BinaryNode ack = await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+        ack.Tag.Should().Be("iq");
+        ack.Attrs["id"].Should().Be("hello-1", "the acknowledgement correlates to the hello stanza");
+        ack.Attrs["type"].Should().Be("result");
+        HasChild(ack, "companion-hello-ack").Should().BeTrue();
+
+        // Step 2: the finish authenticates under the live code's bundle key
+        // and hands the container to the shared verified path.
+        byte[] container = BuildSuccessContainer(seed, OrderingUser, OrderingDevice, OrderingRegistrationId);
+        byte[] bundle = ProtectUnder(randomness.BundleKey(), container);
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionFinish("fin-1", bundle));
+
+        PairingStateChangedEventArgs success = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Success, "companion success");
+        success.Payload.Should().Be(OrderingUser, "Success carries the verified paired user");
+
+        // The mandated ordering — the code flow reaches Success only through
+        // plan 03-04's verify → write → read → reply → event sequence.
+        harness.CopyPhases().Should().Equal("Verify", "Put", "Read", "Reply", "Success");
+        recording.Puts.Should().Be(1, "exactly one credential write lands on the code success path");
+        harness.Sender.Replies.Should().HaveCount(1, "exactly one pair-success ack answers the finish");
+        harness.Sender.Replies.Single().Attrs["id"].Should().Be("fin-1");
+
+        CredentialRecord? row = await inner.GetAsync(testToken);
+        row.Should().NotBeNull();
+        row!.PairedUser.Should().Be(OrderingUser);
+        row.Device.Should().Be((int)OrderingDevice);
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Companion_finish_without_hello_is_dropped_before_verification()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("companion-bypass");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+
+        // A finish that SKIPS the handshake — correctly sealed under the live
+        // bundle key, so the sequence gate alone must reject it.
+        byte[] container = BuildSuccessContainer(seed, OrderingUser, OrderingDevice, OrderingRegistrationId);
+        byte[] bundle = ProtectUnder(randomness.BundleKey(), container);
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionFinish("fin-bypass", bundle));
+        await Task.Delay(300, testToken);
+
+        harness.CopyPhases().Should().BeEmpty("no verification runs when the sequence is skipped");
+        recording.Puts.Should().Be(0, "no credential write without the handshake");
+        harness.Sender.Replies.Should().BeEmpty("no reply without verification");
+        harness.Sender.HelloAcks.Should().BeEmpty("no acknowledgement without a hello");
+        harness.Events.Should().NotContain(e => e.Status == PairingStatus.Success);
+
+        // The attempt stays live: a hello afterwards still acks (the drop is
+        // side-effect free, not fatal).
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-late"));
+        await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Companion_stall_after_hello_surfaces_typed_timeout_and_resets_attempt()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("companion-stall");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var clock = new FakeTimeProvider();
+        var harness = new OrderingHarness(
+            account, recording,
+            wrapVerifyPhases: true,
+            timeProvider: clock,
+            randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+
+        // The companion flow stalls after the hello: the finish never arrives
+        // (Pitfall 4's phone-side mismatch mode, which upstream sees only as a
+        // bare timeout) — the coordinator reports the TYPED outcome.
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-1"));
+        await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+        clock.Advance(PairingQrPayload.AttemptTimeout + TimeSpan.FromSeconds(1));
+
+        PairingStateChangedEventArgs timeout = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Timeout, "typed timeout");
+        timeout.Payload.Should().BeNull("a timeout carries no payload");
+        recording.Puts.Should().Be(0, "a stalled handshake never writes");
+
+        // The attempt reset — no wedged coordinator: a fresh code can be
+        // requested and issued on the same instance.
+        string again = await RequestCodeAsync(harness, randomness, testToken);
+        again.Should().NotBeNullOrWhiteSpace();
+        await WaitForPairingEventAsync(
+            harness.Events,
+            e => e.Status == PairingStatus.Code
+                && harness.Events.Count(x => x.Status == PairingStatus.Code) >= 2,
+            "second code issued");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Companion_finish_with_foreign_bundle_key_fails_closed()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("companion-tamper");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var harness = new OrderingHarness(
+            account, recording, wrapVerifyPhases: true, randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "code issued");
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-1"));
+        await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+
+        // A bundle sealed under a key that is NOT the live code's (wrong epoch
+        // or a tampered ciphertext): the GCM tag must not open.
+        byte[] container = BuildSuccessContainer(seed, OrderingUser, OrderingDevice, OrderingRegistrationId);
+        byte[] foreignKey = FixedBytes(0x77);
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionFinish("fin-bad", ProtectUnder(foreignKey, container)));
+        await Task.Delay(300, testToken);
+
+        harness.CopyPhases().Should().BeEmpty("a bundle that fails authentication never reaches verification");
+        recording.Puts.Should().Be(0, "no credential write on a tag mismatch");
+        harness.Sender.Replies.Should().BeEmpty("no reply on a tag mismatch");
+        harness.Events.Should().NotContain(e => e.Status == PairingStatus.Success);
+
+        // Fail-closed is not fatal: the attempt survives and a correctly
+        // sealed finish still completes the verified path.
+        harness.Pairing.OnStanzaReceived(
+            null, BuildCompanionFinish("fin-good", ProtectUnder(randomness.BundleKey(), container)));
+        PairingStateChangedEventArgs success = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Success, "verified success after the rejection");
+        success.Payload.Should().Be(OrderingUser);
+        recording.Puts.Should().Be(1, "only the authenticated finish writes");
+
+        await inner.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task Companion_finish_from_a_rotated_code_epoch_is_rejected()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken testToken = testCts.Token;
+        AccountId account = NewAccount("companion-epoch");
+
+        ICredentialStore inner = await CreateEmptyStoreAsync(account, testToken);
+        var recording = new RecordingStore(inner);
+        var randomness = new RecordingRandomness();
+        var clock = new FakeTimeProvider();
+        var harness = new OrderingHarness(
+            account, recording,
+            wrapVerifyPhases: true,
+            timeProvider: clock,
+            randomBytes: randomness.Next);
+
+        CredentialRecord seed = KnownUnpairedRow();
+        await inner.PutAsync(seed, testToken);
+
+        // Code epoch 1: issued, then the attempt ends (watchdog).
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(harness.Events, e => e.Status == PairingStatus.Code, "first code");
+        byte[] staleBundleKey = randomness.BundleKey();
+        clock.Advance(PairingQrPayload.AttemptTimeout + TimeSpan.FromSeconds(1));
+        await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Timeout, "first attempt timed out");
+
+        // Code epoch 2: a fresh attempt derives a fresh bundle key from the
+        // new code — the epoch is bound in key material, not in a counter.
+        await RequestCodeAsync(harness, randomness, testToken);
+        await WaitForPairingEventAsync(
+            harness.Events,
+            e => e.Status == PairingStatus.Code
+                && harness.Events.Count(x => x.Status == PairingStatus.Code) >= 2,
+            "second code issued");
+        harness.Pairing.OnStanzaReceived(null, BuildCompanionHello("hello-2"));
+        await WaitForSentAsync(harness.Sender.HelloAcks, testToken);
+
+        byte[] container = BuildSuccessContainer(seed, OrderingUser, OrderingDevice, OrderingRegistrationId);
+        harness.Pairing.OnStanzaReceived(
+            null, BuildCompanionFinish("fin-stale", ProtectUnder(staleBundleKey, container)));
+        await Task.Delay(300, testToken);
+
+        harness.CopyPhases().Should().BeEmpty("the prior code's material never opens under the live code");
+        recording.Puts.Should().Be(0, "a rotated-epoch finish never writes");
+        harness.Events.Should().NotContain(e => e.Status == PairingStatus.Success);
+
+        // The live epoch still finishes normally.
+        harness.Pairing.OnStanzaReceived(
+            null, BuildCompanionFinish("fin-live", ProtectUnder(randomness.BundleKey(), container)));
+        PairingStateChangedEventArgs success = await WaitForPairingEventAsync(
+            harness.Events, e => e.Status == PairingStatus.Success, "live-epoch success");
+        success.Payload.Should().Be(OrderingUser);
+        recording.Puts.Should().Be(1);
+
+        await inner.DisposeAsync();
     }
 }
