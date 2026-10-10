@@ -32,9 +32,13 @@ package wa.adv;
 
 option csharp_namespace = "Iwasug.WhatsApp.Sdk.Pairing";
 
-// The HMAC-covered adv fields. Serialized deterministically by this repo's
-// protoc output, so the verifier recomputes the HMAC over
-// details.ToByteArray() and compares it in fixed time.
+// The HMAC-covered adv fields. The verifier authenticates the EXACT
+// length-delimited bytes these fields occupy on the wire (first strict-walked
+// for unknown/duplicate fields), recomputing the HMAC over that received
+// byte range and comparing in fixed time. Re-serializing this message
+// (details.ToByteArray()) is deliberately NOT used: re-encoding could
+// diverge from the bytes the HMAC actually covered and open a malleability
+// gap — one canonical wire byte string feeds the HMAC and both signatures.
 message AdvDetails {
   // Paired JID user (digits), e.g. "1234567890".
   string paired_user = 1;
