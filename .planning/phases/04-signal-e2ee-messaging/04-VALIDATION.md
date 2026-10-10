@@ -59,11 +59,11 @@ created: "2026-10-11"
 
 > Wave 0 is created by plan tasks, not a separate wave: each checklist item names the artifact a plan task produces during execution. The Signal byte-layout spike (RESEARCH O8) is a **blocking first task** — its fixture set gates every downstream Signal task.
 
-- [ ] `tests/…/TestData/signal-kats.json` — Signal KAT fixture set from the blocking Wave-0 spike (live-capture / Baileys-cross-checked golden bytes; overrides any [ASSUMED] byte-layout values — Pitfall 1)
-- [ ] `message-wire-fixtures.json` — message-node, receipt-node, retry-node golden bytes (source: Baileys encode cross-check or live capture)
-- [ ] Loopback peer extensions for `message`/`receipt`/`ack` stanza scripting
-- [ ] `RecentMessageEntry` additive extension decision (content + sender fields) — new contract-kit assertions in `StoreContract` tests
-- [ ] No framework install required (xunit v3 already wired)
+- [ ] `tests/…/TestData/signal-kats.json` — Signal KAT fixture set from the blocking Wave-0 spike (**04-01 Task 1**; live-capture / Baileys-cross-checked golden bytes; overrides any [ASSUMED] byte-layout values — Pitfall 1)
+- [ ] `message-wire-fixtures.json` — message-node + protobuf golden bytes (**04-02 Task 1**) and receipt-node byte forms (**04-04 Task 1**), source: Baileys encode cross-check or live capture; the retry-node shape is asserted dynamically by `RetryReceiptTests` (**04-04 Task 2**) rather than pinned in the fixture file
+- [ ] Loopback peer extensions for `message`/`receipt`/`ack` stanza scripting (**04-03 Task 1** — the `MessagingLoopbackTests` scripted peer)
+- [ ] `RecentMessageEntry` additive extension decision (content + sender fields) — new contract-kit assertions in `StoreContract` tests (**04-02 Task 3**)
+- [ ] No framework install required (xunit v3 already wired — no producing task)
 
 ---
 
