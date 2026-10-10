@@ -55,15 +55,34 @@ public sealed class FileCredentialStore : ICredentialStore
             return null;
         }
 
+        string json;
         try
         {
-            var json = await System.IO.File.ReadAllTextAsync(filePath, cancellationToken);
+            json = await System.IO.File.ReadAllTextAsync(filePath, cancellationToken);
+        }
+        catch (IOException ex)
+        {
+            // A disk failure is a FAILURE, never a missing row (D-19) and
+            // never "corruption" — it carries its cause for diagnosis.
+            throw new SdkStoreException($"Failed to read credential row for account {_accountId}", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new SdkStoreException($"Failed to read credential row for account {_accountId}", ex);
+        }
+
+        // OperationCanceledException is deliberately uncaught above and here:
+        // cancellation propagates as-is — it is neither a parse failure nor a
+        // missing row, and must never be rebranded as one (D-19).
+        try
+        {
             return System.Text.Json.JsonSerializer.Deserialize<CredentialRecord>(json);
         }
-        catch
+        catch (System.Text.Json.JsonException ex)
         {
-            // Deserialization failure =/= missing row (D-19): throw, don't return null
-            throw new SdkStoreException($"Failed to deserialize credential row for account {_accountId}");
+            // Deserialization failure =/= missing row (D-19): throw, don't return null.
+            // Only the JSON parse itself is wrapped as a deserialization failure.
+            throw new SdkStoreException($"Failed to deserialize credential row for account {_accountId}", ex);
         }
     }
 
@@ -106,17 +125,29 @@ public sealed class FileCredentialStore : ICredentialStore
     {
         var filePath = GetFilePath();
         if (!System.IO.File.Exists(filePath))
+        {
+            // Genuinely absent: idempotent remove, never an error (D-19).
             return Task.FromResult(false);
+        }
+
+        // Checked OUTSIDE the try so a cancellation can never be swallowed
+        // and reported as "row absent" — cancellation is not absence.
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            cancellationToken.ThrowIfCancellationRequested();
             System.IO.File.Delete(filePath);
             return Task.FromResult(true);
         }
-        catch
+        catch (IOException ex)
         {
-            return Task.FromResult(false);
+            // A real IO failure throws (failure != missing, D-19): only the
+            // absent-file case above may return false.
+            throw new SdkStoreException($"Failed to remove credential row for account {_accountId}", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new SdkStoreException($"Failed to remove credential row for account {_accountId}", ex);
         }
     }
 
