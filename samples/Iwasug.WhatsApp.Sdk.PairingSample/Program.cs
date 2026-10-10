@@ -2,6 +2,7 @@ using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Samples;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.InMemory;
 using Iwasug.WhatsApp.Sdk.Transport;
@@ -84,10 +85,13 @@ ICredentialStoreFactory storeFactory = new InMemoryStoreFactory();
 // ---- Self-test behavior ----
 if (selfTestRequested)
 {
-    // If --store dir was provided, use it; otherwise create a temp directory
+    // If --store dir was provided, persist there for real; otherwise use the
+    // in-memory factory (self-test stays network- and disk-contract-bound either way)
     string storeDir = selfTestStoreDir ?? System.IO.Path.GetTempPath();
 
-    store = storeFactory.CreateAsync(accId).Result;
+    store = selfTestStoreDir is not null
+        ? new FileCredentialStore(accId, storeDir)
+        : storeFactory.CreateAsync(accId).Result;
 
     // Initialize the store with some test data
     var seed = new CredentialRecord(
@@ -133,7 +137,10 @@ if (selfTestRequested)
 
 // Build the credential-aware handshake payload seam and the connection; the pairing
 // coordinator is exposed via WaConnection.Pairing (its constructor is internal on purpose).
-store = storeFactory.CreateAsync(accId).GetAwaiter().GetResult();
+// --store <dir> makes the credential store directory-backed (FileCredentialStore).
+store = selfTestStoreDir is string persistedDir
+    ? new FileCredentialStore(accId, persistedDir)
+    : storeFactory.CreateAsync(accId).GetAwaiter().GetResult();
 var payloads = new HandshakePayloadProvider(accId, store, new RegistrationDefaults(
     IdentityPublic: new byte[32],
     SignedPreKeyId: 7,
@@ -246,8 +253,8 @@ void RunStorePersistence(string dir)
     selfTestStoreDir = dir;
     Console.WriteLine($"Starting store persistence test with directory: {dir}");
 
-    // Create store over the specified directory
-    store = storeFactory.CreateAsync(accId).GetAwaiter().GetResult();
+    // Create the directory-backed store over the specified directory (real file IO)
+    store = new FileCredentialStore(accId, dir);
 
     // Write a test credential
     var testCred = new CredentialRecord(

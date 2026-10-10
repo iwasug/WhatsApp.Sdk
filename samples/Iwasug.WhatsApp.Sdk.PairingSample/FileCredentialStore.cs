@@ -79,17 +79,12 @@ public sealed class FileCredentialStore : ICredentialStore
 
         try
         {
-            // Atomic write: write temp file first, then move to final location
-            var serializable = new
-            {
-                credentials.CreatedAt,
-                credentials.NoiseKeyPrivate,
-                credentials.Device,
-                credentials.PairedUser,
-                credentials.RegistrationId
-            };
-
-            var json = System.Text.Json.JsonSerializer.Serialize(serializable);
+            // Atomic write: write temp file first, then move to final location.
+            // The record TYPE is the contract (CR-04): serializing the whole
+            // CredentialRecord keeps every field — the three private keys, the adv
+            // secret, and the platform label included — so a round-trip can never
+            // silently drop must-not-lose (D-05) material.
+            var json = System.Text.Json.JsonSerializer.Serialize(credentials);
             await System.IO.File.WriteAllTextAsync(tempPath, json, cancellationToken);
             System.IO.File.Move(tempPath, filePath, overwrite: true);
         }
