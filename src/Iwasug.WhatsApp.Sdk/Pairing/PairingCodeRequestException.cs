@@ -51,6 +51,12 @@ public sealed class PairingCodeRequestException : SdkException
     {
     }
 
-    /// <summary>The failing rule.</summary>
-    public PairingCodeValidationReason Reason { get; }
+    /// <summary>
+    /// The failing rule, or <c>null</c> when the exception was created through
+    /// the public constructor (no input-validation rule was evaluated) — hosts
+    /// switching on this value must treat <c>null</c> as "not a validation
+    /// failure" rather than guessing a rule. SDK-thrown validation failures
+    /// always carry a reason.
+    /// </summary>
+    public PairingCodeValidationReason? Reason { get; }
 }

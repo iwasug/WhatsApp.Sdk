@@ -195,7 +195,7 @@ Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.TooShort = 2 -> Iwasug.WhatsAp
 Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.LeadingZero = 3 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
 Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException
 Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.PairingCodeRequestException(string! message, System.Exception? inner = null) -> void
-Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.Reason.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.Reason.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason?
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.StartAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.RequestPairingCodeAsync(string! phoneNumber, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
