@@ -382,6 +382,36 @@ public sealed class PairSuccessVerifierTests
     }
 
     [Fact]
+    public void Out_of_domain_registration_id_rejects_despite_valid_signatures()
+    {
+        // uint32.MaxValue passes HMAC and both signatures (it is inside the
+        // authenticated envelope) yet casts to -1 as int — the verifier must
+        // reject it rather than persist a row that bricks every future login.
+        BuiltContainer built = BuildValidContainer(
+            FixtureAccountSeed(), FixtureDeviceSeed(), FixtureSecret(),
+            registrationId: uint.MaxValue);
+
+        PairSuccessResult result = PairSuccessVerifier.Verify(built.Container, FixtureSecret(), built.DevicePublic);
+
+        AssertRejected(result, PairSuccessRejectReason.Malformed);
+    }
+
+    [Fact]
+    public void Out_of_domain_device_index_rejects_despite_valid_signatures()
+    {
+        // Same authenticated-but-out-of-domain shape for the device index: a
+        // >= 2^31 value casts negative and ClientPayloadFactory.Login would
+        // throw on every subsequent handshake — fail closed here instead.
+        BuiltContainer built = BuildValidContainer(
+            FixtureAccountSeed(), FixtureDeviceSeed(), FixtureSecret(),
+            device: uint.MaxValue);
+
+        PairSuccessResult result = PairSuccessVerifier.Verify(built.Container, FixtureSecret(), built.DevicePublic);
+
+        AssertRejected(result, PairSuccessRejectReason.Malformed);
+    }
+
+    [Fact]
     public void Fixture_carries_provenance_without_upstream_bytes()
     {
         PairSuccessFixture fixture = LoadFixture();

@@ -274,6 +274,18 @@ internal static class PairSuccessVerifier
                     CryptographicOperations.ZeroMemory(deviceInput);
                 }
 
+                // Wire numerics are uint32 but the persisted row stores int (WR-01):
+                // a device index >= 2^31 casts negative and a registration id beyond
+                // the 14-bit domain would make every future handshake throw from
+                // ClientPayloadFactory — the send-side guards never run on a received
+                // pair-success, so the verifier rejects out-of-domain values here,
+                // before anything is persisted (authenticated or not).
+                if (container.Details.RegistrationId > ClientPayloadFactory.MaxRegistrationId
+                    || container.Details.Device > int.MaxValue)
+                {
+                    return new PairSuccessResult.Rejected(PairSuccessRejectReason.Malformed);
+                }
+
                 return new PairSuccessResult.Verified(
                     new PairSuccessPayload(
                         container.Details.PairedUser,
