@@ -368,89 +368,18 @@ public sealed class PairingLifecycleTests
             0,
             42);
 
-    private static byte[] Ed25519PublicOf(byte[] seed)
-    {
-        byte[] copy = (byte[])seed.Clone();
-        try
-        {
-            using Key key = Key.Import(SignatureAlgorithm.Ed25519, copy, KeyBlobFormat.RawPrivateKey);
-            return key.PublicKey.Export(KeyBlobFormat.RawPublicKey);
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(copy);
-        }
-    }
-
-    private static byte[] Ed25519Sign(byte[] seed, byte[] data)
-    {
-        byte[] copy = (byte[])seed.Clone();
-        try
-        {
-            using Key key = Key.Import(SignatureAlgorithm.Ed25519, copy, KeyBlobFormat.RawPrivateKey);
-            return SignatureAlgorithm.Ed25519.Sign(key, data);
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(copy);
-        }
-    }
-
-    private static byte[] Join(params byte[][] segments)
-    {
-        int total = 0;
-        foreach (byte[] segment in segments)
-        {
-            total += segment.Length;
-        }
-
-        byte[] result = new byte[total];
-        int offset = 0;
-        foreach (byte[] segment in segments)
-        {
-            segment.CopyTo(result.AsSpan(offset));
-            offset += segment.Length;
-        }
-
-        return result;
-    }
-
-    private static byte[] BuildSuccessContainer(CredentialRecord row, string user, uint device, uint registrationId)
-    {
-        byte[] accountSeed = FixedBytes(0x50);
-        byte[] accountPublic = Ed25519PublicOf(accountSeed);
-        var details = new AdvDetails
-        {
-            PairedUser = user,
-            Device = device,
-            RegistrationId = registrationId,
-            AccountPublic = ByteString.CopyFrom(accountPublic),
-        };
-        byte[] detailsBytes = details.ToByteArray();
-        byte[] hmac = HMACSHA256.HashData(row.AdvSecret, detailsBytes);
-        byte[] accountSignature = Ed25519Sign(accountSeed, Join([6, 0], detailsBytes));
-        byte[] deviceSignature = Ed25519Sign(row.SigningKeyPrivate, Join([6, 1], detailsBytes, accountPublic));
-        var container = new PairSuccessContainer
-        {
-            Details = details,
-            Hmac = ByteString.CopyFrom(hmac),
-            AccountSignature = ByteString.CopyFrom(accountSignature),
-            DeviceSignature = ByteString.CopyFrom(deviceSignature),
-        };
-        return container.ToByteArray();
-    }
+    // The success container and its ref/success frames are built by the shared
+    // fixture (plan 03-06 Task 1): the resume lifecycle proof and these
+    // ordering proofs must share ONE construction of these security-critical
+    // bytes, so this file delegates instead of keeping a private copy.
+    private static byte[] BuildSuccessContainer(CredentialRecord row, string user, uint device, uint registrationId) =>
+        PairingSuccessFixture.BuildSuccessContainer(row, user, device, registrationId);
 
     private static BinaryNode BuildRefReply(string id, string pairingRef) =>
-        BinaryNode.FromChildren(
-            "iq",
-            [BinaryNode.Create("pair-device", new Dictionary<string, string> { ["ref"] = pairingRef })],
-            new Dictionary<string, string> { ["id"] = id, ["type"] = "result" });
+        PairingSuccessFixture.BuildRefReply(id, pairingRef);
 
     private static BinaryNode BuildSuccessNotification(string id, byte[] container) =>
-        BinaryNode.FromChildren(
-            "notification",
-            [BinaryNode.FromBytes("pair-success", container)],
-            new Dictionary<string, string> { ["id"] = id });
+        PairingSuccessFixture.BuildSuccessNotification(id, container);
 
     private static bool HasChild(BinaryNode node, string tag) =>
         node.Children is not null && node.Children.Any(child => string.Equals(child.Tag, tag, StringComparison.Ordinal));
