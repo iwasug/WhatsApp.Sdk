@@ -45,10 +45,13 @@ internal sealed class ReceiptHandler
     /// <summary>
     /// Bound on the per-(sender, id) counter map (T-4-13 hygiene): a hostile peer
     /// could flood distinct failing ids and grow the map without bound, so the map
-    /// is cleared wholesale once it exceeds this size. Clearing only RELAXES the
-    /// cap (counts restart from one) — it never over-sends for any single id beyond
-    /// <see cref="RetryCountCap"/> in a contiguous run, and the wire cost per id
-    /// stays capped regardless.
+    /// evicts its OLDEST half by last-touch sequence once it exceeds this size
+    /// (WR-03). Wholesale clearing was a ban-safety lever — a flood could reset the
+    /// counter of a legitimate (sender, id) that had already emitted its capped
+    /// retries, drawing another <see cref="RetryCountCap"/> receipts (each from
+    /// retry #2 carrying a <c>&lt;keys&gt;</c> block that spends a real one-time
+    /// prekey). Eviction only ever drops the least-recently-touched half, so hot
+    /// counters survive a flood.
     /// </summary>
     internal const int MaxRetryCountKeys = 4096;
 
@@ -62,7 +65,8 @@ internal sealed class ReceiptHandler
 
     private readonly Messenger _owner;
     private readonly ConcurrentDictionary<string, bool> _deliveryReceiptChats = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, int> _retryCounts = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, RetryCounter> _retryCounts = new(StringComparer.Ordinal);
+    private long _retryTouchSequence;
     private int _oneTimeCursor;
 
     internal ReceiptHandler(Messenger owner)
@@ -200,13 +204,14 @@ internal sealed class ReceiptHandler
         bool hasSession,
         CancellationToken cancellationToken)
     {
-        int count = _retryCounts.AddOrUpdate(
+        RetryCounter counter = _retryCounts.AddOrUpdate(
             string.Create(CultureInfo.InvariantCulture, $"{sender}:{messageId}"),
-            1,
-            static (_, existing) => existing + 1);
+            _ => new RetryCounter(1, Interlocked.Increment(ref _retryTouchSequence)),
+            (_, existing) => new RetryCounter(existing.Count + 1, Interlocked.Increment(ref _retryTouchSequence)));
+        int count = counter.Count;
         if (_retryCounts.Count > MaxRetryCountKeys)
         {
-            _retryCounts.Clear(); // bounded map: clearing relaxes the cap, never tightens it
+            EvictOldestRetryCounters(); // bounded map: drop the coldest half, never the whole map (WR-03)
         }
 
         await _owner.RaiseDecryptionFailedAsync(
@@ -234,6 +239,38 @@ internal sealed class ReceiptHandler
         }
 
         await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One per-(sender, id) retry counter: the emission count plus a monotonic
+    /// touch sequence the bounded eviction orders by (WR-03).
+    /// </summary>
+    private readonly record struct RetryCounter(int Count, long LastTouched);
+
+    /// <summary>
+    /// Bounded-map eviction (WR-03): drops the oldest half of the counter map by
+    /// last-touch sequence instead of clearing it wholesale, so a hostile flood of
+    /// distinct failing (sender, id) pairs can never reset the Pattern-5 cap of a
+    /// recently active pair (which would multiply the retry receipts and the
+    /// one-time-prekey spend each one drives — T-4-13, ban safety). Entries
+    /// updated concurrently with the eviction snapshot may still be dropped; that
+    /// worst case is one counter restarting, never the whole map.
+    /// </summary>
+    private void EvictOldestRetryCounters()
+    {
+        int toRemove = _retryCounts.Count / 2;
+        if (toRemove == 0)
+        {
+            return;
+        }
+
+        foreach (string key in _retryCounts
+                     .OrderBy(static pair => pair.Value.LastTouched)
+                     .Take(toRemove)
+                     .Select(static pair => pair.Key))
+        {
+            _retryCounts.TryRemove(key, out _);
+        }
     }
 
     /// <summary>
