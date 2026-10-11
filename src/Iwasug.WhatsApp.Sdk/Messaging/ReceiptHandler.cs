@@ -52,6 +52,14 @@ internal sealed class ReceiptHandler
     /// </summary>
     internal const int MaxRetryCountKeys = 4096;
 
+    /// <summary>
+    /// Bound on the upward store probe for an actually stored one-time prekey
+    /// (WR-01): the cursor advances monotonically, so empty slots below it (spent
+    /// or never uploaded) are skipped rather than advertised, and this caps one
+    /// receipt's store reads.
+    /// </summary>
+    internal const int MaxOneTimeProbe = 64;
+
     private readonly Messenger _owner;
     private readonly ConcurrentDictionary<string, bool> _deliveryReceiptChats = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, int> _retryCounts = new(StringComparer.Ordinal);
@@ -273,12 +281,14 @@ internal sealed class ReceiptHandler
 
     /// <summary>
     /// Builds the retry receipt's <c>&lt;keys&gt;</c> block from our own prekey material:
-    /// identity (32-byte raw X25519 public), a fresh one-time prekey (3-byte BE id +
-    /// 32-byte value) taken from the store, the signed prekey (<c>skey</c>: id/value/
-    /// signature from the own-upload checkpoint bundle), and the <c>device-identity</c>
-    /// child. Returns <c>(null, -1)</c> when the own bundle checkpoint is missing — a
-    /// keys block without an <c>skey</c> is unusable, so the receipt degrades to a
-    /// keys-less form.
+    /// identity (32-byte raw X25519 public), a one-time prekey (3-byte BE id + 32-byte
+    /// value) taken from the store (or minted AND persisted when the probed window is
+    /// empty — an advertised key must always be one the store can later hand to the
+    /// inbound-pkmsg Bob path), the signed prekey (<c>skey</c>: id/value/signature from
+    /// the own-upload checkpoint bundle), and the <c>device-identity</c> child. Returns
+    /// <c>(null, -1)</c> when the own bundle checkpoint is missing or no advertisable
+    /// one-time key exists — a keys block without an <c>skey</c> (or without a usable
+    /// one-time key) is unusable, so the receipt degrades to a keys-less form.
     /// </summary>
     private async Task<(BinaryNode? Keys, int ConsumedPreKeyId)> BuildKeysBlockAsync(
         IPreKeyStore preKeys,
@@ -294,8 +304,12 @@ internal sealed class ReceiptHandler
             return (null, -1);
         }
 
-        (byte[] oneTimePublic, uint oneTimeId, int consumedId) =
+        (byte[]? oneTimePublic, uint oneTimeId, int consumedId) =
             await TakeOneTimePreKeyAsync(preKeys, bundle, cancellationToken).ConfigureAwait(false);
+        if (oneTimePublic is null)
+        {
+            return (null, -1); // no advertisable one-time key (ids exhausted): keys-less degrade
+        }
 
         // ponytail: device-identity pins the own identity DJB form — upgrade to a
         // marshalled Account proto when the adv schema lands (plan 04-05/UAT).
@@ -326,28 +340,62 @@ internal sealed class ReceiptHandler
     }
 
     /// <summary>
-    /// Takes the next one-time prekey for a retry keys block: probes the store at the
-    /// own bundle checkpoint's first-unserved id plus a per-process cursor. A stored key
-    /// is returned with its id (the caller removes it before the wire — D-06); an empty
-    /// slot falls back to a freshly minted pair (nothing persisted claims it, so nothing
-    /// needs consuming).
+    /// Takes the next one-time prekey for a retry keys block: probes the store
+    /// upward from the own bundle checkpoint's first-unserved id plus a per-process
+    /// cursor until an actually stored key is found (bounded). A stored key is
+    /// returned with its id (the caller removes it before the wire — D-06). When
+    /// the whole probed window is empty, a fresh pair is minted AND persisted under
+    /// an observed-free id inside that window before being advertised — a key the
+    /// wire names must be one the store can later hand to the inbound-pkmsg Bob
+    /// path; the minted pair is returned with its id for the same D-06 removal.
+    /// <c>(null, 0, -1)</c> when the checkpoint ids are exhausted (no valid id).
     /// </summary>
-    private async Task<(byte[] Public, uint Id, int ConsumedPreKeyId)> TakeOneTimePreKeyAsync(
+    private async Task<(byte[]? Public, uint Id, int ConsumedPreKeyId)> TakeOneTimePreKeyAsync(
         IPreKeyStore preKeys,
         PreKeyBundle bundle,
         CancellationToken cancellationToken)
     {
         int slot = Interlocked.Increment(ref _oneTimeCursor) - 1;
-        int candidateId = bundle.OneTimePreKeyId + slot;
-        PreKeyRecordEntry? entry = await preKeys.GetPreKeyAsync(candidateId, cancellationToken).ConfigureAwait(false);
-        if (entry?.PublicKey is { Length: X3dh.KeyLength })
+        int? freeId = null;
+        for (int probe = 0; probe < MaxOneTimeProbe; probe++)
         {
-            return (entry.PublicKey, (uint)candidateId, candidateId);
+            int candidateId = bundle.OneTimePreKeyId + slot + probe;
+            if (candidateId < 0 || candidateId > PreKeyManager.MaxPreKeyId)
+            {
+                break;
+            }
+
+            PreKeyRecordEntry? entry = await preKeys.GetPreKeyAsync(candidateId, cancellationToken).ConfigureAwait(false);
+            if (entry?.PublicKey is { Length: X3dh.KeyLength } storedPublic)
+            {
+                return (storedPublic, (uint)candidateId, candidateId);
+            }
+
+            freeId ??= candidateId; // first observed-empty slot: the mint target
+        }
+
+        if (freeId is not int mintedId)
+        {
+            return (null, 0, -1); // no valid id left to advertise: keys-less degrade upstream
         }
 
         (byte[] mintedPrivate, byte[] mintedPublic) = X3dh.GenerateX25519KeyPair();
+        try
+        {
+            // Persist BEFORE the wire can name it (D-06): never advertise a key
+            // whose private the store cannot later produce.
+            await preKeys.PutPreKeyAsync(
+                mintedId, new PreKeyRecordEntry(mintedId, mintedPublic, mintedPrivate), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            CryptographicOperations.ZeroMemory(mintedPrivate);
+            CryptographicOperations.ZeroMemory(mintedPublic);
+            throw;
+        }
+
         CryptographicOperations.ZeroMemory(mintedPrivate);
-        return (mintedPublic, (uint)candidateId, -1);
+        return (mintedPublic, (uint)mintedId, mintedId);
     }
 
     private static byte[] BigEndianBytes(uint value, int width)
