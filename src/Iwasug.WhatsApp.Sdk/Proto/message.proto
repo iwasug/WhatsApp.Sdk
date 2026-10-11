@@ -1,0 +1,78 @@
+// Copyright (c) Iwa Sugriwa. Licensed under the MIT License.
+//
+// PROVENANCE (NOTICE.md "whatsmeow rule" + provenance-recording policy):
+//   - This schema is HAND-WRITTEN for this repository. No bytes were copied
+//     from whatsmeow (MPL-2.0) or from any other upstream .proto file.
+//   - Field numbers and field roles were learned read-only from the
+//     MIT-licensed Baileys sources at commit 0af2386: WAProto/WAProto.proto
+//     (message MessageKey, Message with conversation = 1,
+//     senderKeyDistributionMessage = 2, extendedTextMessage = 6 and
+//     messageContextInfo = 35, ExtendedTextMessage with text = 1 and
+//     contextInfo = 17, ContextInfo with stanzaId = 1, participant = 2,
+//     quotedMessage = 3, remoteJID = 4 and mentionedJID = 15, and the group
+//     SenderKeyDistributionMessage wrapper with groupId = 1 and
+//     axolotlSenderKeyDistributionMessage = 2). No whatsmeow bytes were involved.
+//   - Quoting semantics (plain text rides Message.conversation; quote-carrying
+//     replies ride Message.extendedTextMessage with ContextInfo) follow the
+//     same Baileys read (04-RESEARCH Assumption A2).
+//
+// SCOPE (04-02): Phase-4 text-only subset. Media, payment, reaction and other
+// Message oneof branches are deliberately absent: the field numbers above are
+// pinned by message-wire-fixtures.json, and any later branch must keep these
+// numbers stable.
+
+syntax = "proto3";
+
+package wa.message;
+
+option csharp_namespace = "Iwasug.WhatsApp.Sdk.Messaging";
+
+// Per-message key: identifies one message inside a chat (receipts and the
+// recent-message cache key off the id; groups additionally carry participant).
+message MessageKey {
+  string remoteJid = 1;
+  bool fromMe = 2;
+  string id = 3;
+  string participant = 4;
+}
+
+// Quoting context carried inside an ExtendedTextMessage: which message is
+// being replied to, who sent it, the quoted render source, and the chat.
+message ContextInfo {
+  string stanzaId = 1;
+  string participant = 2;
+  Message quotedMessage = 3;
+  string remoteJID = 4;
+  repeated string mentionedJID = 15;
+}
+
+// Text with an optional quoting context. Required (not conversation) whenever
+// a quote is present: WhatsApp renders quotes only through this shape.
+message ExtendedTextMessage {
+  string text = 1;
+  ContextInfo contextInfo = 17;
+}
+
+// Group sender-key distribution wrapper (the WA outer form): which group the
+// enclosed axolotl payload belongs to, plus the opaque inner distribution
+// bytes (a serialized Signal SenderKeyDistributionMessage).
+message SenderKeyDistributionMessage {
+  string groupId = 1;
+  bytes axolotlSenderKeyDistributionMessage = 2;
+}
+
+// Placeholder for the message-context branch (field 35): Phase-4 text scope
+// pins the field number so later branches cannot renumber it. Intentionally
+// empty until a consumer needs its fields.
+message MessageContextInfo {
+}
+
+// Outer plaintext message: plain text rides conversation; quote-carrying
+// replies ride extendedTextMessage; group key distribution rides
+// senderKeyDistributionMessage.
+message Message {
+  string conversation = 1;
+  SenderKeyDistributionMessage senderKeyDistributionMessage = 2;
+  ExtendedTextMessage extendedTextMessage = 6;
+  MessageContextInfo messageContextInfo = 35;
+}

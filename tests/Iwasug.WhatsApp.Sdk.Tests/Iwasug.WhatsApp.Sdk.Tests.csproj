@@ -77,6 +77,13 @@
     <Content Include="TestData\signal-kats.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--
+      Message wire fixtures (04-02 Task 1): golden protobuf + node bytes proving
+      the builder output; read-only proof input like the noise vectors.
+    -->
+    <Content Include="TestData\message-wire-fixtures.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

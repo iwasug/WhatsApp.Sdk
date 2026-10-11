@@ -59,6 +59,14 @@
       generated types stay out of the public surface.
     -->
     <Protobuf Include="Proto\signal.proto" GrpcServices="None" OutputOptions="internal_access" />
+    <!--
+      Message plaintext schemas (04-02): hand-written Message/MessageKey/
+      ContextInfo/ExtendedTextMessage/SKDM-wrapper subset, schema-sourced
+      field-for-field from Baileys MIT WAProto.proto at commit 0af2386
+      (see the file header). Same internal_access discipline: the
+      generated types stay out of the public surface.
+    -->
+    <Protobuf Include="Proto\message.proto" GrpcServices="None" OutputOptions="internal_access" />
   </ItemGroup>
 
   <!--

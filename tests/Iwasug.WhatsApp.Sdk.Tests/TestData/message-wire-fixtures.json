@@ -1,0 +1,29 @@
+{
+  "provenance": "Schemas schema-sourced field-for-field from Baileys MIT WAProto/WAProto.proto at commit 0af2386 (read 2026-10-10); every byte below is this repository\u0027s own protoc output over the hand-written Proto/message.proto plus this repository\u0027s own BinaryNodeCodec encoding \u2014 no whatsmeow bytes anywhere.",
+  "plainAscii": {
+    "text": "Hello, WhatsApp!",
+    "protobufHex": "0a1048656c6c6f2c20576861747341707021"
+  },
+  "plainNonAscii": {
+    "text": "Hello, \u4E16\u754C \uD83C\uDF0D",
+    "protobufHex": "0a1248656c6c6f2c20e4b896e7958c20f09f8c8d"
+  },
+  "quote": {
+    "replyText": "On my way \u2014 see you at 6.",
+    "stanzaId": "3EB0123456789ABCDEF0123456789ABCDEF12",
+    "participant": "2222222222:3@s.whatsapp.net",
+    "quotedText": "Are you coming tonight?",
+    "remoteJid": "2222222222@s.whatsapp.net",
+    "protobufHex": "329a010a1b4f6e206d792077617920e280942073656520796f7520617420362e8a017a0a2533454230313233343536373839414243444546303132333435363738394142434445463132121b323232323232323232323a3340732e77686174736170702e6e65741a190a1741726520796f7520636f6d696e6720746f6e696768743f22193232323232323232323240732e77686174736170702e6e6574"
+  },
+  "messageNode": {
+    "id": "3EB0FIXEDMSGID01",
+    "to": "2222222222@s.whatsapp.net",
+    "type": "text",
+    "t": "1720000000",
+    "deviceJid": "2222222222:3@s.whatsapp.net",
+    "encType": "msg",
+    "ciphertextHex": "434950484552544558542d504c414345484f4c4445522d30303030303030303030",
+    "nodeHex": "f80a1308fc103345423046495845444d53474944303111faff0522222222220304381aff051720000000f801f804110cf70003ff052222222222f801f8061d5145044dfc21434950484552544558542d504c414345484f4c4445522d30303030303030303030"
+  }
+}
