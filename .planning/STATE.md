@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Signal E2EE & Messaging
 status: executing
-stopped_at: Completed 03-07-PLAN.md
-last_updated: "2026-10-11T00:49:48.266Z"
-state_head: 3d4eaf99adb07c53923d01ed5c483cf05f9046ce
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-10-11T02:25:00.000Z"
+state_head: 77a30e0
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 25
-  completed_plans: 20
+  completed_plans: 21
   percent: 33
-last_activity: 2026-10-10
-last_activity_desc: Phase 03 execution completed — all 7 waves executed
+last_activity: 2026-10-11
+last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
 ---
 
 # Project State
@@ -24,13 +24,13 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 
 **Core value:** Reliably send and receive messages through a linked WhatsApp account — across many accounts at once, without getting those accounts banned.
 
-**Current focus:** Phase 03 — Pairing & Session Durability (complete)
+**Current focus:** Phase 04 — Signal E2EE & Messaging (executing, wave 1 complete, wave 2 next)
 
 ## Current Position
 
-Phase: 4 (Signal E2EE & Messaging) — READY TO EXECUTE
-Plan: —
-Status: Ready to execute
+Phase: 4 (Signal E2EE & Messaging) — EXECUTING (wave 1 complete)
+Plan: 04-02
+Status: Ready
 
 Progress: [███░░░░░░░] 33%
 
@@ -77,6 +77,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03 03-05 | ~24min | 3 tasks | 5 files |
 | Phase 03 03-06 | ~1h | 3 tasks + sample | 6 files + sample host |
 | Phase 03 03-07 | ~1h | 3 tasks | 3 files |
+| Phase 04 04-01 | ~60min | 3 tasks | 15 files |
 
 ### Accumulated Context
 
@@ -113,6 +114,11 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-05 pairing code: 5B→8C generator, link-code crypto chain (PBKDF2→AES-CTR→HKDF→AES-GCM)
 - [Phase 03]: 03-06 kill/restart resume proof + 428 survival + concurrency backstop + PairingSample host
 - [Phase 03]: 03-07 end-of-phase UAT closeout with VALIDATION/Nyquist/provenance
+- [Phase 04]: 04-01 Wave-0 byte-layout gate closed via Baileys-pinned signal-kats.json KATs (fixtures win over prose; 04-05 live UAT is the backstop)
+- [Phase 04]: 04-01 libsignal-lineage derivation adopted on primary-source evidence (MAC sender‖receiver‖version‖body, DJB ratchet/base, DH-ratchet first chains, root-only X3DH KDF, exact previousCounter)
+- [Phase 04]: 04-01 Ed25519 approximates XEdDSA within the NSec-only constraint; explicit signing-public seam, UAT must confirm a real bundle signature
+- [Phase 04]: 04-01 decrypt is verify-before-commit at every layer; skipped-key bound (2000) is fail-closed; PendingPreKey marks the still-unsent first message
+- [Phase 04]: 04-01 test runner workaround (Application Control blocks fresh exes): build with dotnet build, run via dotnet <test-dll> -class; 4 PairingLifecycleTests failures proven pre-existing via stash check
 
 ### Pending Todos
 
@@ -126,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-10T04:15:38.467Z
-Stopped at: Completed 03-07-PLAN.md
+Last session: 2026-10-11T02:25:00.000Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

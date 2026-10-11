@@ -129,7 +129,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
 **Plans**: 5 plans
 
 **Wave 1** *(depends on Phase 3)*
-- [ ] 04-01-PLAN.md — Signal protocol core: byte-layout spike fixtures, X3DH, Double Ratchet, prekey management (tracer)
+- [x] 04-01-PLAN.md — Signal protocol core: byte-layout spike fixtures, X3DH, Double Ratchet, prekey management (tracer)
 
 **Wave 2** *(depends on 04-01)*
 - [ ] 04-02-PLAN.md — Wire layer: message.proto, MessageBuilder, DeviceDirectory, recent-message cache record (tracer)
@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
-| 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
+| 4. Signal E2EE & Messaging | 1/5 | Executing | - |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
