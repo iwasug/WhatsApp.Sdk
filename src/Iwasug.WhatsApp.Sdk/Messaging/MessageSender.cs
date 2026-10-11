@@ -833,6 +833,11 @@ internal sealed class MessageSender
     private static bool TryReadBigEndian(byte[] bytes, out uint value)
     {
         value = 0;
+        if (bytes is not { Length: > 0 and <= sizeof(uint) })
+        {
+            return false; // empty or wider than 32 bits: the value cannot round-trip
+        }
+
         foreach (byte b in bytes)
         {
             value = (value << 8) | b;
