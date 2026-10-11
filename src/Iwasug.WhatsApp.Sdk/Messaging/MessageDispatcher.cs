@@ -209,9 +209,11 @@ internal sealed class MessageDispatcher
 
             if (message.SenderKeyDistributionMessage is not null)
             {
-                // SKDM branch (04-05, MSG-02): the sender key persists BEFORE the ack
+                // SKDM branch (04-05, MSG-02): the sender key is written BEFORE the ack
                 // (D-06), keyed by (group, sender identity) — the SKDM only ever arrives
                 // inside a successfully decrypted 1:1 message from its sender (T-4-15).
+                // "Written" is process-local durability: SenderKeyRepository is in-memory
+                // (ISenderKeyStore seam deferred to v2 — WR-02).
                 // No message event and no cache write: a distribution is not a message.
                 StoreSenderKeyDistribution(message.SenderKeyDistributionMessage, from);
                 await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
@@ -401,7 +403,8 @@ internal sealed class MessageDispatcher
         }
 
         // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4) — the
-        // sender-key chain advanced during the decrypt and must be durable first.
+        // sender-key chain advanced during the decrypt and must be written first
+        // (process-local durability: SenderKeyRepository is in-memory, WR-02).
         _senderKeys.Save(senderKeyAddress, senderKey);
 
         await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);
