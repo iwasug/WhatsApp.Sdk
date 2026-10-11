@@ -2,15 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 4
 current_phase_name: Signal E2EE & Messaging
+current_plan: 4
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-10-11T02:25:00.000Z"
-state_head: 77a30e0
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-10-11T12:20:42.695Z"
+state_head: a0e5f6a6eb30cec7735b0ae8ec5b91aca236aa49
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 25
-  completed_plans: 21
+  completed_plans: 23
   percent: 33
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -28,8 +29,9 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 
 ## Current Position
 
-Phase: 4 (Signal E2EE & Messaging) — EXECUTING (wave 1 complete)
-Plan: 04-02
+Phase: 4 (Signal E2EE & Messaging) — EXECUTING (wave 3 complete)
+Current Plan: 4
+Total Plans in Phase: 5
 Status: Ready
 
 Progress: [███░░░░░░░] 33%
@@ -60,6 +62,11 @@ Progress: [███░░░░░░░] 33%
 - Trend: Velocity increasing as store seam stabilizes
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 04 P03 | ~31min | 3 tasks | 14 files |
 
 ## Per-Plan Metrics:
 
@@ -119,6 +126,10 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01 Ed25519 approximates XEdDSA within the NSec-only constraint; explicit signing-public seam, UAT must confirm a real bundle signature
 - [Phase 04]: 04-01 decrypt is verify-before-commit at every layer; skipped-key bound (2000) is fail-closed; PendingPreKey marks the still-unsent first message
 - [Phase 04]: 04-01 test runner workaround (Application Control blocks fresh exes): build with dotnet build, run via dotnet <test-dll> -class; 4 PairingLifecycleTests failures proven pre-existing via stash check
+- [Phase 04]: 04-03: one logical send = one network send; no silent auto-retry - timeout returns the id and drops (host re-call = new send, new id)
+- [Phase 04]: 04-03: phash device-set pinning - ack mismatch invalidates directory cache + raises typed DeviceSetChanged, never fails the acked send
+- [Phase 04]: 04-03: prekey-readiness floor = PreKeyManager.ReuploadThreshold (5, whatsmeow prekeys.go); single-flight per connection via _prekeysEnsured latch
+- [Phase 04]: 04-03: D-20 cache policy log-and-continue - cache-write failure never breaks the decrypt-persist-ack path (D-06: ack only after durable session writes)
 
 ### Pending Todos
 
@@ -132,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-11T02:25:00.000Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-10-11T12:20:42.504Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
