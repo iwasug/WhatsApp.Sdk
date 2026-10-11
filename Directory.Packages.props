@@ -43,5 +43,11 @@
 
     <!-- Versioning (Development Tools: git-height SemVer2 + signed reproducible builds) -->
     <PackageVersion Include="Nerdbank.GitVersioning" Version="3.10.94" />
+
+    <!--
+      Samples/docs only (License & provenance: QRCoder is MIT, renders the QR payload
+      the SDK emits — the core SDK must never reference it).
+    -->
+    <PackageVersion Include="QRCoder" Version="1.8.0" />
   </ItemGroup>
 </Project>

@@ -41,6 +41,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk\Iwasug.WhatsApp.Sdk.csproj" />
     <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk.Testing\Iwasug.WhatsApp.Sdk.Testing.csproj" />
+    <!--
+      Plan 03-06 Task 3: the sample's FileCredentialStore is test-target infrastructure
+      (contract binding), not shipped code — tests bind it the same way they bind the
+      in-memory/scratch implementations.
+    -->
+    <ProjectReference Include="..\..\samples\Iwasug.WhatsApp.Sdk.PairingSample\Iwasug.WhatsApp.Sdk.PairingSample.csproj" />
   </ItemGroup>
 
   <!--

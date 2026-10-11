@@ -13,6 +13,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Iwasug.WhatsApp.Sdk.Tests", "tests\Iwasug.WhatsApp.Sdk.Tests\Iwasug.WhatsApp.Sdk.Tests.csproj", "{2E7CC8E3-76A0-4329-9D4A-DFE0A9A4AC22}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{66EFBD31-5BBB-43EB-85AF-C44A58D2E3D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Iwasug.WhatsApp.Sdk.PairingSample", "samples\Iwasug.WhatsApp.Sdk.PairingSample\Iwasug.WhatsApp.Sdk.PairingSample.csproj", "{44B770A0-3253-4C54-BA2F-624339FF4DE8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +63,18 @@ Global
 		{2E7CC8E3-76A0-4329-9D4A-DFE0A9A4AC22}.Release|x64.Build.0 = Release|Any CPU
 		{2E7CC8E3-76A0-4329-9D4A-DFE0A9A4AC22}.Release|x86.ActiveCfg = Release|Any CPU
 		{2E7CC8E3-76A0-4329-9D4A-DFE0A9A4AC22}.Release|x86.Build.0 = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|x64.Build.0 = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Debug|x86.Build.0 = Debug|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|x64.ActiveCfg = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|x64.Build.0 = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|x86.ActiveCfg = Release|Any CPU
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,5 +83,6 @@ Global
 		{EFB3400C-B8AC-4D4A-AACF-87EC353C1A35} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{478BC592-062F-48E7-93D7-B8BF419E9EA0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{2E7CC8E3-76A0-4329-9D4A-DFE0A9A4AC22} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{44B770A0-3253-4C54-BA2F-624339FF4DE8} = {66EFBD31-5BBB-43EB-85AF-C44A58D2E3D6}
 	EndGlobalSection
 EndGlobal

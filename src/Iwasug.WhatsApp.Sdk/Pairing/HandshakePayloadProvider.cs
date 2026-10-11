@@ -40,9 +40,13 @@ internal interface ICredentialHandshakePayloads : INoiseHandshakePayloads
 }
 
 /// <summary>
-/// Injected registration inputs for the no-credential branch of
-/// <see cref="HandshakePayloadProvider"/>: the registration content is not sourced from
-/// any store until plan 03-03, so both directions stay constructible from ctor inputs.
+/// Registration inputs for the no-row branch of <see cref="HandshakePayloadProvider"/>:
+/// the signed-prekey triple and app version stay constructor inputs because the row
+/// carries no prekey fields (prekey lifecycle has not landed — documented boundary).
+/// Row-based fields (identity public, registration id, platform) are overridden from
+/// the persisted row whenever one exists, so hosts only ever supply the prekey
+/// material here. Public since 03-06 (plan Behavior 5): the sample host builds a
+/// provider over these, exactly as any first-party host must.
 /// </summary>
 /// <param name="IdentityPublic">Registration identity public key (32 bytes).</param>
 /// <param name="SignedPreKeyId">Signed-prekey id.</param>
@@ -53,7 +57,7 @@ internal interface ICredentialHandshakePayloads : INoiseHandshakePayloads
 /// <param name="AppPrimary">App version primary.</param>
 /// <param name="AppSecondary">App version secondary.</param>
 /// <param name="AppTertiary">App version tertiary.</param>
-internal sealed record RegistrationDefaults(
+public sealed record RegistrationDefaults(
     byte[] IdentityPublic,
     int SignedPreKeyId,
     byte[] SignedPreKeyValue,
@@ -86,8 +90,16 @@ internal sealed record RegistrationDefaults(
 /// the handshake imports and zeroizes, and the finish snapshot keeps only public
 /// material (username/device/platform/identity public), never private key bytes.
 /// </para>
+/// <para>
+/// Public construction seam (03-06 plan Behavior 5): hosts build one provider per
+/// attempt over their <see cref="ICredentialStore"/> and hand it to
+/// <see cref="Connection.WaConnection"/> — pairing via <c>WaConnection.Pairing</c>
+/// requires credential-aware payloads, so this is the host-facing entry point the
+/// sample consumes. The internal credential seam itself stays internal; only the
+/// type and its lifecycle-relevant members are public.
+/// </para>
 /// </remarks>
-internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
+public sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
 {
     private readonly AccountId _accountId;
     private readonly ICredentialStore _credentials;
@@ -100,10 +112,26 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
     /// <param name="accountId">Opaque account key — must come from <see cref="AccountId.Create"/>.</param>
     /// <param name="credentials">The account's credential store (the instance IS the namespace, D-02).</param>
     /// <param name="registrationDefaults">Registration inputs for the no-row branch.</param>
+    /// <exception cref="SdkFormatException"><paramref name="accountId"/> is the default (uninitialized) value.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="credentials"/> or <paramref name="registrationDefaults"/> is null.</exception>
+    public HandshakePayloadProvider(
+        AccountId accountId,
+        ICredentialStore credentials,
+        RegistrationDefaults registrationDefaults)
+        : this(accountId, credentials, registrationDefaults, appVersion: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates the provider with an explicit app version (used by the connection when it
+    /// owns a version resolver).
+    /// </summary>
+    /// <param name="accountId">Opaque account key — must come from <see cref="AccountId.Create"/>.</param>
+    /// <param name="credentials">The account's credential store (the instance IS the namespace, D-02).</param>
+    /// <param name="registrationDefaults">Registration inputs for the no-row branch.</param>
     /// <param name="appVersion">
     /// Explicit app version for the handshake payload (override ?? resolver value from
     /// <see cref="ConnectionOptions"/>); <c>null</c> keeps the registration defaults.
-    /// The connection sets this per attempt when it owns a version resolver.
     /// </param>
     /// <exception cref="SdkFormatException"><paramref name="accountId"/> is the default (uninitialized) value.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="credentials"/> or <paramref name="registrationDefaults"/> is null.</exception>
@@ -111,7 +139,7 @@ internal sealed class HandshakePayloadProvider : ICredentialHandshakePayloads
         AccountId accountId,
         ICredentialStore credentials,
         RegistrationDefaults registrationDefaults,
-        WaVersion? appVersion = null)
+        WaVersion? appVersion)
     {
         if (accountId.Value is null)
         {

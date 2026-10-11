@@ -1,0 +1,11 @@
+{
+  "ecosystem": "nuget",
+  "config": { "exa_search": false, "brave_search": false, "firecrawl": false, "tavily_search": false },
+  "questions": [
+    { "text": "WhatsApp multi-device Signal protocol: how X3DH and Double Ratchet are used, prekey bundle fetch over IQ nodes, and message encryption types (pkmsg/msg)", "kind": "web" },
+    { "text": "Signal Double Ratchet specification: chain key and message key derivation, header encryption, AES-CBC MAC message format", "kind": "docs", "library": "signal-desktop" },
+    { "text": "Baileys WAProto Message.proto fields: MessageKey, Message, SignalMessage, PreKeySignalMessage, SenderKeyMessage, SenderKeyDistributionMessage, ContextInfo, Receipt", "kind": "docs", "library": "baileys" },
+    { "text": "WhatsApp web message send/receipt flow: BinaryNode message node attributes, message-ack handling, receipt types delivery/read/playback, retry receipts with retry-count and stanza-id", "kind": "web" },
+    { "text": "WhatsApp multi-device sender key group messaging: SenderKeyDistributionMessage distribution and sender chain state", "kind": "web" }
+  ]
+}

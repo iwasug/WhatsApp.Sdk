@@ -6,13 +6,13 @@ The SDK grows from its persistence seam outward: stable granular store interface
 
 ## Phases
 
-**Phase Numbering:**
+### Phase Numbering:
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Foundation & Store Seam** - Core types, granular pluggable store interfaces, in-memory reference store, repo bootstrap (completed 2026-10-08)
-- [ ] **Phase 2: Wire Protocol & Connection Resilience** - Transport, Noise handshake, node codec/router, classified auto-reconnect
-- [ ] **Phase 3: Pairing & Session Durability** - QR + pairing-code login, typed lifecycle events, restart-without-re-pair
+- [x] **Phase 2: Wire Protocol & Connection Resilience** - Transport, Noise XX handshake, node codec/router, classified auto-reconnect (completed 2026-10-10)
+- [x] **Phase 3: Pairing & Session Durability** - QR + pairing-code login, typed lifecycle events, restart-without-re-pair (completed 2026-10-10)
 - [ ] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface
 - [ ] **Phase 5: Ban-Safety Layer** - Mandatory send gate, rate limits, warm-up, cold-outreach budget, circuit breaker, safe-by-default
 - [ ] **Phase 6: Media Pipeline** - Send/receive image, document, voice note with expiry and media-retry handling
@@ -48,6 +48,8 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [x] 01-05-PLAN.md — Phase close: host-style second run proof, verification gate, validation re-map
+
+**Wave 5**
 
 ### Phase 2: Wire Protocol & Connection Resilience
 
@@ -88,28 +90,28 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   2. On a headless server with no camera, host obtains an 8-character pairing code and links the account without scanning anything.
   3. Killing and restarting the process resumes the session from the pluggable store with no re-pairing, and the resumed session stays connected through an injected network drop.
 
-**Plans**: 7 plans
+**Plans**: 7/7 complete
 
 **Wave 1**
-- [ ] 03-01-PLAN.md — Resume spine: credential seam + login ClientPayload + BinaryNode pump + success-gated Open + contract kit
+- [x] 03-01-PLAN.md — Resume spine: credential seam + login ClientPayload + BinaryNode pump + success-gated Open
 
 **Wave 2** *(depends on 03-01)*
-- [ ] 03-02-PLAN.md — ClientOutdated terminal path: 405 relocation, WaVersionResolver, bounded pairing abort
+- [x] 03-02-PLAN.md — ClientOutdated terminal path: 405 relocation, WaVersionResolver, bounded pairing abort
 
 **Wave 3** *(depends on 03-02)*
-- [ ] 03-03-PLAN.md — Pairing surface: events, wire-exact QR payload + rotation, coordinator on pump seam, registration bootstrap
+- [x] 03-03-PLAN.md — Pairing surface: events, wire-exact QR payload + rotation, coordinator on pump seam, registration bootstrap
 
 **Wave 4** *(depends on 03-03)*
-- [ ] 03-04-PLAN.md — Pair-success verification: adv.proto, fail-closed verifier, ordered persist→reply→event, logout credential clearing
+- [x] 03-04-PLAN.md — Pair-success verification: adv.proto, fail-closed verifier, ordered persist→reply→event, logout credential clearing
 
 **Wave 5** *(depends on 03-04)*
-- [ ] 03-05-PLAN.md — Pairing code: 5B→8C generator, link-code crypto KATs, RequestPairingCodeAsync, companion handshake routing
+- [x] 03-05-PLAN.md — Pairing code: 5B→8C generator, link-code crypto KATs, RequestPairingCodeAsync, companion handshake routing
 
 **Wave 6** *(depends on 03-04, 03-05)*
-- [ ] 03-06-PLAN.md — Kill/restart resume proof + 428 survival + concurrency backstop + PairingSample host
+- [x] 03-06-PLAN.md — Kill/restart resume proof + 428 survival + concurrency backstop + PairingSample host
 
 **Wave 7** *(depends on 03-06)*
-- [ ] 03-07-PLAN.md — End-of-phase real-device UAT, VALIDATION/Nyquist closeout, NOTICE provenance audit
+- [x] 03-07-PLAN.md — End-of-phase real-device UAT, VALIDATION/Nyquist closeout, NOTICE provenance audit
 
 ### Phase 4: Signal E2EE & Messaging
 
@@ -124,7 +126,22 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Host sends and receives delivery/read receipts, marks messages read by per-message key, and replies quoting a specific message via the per-account recent-message cache.
   5. Inbound decryption failures recover via retry receipts with no lost messages, and the host receives typed events (message, receipt, connection, logout) with `CancellationToken` honored end-to-end.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+**Wave 1** *(depends on Phase 3)*
+- [ ] 04-01-PLAN.md — Signal protocol core: byte-layout spike fixtures, X3DH, Double Ratchet, prekey management (tracer)
+
+**Wave 2** *(depends on 04-01)*
+- [ ] 04-02-PLAN.md — Wire layer: message.proto, MessageBuilder, DeviceDirectory, recent-message cache record (tracer)
+
+**Wave 3** *(depends on 04-02)*
+- [ ] 04-03-PLAN.md — 1:1 send/receive loop with SendOutcome correlation (tracer)
+
+**Wave 4** *(depends on 04-03)*
+- [ ] 04-04-PLAN.md — Receipts, retry exchange, quoting/reply metadata (tracer)
+
+**Wave 5** *(depends on 04-04)*
+- [ ] 04-05-PLAN.md — Group sender keys, typed event stream, validation closeout (tracer)
 
 ### Phase 5: Ban-Safety Layer
 
@@ -203,8 +220,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
-| 2. Wire Protocol & Connection Resilience | 8/8 | In Progress|  |
-| 3. Pairing & Session Durability | 0/7 | Not started | - |
+| 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
+| 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
 | 4. Signal E2EE & Messaging | 0/TBD | Not started | - |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |

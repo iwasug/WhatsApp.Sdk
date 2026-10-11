@@ -195,7 +195,7 @@ Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.TooShort = 2 -> Iwasug.WhatsAp
 Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation.LeadingZero = 3 -> Iwasug.WhatsApp.Sdk.Pairing.PhoneNumberValidation
 Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException
 Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.PairingCodeRequestException(string! message, System.Exception? inner = null) -> void
-Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.Reason.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason
+Iwasug.WhatsApp.Sdk.Pairing.PairingCodeRequestException.Reason.get -> Iwasug.WhatsApp.Sdk.Pairing.PairingCodeValidationReason?
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.StartAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Pairing.PairingCoordinator.RequestPairingCodeAsync(string! phoneNumber, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
@@ -417,3 +417,37 @@ virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.EqualityContract.get ->
 virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
 virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.PrintMembers(System.Text.StringBuilder! builder) -> bool
 ~override Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(object obj) -> bool
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider.GetClientFinish() -> byte[]!
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider.GetClientHello() -> byte[]!
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider.HandshakePayloadProvider(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Iwasug.WhatsApp.Sdk.Stores.ICredentialStore! credentials, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults! registrationDefaults) -> void
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider.LoadCredentialsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<byte[]?>!
+Iwasug.WhatsApp.Sdk.Pairing.HandshakePayloadProvider.ReadCredentialsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.CredentialRecord?>!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.<Clone>$() -> Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppPrimary.get -> uint
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppPrimary.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppSecondary.get -> uint
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppSecondary.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppTertiary.get -> uint
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.AppTertiary.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Deconstruct(out byte[]! IdentityPublic, out int SignedPreKeyId, out byte[]! SignedPreKeyValue, out byte[]! SignedPreKeySignature, out int RegistrationId, out string! Platform, out uint AppPrimary, out uint AppSecondary, out uint AppTertiary) -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Equals(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? other) -> bool
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.IdentityPublic.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.IdentityPublic.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Platform.get -> string!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Platform.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.RegistrationDefaults(byte[]! IdentityPublic, int SignedPreKeyId, byte[]! SignedPreKeyValue, byte[]! SignedPreKeySignature, int RegistrationId, string! Platform, uint AppPrimary, uint AppSecondary, uint AppTertiary) -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.RegistrationId.get -> int
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.RegistrationId.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyId.get -> int
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyId.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeySignature.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeySignature.init -> void
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyValue.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyValue.init -> void
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.ToString() -> string!
+static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator !=(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
+static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator ==(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
