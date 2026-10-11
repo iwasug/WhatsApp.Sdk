@@ -4,14 +4,14 @@ current_phase: 4
 current_phase_name: Signal E2EE & Messaging
 current_plan: 5
 status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-10-11T16:09:40.357Z"
-state_head: c57c78d3bb9a7fbd87673561730f6a5ca9f42803
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-10-11T20:15:43.032Z"
+state_head: 1e82048946f9469ecb7b4382b5545193f6658c6d
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
   percent: 33
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -68,6 +68,7 @@ Progress: [███░░░░░░░] 33%
 |------|----------|-------|-------|
 | Phase 04 P03 | ~31min | 3 tasks | 14 files |
 | Phase 04 P04 | 2h46m | 3 tasks | 15 files |
+| Phase 04 P04-05 | 3h46m | 3 tasks | 17 files |
 
 ## Per-Plan Metrics:
 
@@ -137,6 +138,9 @@ Recent decisions affecting current work:
 - [Phase 04]: Retry keys-block rebuilds a fresh session under pinned-identity enforcement (TOFU pin on first contact; pin conflict refuses the rebuild)
 - [Phase 04]: ReplyAsync quotes only from the recent cache: participant = cached sender when present, remoteJid = cached chat always; cache miss/empty text/bad chat reject SdkFormatException before any node — never a silent plain-text downgrade
 - [Phase 04]: MessageReceivedEventArgs.QuotedMessageId (additive param) carries the received message's wire id for feeding straight back into ReplyAsync
+- [Phase 04]: 04-05: group send = SKDM pairwise fanout (own devices excluded) + one signed skmsg with deterministic phash; sender-key bounds 2000/2000/5; wire 0x33|proto|Ed25519 sig64
+- [Phase 04]: 04-05: ReadEventsAsync = bounded channel (capacity 128, FullMode=Wait) over exactly 4 WhatsAppEvent subtypes sharing emit sites with EventHandler twins; connection state stays on WaConnection.StateChanged
+- [Phase 04]: 04-05: GroupDirectory participants-for-fanout only (GRPM-01 read-side deferred, named in README risk ledger); sample messaging mode reuses the stored account with --account for multi-account dirs
 
 ### Pending Todos
 
@@ -150,6 +154,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-11T16:09:40.170Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-10-11T20:15:42.854Z
+Stopped at: Completed 04-05-PLAN.md
 Resume file: None

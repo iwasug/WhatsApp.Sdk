@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 12
+open_count: 14
 waived_count: 1
 fixed_count: 0
-total_count: 13
-last_updated: 2026-10-11T16:08:47.331Z
+total_count: 15
+last_updated: 2026-10-11T20:12:53.861Z
 ---
 
 # Broken Windows Ledger
@@ -28,6 +28,8 @@ last_updated: 2026-10-11T16:08:47.331Z
 | 11 | 4 | deviation | src/Iwasug.WhatsApp.Sdk/Signal/DoubleRatchet.cs |  | DoubleRatchet.LoadUnlockedAsync/SaveUnlockedAsync added outside the plan files list (Rule 2: per-address session gate concurrency edge for retry resend) | open |  | 2026-10-11T16:06:32.896Z |  |
 | 12 | 4 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | Device-identity child pins own identity DJB bytes (carried from 04-03 ponytail) in BuildResendNode; upgrade to marshalled Account proto at 04-05 UAT | open |  | 2026-10-11T16:06:33.556Z |  |
 | 13 | 4 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | verify-response-probe | waived | Not a defect: accidental executor probe entry (verify-response-probe) created while checking CLI output shape during 04-04 execution — waiving to keep the ledger clean | 2026-10-11T16:07:25.912Z | 2026-10-11T16:08:47.331Z |
+| 14 | 04 | unrun-verify | .planning/phases/04-signal-e2ee-messaging/04-VALIDATION.md |  | Plan 04-05 Task 3 verify 'dotnet test Iwasug.WhatsApp.Sdk.sln' cannot exit 0 in this environment (discovers 0 tests, exit 5); executed evidence uses dotnet exec of the compiled test assembly - documented in 04-VALIDATION run-date block | open |  | 2026-10-11T20:12:53.260Z |  |
+| 15 | 04 | unrun-verify | .planning/phases/04-signal-e2ee-messaging/04-VALIDATION.md |  | SC 1-5 live-device UAT (1:1/group send, receipt round trip, quoted reply rendering, retry recovery) + assumptions A2/A4 recorded NOT VERIFIED - no live phone in CI; sample messaging mode built for the end-of-phase human gate | open |  | 2026-10-11T20:12:53.861Z |  |
 
 ````json
 [
@@ -198,6 +200,32 @@ last_updated: 2026-10-11T16:08:47.331Z
     "reason": "Not a defect: accidental executor probe entry (verify-response-probe) created while checking CLI output shape during 04-04 execution — waiving to keep the ledger clean",
     "recorded_at": "2026-10-11T16:07:25.912Z",
     "resolved_at": "2026-10-11T16:08:47.331Z",
+    "milestone": null
+  },
+  {
+    "id": 14,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": ".planning/phases/04-signal-e2ee-messaging/04-VALIDATION.md",
+    "line": null,
+    "description": "Plan 04-05 Task 3 verify 'dotnet test Iwasug.WhatsApp.Sdk.sln' cannot exit 0 in this environment (discovers 0 tests, exit 5); executed evidence uses dotnet exec of the compiled test assembly - documented in 04-VALIDATION run-date block",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-11T20:12:53.260Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 15,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": ".planning/phases/04-signal-e2ee-messaging/04-VALIDATION.md",
+    "line": null,
+    "description": "SC 1-5 live-device UAT (1:1/group send, receipt round trip, quoted reply rendering, retry recovery) + assumptions A2/A4 recorded NOT VERIFIED - no live phone in CI; sample messaging mode built for the end-of-phase human gate",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-11T20:12:53.861Z",
+    "resolved_at": null,
     "milestone": null
   }
 ]

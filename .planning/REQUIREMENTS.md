@@ -23,7 +23,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Messaging
 
 - [x] **MSG-01**: Host can send and receive E2EE text in 1:1 chats
-- [ ] **MSG-02**: Host can send and receive E2EE text in groups the account belongs to
+- [x] **MSG-02**: Host can send and receive E2EE text in groups the account belongs to
 - [x] **MSG-03**: Host gets stable message IDs for send→ack→receipt correlation, with documented idempotency (no silent auto-retry)
 - [x] **MSG-04**: Host can send and receive delivery/read receipts and mark messages as read (per-message keys)
 - [x] **MSG-05**: Host can reply quoting a specific message (per-account recent-message cache)
@@ -119,7 +119,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STR-01 | Phase 1 | Complete |
 | STR-02 | Phase 1 | Complete |
 | MSG-01 | Phase 4 | Complete |
-| MSG-02 | Phase 4 | Pending |
+| MSG-02 | Phase 4 | Complete |
 | MSG-03 | Phase 4 | Complete |
 | MSG-04 | Phase 4 | Complete |
 | MSG-05 | Phase 4 | Complete |
