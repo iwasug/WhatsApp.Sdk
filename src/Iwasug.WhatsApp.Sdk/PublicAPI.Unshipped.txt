@@ -83,20 +83,36 @@ Iwasug.WhatsApp.Sdk.Domain.Jid.Server.get -> string!
 Iwasug.WhatsApp.Sdk.Domain.Jid.User.get -> string!
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle!
-Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.Deconstruct(out int SignedPreKeyId, out int OneTimePreKeyId) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.Deconstruct(out int SignedPreKeyId, out int OneTimePreKeyId, out byte[]? IdentityKey, out byte[]? SignedPreKeyPublic, out byte[]? SignedPreKeySignature, out byte[]? SignedPreKeyPrivate, out byte[]? OneTimePreKeyPublic, out int RegistrationId) -> void
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.Equals(Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? other) -> bool
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.OneTimePreKeyId.get -> int
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.OneTimePreKeyId.init -> void
-Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.PreKeyBundle(int SignedPreKeyId, int OneTimePreKeyId) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.PreKeyBundle(int SignedPreKeyId, int OneTimePreKeyId, byte[]? IdentityKey = null, byte[]? SignedPreKeyPublic = null, byte[]? SignedPreKeySignature = null, byte[]? SignedPreKeyPrivate = null, byte[]? OneTimePreKeyPublic = null, int RegistrationId = 0) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.IdentityKey.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.IdentityKey.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.OneTimePreKeyPublic.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.OneTimePreKeyPublic.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.RegistrationId.get -> int
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.RegistrationId.init -> void
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyId.get -> int
 Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyId.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyPrivate.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyPrivate.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyPublic.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeyPublic.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeySignature.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.SignedPreKeySignature.init -> void
 Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry
 Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry!
-Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.Deconstruct(out int PreKeyId) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.Deconstruct(out int PreKeyId, out byte[]? PublicKey, out byte[]? PrivateKey) -> void
 Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.Equals(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? other) -> bool
 Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PreKeyId.get -> int
 Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PreKeyId.init -> void
-Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PreKeyRecordEntry(int PreKeyId) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PreKeyRecordEntry(int PreKeyId, byte[]? PublicKey = null, byte[]? PrivateKey = null) -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PrivateKey.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PrivateKey.init -> void
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PublicKey.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.PublicKey.init -> void
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord!
 Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.CreatedAt.get -> System.DateTimeOffset
@@ -131,11 +147,15 @@ Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.SigningKeyPrivate.get -> byte[]!
 Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.SigningKeyPrivate.init -> void
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord!
-Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Deconstruct(out string? IdentityKeyPublic) -> void
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Deconstruct(out string? IdentityKeyPublic, out byte[]? IdentityKeyDjb, out bool FirstUsePinned) -> void
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? other) -> bool
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyPublic.get -> string?
 Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyPublic.init -> void
-Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.SignalIdentityRecord(string? IdentityKeyPublic) -> void
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.SignalIdentityRecord(string? IdentityKeyPublic, byte[]? IdentityKeyDjb = null, bool FirstUsePinned = false) -> void
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.FirstUsePinned.get -> bool
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.FirstUsePinned.init -> void
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyDjb.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.IdentityKeyDjb.init -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkConnectionException
 Iwasug.WhatsApp.Sdk.Errors.SdkConnectionException.SdkConnectionException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkDuplicateAccountException
