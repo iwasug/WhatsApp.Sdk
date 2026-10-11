@@ -27,13 +27,16 @@ namespace Iwasug.WhatsApp.Sdk.Tests.Messaging;
 public sealed class MessageCorrelationTests
 {
     /// <summary>One wired loopback rig: seeded SDK-side session, connection, scripted peer.</summary>
-    private sealed class Rig : IAsyncDisposable
+    internal sealed class Rig : IAsyncDisposable
     {
         required internal InMemoryStoreFactory Factory { get; init; }
         required internal WaConnection Connection { get; init; }
         required internal Messenger Messenger { get; init; }
         required internal PeerDevice DeviceA { get; init; }
         required internal Jid Chat { get; init; }
+        required internal IRecentMessageCacheStore RecentMessages { get; init; }
+        required internal IPreKeyStore PreKeys { get; init; }
+        required internal DoubleRatchet? PeerAlice { get; init; }
         required internal Task<ScriptedPeer> PeerReady { get; init; }
         required internal Task PeerTask { get; init; }
 
@@ -45,11 +48,13 @@ public sealed class MessageCorrelationTests
         }
     }
 
-    private static async Task<Rig> BuildRigAsync(
+    internal static async Task<Rig> BuildRigAsync(
         string hint,
         CancellationToken runToken,
         TimeProvider? clock = null,
-        Action<ScriptedPeer>? configurePeer = null)
+        Action<ScriptedPeer>? configurePeer = null,
+        Func<FixedStores, IRecentMessageCacheStoreFactory>? cacheFactoryOverride = null,
+        bool seedReceivePair = false)
     {
         AccountId account = NewAccount(hint);
         OwnKeys own = CreateOwnKeys(777);
@@ -65,7 +70,17 @@ public sealed class MessageCorrelationTests
         HandshakePayloadProvider payloads = await CreateSeededPayloadsAsync(account, credentials, own, runToken);
 
         PeerDevice deviceA = CreatePeerDevice(DeviceJid(PeerUser, 52), 22, 1101, 1234);
-        DoubleRatchet bobA = await SeedSessionPairAsync(sessions, own, deviceA, runToken);
+        DoubleRatchet? peerAlice = null;
+        DoubleRatchet? bobA = null;
+        if (seedReceivePair)
+        {
+            // Receiver role: the SDK holds Bob at the peer address; the peer holds Alice.
+            peerAlice = await SeedReceivePairAsync(sessions, own, deviceA, runToken);
+        }
+        else
+        {
+            bobA = await SeedSessionPairAsync(sessions, own, deviceA, runToken);
+        }
 
         var fixedStores = new FixedStores
         {
@@ -75,7 +90,8 @@ public sealed class MessageCorrelationTests
         var registryOptions = new StoreRegistryOptions
         {
             SignalSessionFactory = fixedStores, IdentityFactory = fixedStores, PreKeyFactory = fixedStores,
-            RecentMessageCacheFactory = fixedStores, SafetyStateFactory = fixedStores, CredentialFactory = fixedStores,
+            RecentMessageCacheFactory = cacheFactoryOverride?.Invoke(fixedStores) ?? fixedStores,
+            SafetyStateFactory = fixedStores, CredentialFactory = fixedStores,
         };
         var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions(), clock);
         connection.StoreRegistry = new StoreRegistry(registryOptions);
@@ -84,7 +100,11 @@ public sealed class MessageCorrelationTests
         Task peerTask = Task.Run(async () =>
         {
             ScriptedPeer p = await CompletePeerHandshakeAsync(peers, runToken);
-            p.BobRatchets[deviceA.Jid] = bobA;
+            if (bobA is not null)
+            {
+                p.BobRatchets[deviceA.Jid] = bobA;
+            }
+
             p.UsyncDevices = [
                 deviceA.Jid,
                 DeviceJid(OwnUser, OwnDevice),
@@ -101,6 +121,9 @@ public sealed class MessageCorrelationTests
             Messenger = connection.Messaging,
             DeviceA = deviceA,
             Chat = Jid.Parse($"{PeerUser}@{PeerServer}"),
+            RecentMessages = cache,
+            PreKeys = preKeys,
+            PeerAlice = peerAlice,
             PeerReady = peerReady.Task,
             PeerTask = peerTask,
         };

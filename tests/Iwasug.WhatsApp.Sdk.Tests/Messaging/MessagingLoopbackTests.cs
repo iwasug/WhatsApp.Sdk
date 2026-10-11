@@ -141,6 +141,58 @@ public sealed class MessagingLoopbackTests
             aliceSession.BasePublic, device.RegistrationId, own.RegistrationId);
     }
 
+    /// <summary>
+    /// Seeds the own prekey checkpoint: <paramref name="count"/> one-time keys from
+    /// <paramref name="firstId"/> plus the own-address bundle (the send-path readiness
+    /// trigger's probe source; the Pattern-3 floor is <c>PreKeyManager.ReuploadThreshold</c> = 5).
+    /// </summary>
+    internal static async Task SeedOwnPrekeysAsync(IPreKeyStore preKeys, int count, int firstId, CancellationToken cancellationToken)
+    {
+        for (int id = firstId; id < firstId + count; id++)
+        {
+            (byte[] otPriv, byte[] otPub) = X3dh.GenerateX25519KeyPair();
+            await preKeys.PutPreKeyAsync(id, new PreKeyRecordEntry(id, otPub, otPriv), cancellationToken);
+        }
+
+        (byte[] spkPriv, byte[] spkPub) = X3dh.GenerateX25519KeyPair();
+        (byte[] edPriv, _) = X3dh.GenerateIdentityKeyPair();
+        byte[] spkSig = X3dh.SignWithIdentity(edPriv, SignalCipher.ToDjbIdentity(spkPub));
+        await preKeys.PutBundleAsync(
+            $"{OwnUser}:{OwnDevice}@{PeerServer}",
+            new PreKeyBundle(22, firstId, null, spkPub, spkSig, spkPriv, null, 777),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Seeds the SDK-side Bob (receiver role) at the peer's device address and returns the
+    /// mirrored Alice ratchet the scripted peer sends with (canonical CreatePair
+    /// construction — the SDK owns the signed/one-time prekeys Alice X3DHs against).
+    /// </summary>
+    internal static async Task<DoubleRatchet> SeedReceivePairAsync(
+        ISignalSessionStore sessions, OwnKeys own, PeerDevice device, CancellationToken cancellationToken)
+    {
+        (byte[] ownSpkPriv, byte[] ownSpkPub) = X3dh.GenerateX25519KeyPair();
+        (byte[] ownEdPriv, byte[] ownEdPubDjb) = X3dh.GenerateIdentityKeyPair();
+        byte[] ownSpkSig = X3dh.SignWithIdentity(ownEdPriv, SignalCipher.ToDjbIdentity(ownSpkPub));
+        (byte[] ownOtPriv, byte[] ownOtPub) = X3dh.GenerateX25519KeyPair();
+        var sdkBundle = new PeerBundle(
+            own.IdentityDjb, ownSpkPub, ownSpkSig, 22u, ownOtPub, 1101u, own.RegistrationId);
+        (byte[] aliceEph, _) = X3dh.GenerateX25519KeyPair();
+        AliceSession peerAliceSession = X3dh.InitializeAlice(device.XIdentityPrivate, aliceEph, sdkBundle, ownEdPubDjb);
+        (byte[] peerSendPriv, byte[] peerSendPub) = X3dh.GenerateX25519KeyPair();
+        DoubleRatchet peerAlice = DoubleRatchet.InitializeAlice(
+            peerAliceSession, peerSendPriv, peerSendPub, sdkBundle,
+            device.XIdentityDjb, own.IdentityDjb, device.RegistrationId);
+        BobSession bobSession = X3dh.InitializeBob(
+            own.IdentityPrivate, ownSpkPriv, ownOtPriv, true,
+            device.XIdentityDjb, peerAliceSession.BasePublic);
+        DoubleRatchet sdkBob = DoubleRatchet.InitializeBob(
+            bobSession, ownSpkPriv, own.IdentityDjb, device.XIdentityDjb,
+            peerAliceSession.BasePublic, own.RegistrationId, device.RegistrationId);
+        await sessions.PutAsync(device.Jid, new SignalSessionRecord(device.Jid, sdkBob.Serialize()), cancellationToken);
+        return peerAlice;
+    }
+
     /// <summary>Six fixed store instances behind the registry factory seams.</summary>
     internal sealed class FixedStores : ISignalSessionStoreFactory, IIdentityStoreFactory, IPreKeyStoreFactory, IRecentMessageCacheStoreFactory, ISafetyStateStoreFactory, ICredentialStoreFactory
     {
@@ -448,6 +500,10 @@ public sealed class MessagingLoopbackTests
         ISafetyStateStore safety = await ((ISafetyStateStoreFactory)factory).CreateAsync(account, token);
         ICredentialStore credentials = await ((ICredentialStoreFactory)factory).CreateAsync(account, token);
         HandshakePayloadProvider payloads = await CreateSeededPayloadsAsync(account, credentials, own, token);
+
+        // Healthy own one-time batch (floor is 5): the Task-3 readiness trigger stays
+        // idle — this fact pins the fanout shape, not the upload path.
+        await SeedOwnPrekeysAsync(preKeys, count: 6, firstId: 200, token);
 
         PeerDevice deviceA = CreatePeerDevice(DeviceJid(PeerUser, 52), 22, 1101, 1234);
         PeerDevice deviceB = CreatePeerDevice(DeviceJid(PeerUser, 53), 23, 1102, 1235);
@@ -765,7 +821,7 @@ public sealed class MessagingLoopbackTests
         await peerTask;
     }
 
-    private static BinaryNode BuildInboundMessageNode(string messageId, string fromDeviceJid, byte[] wire, string encType)
+    internal static BinaryNode BuildInboundMessageNode(string messageId, string fromDeviceJid, byte[] wire, string encType)
     {
         return BinaryNode.FromChildren(
             "message",

@@ -1,9 +1,12 @@
+using System.Globalization;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.Runtime;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
@@ -34,6 +37,8 @@ public sealed class Messenger : IAsyncDisposable
     private readonly DeviceDirectory _directory;
     private readonly MessageSender _sender;
     private readonly MessageDispatcher _dispatcher;
+    private readonly SemaphoreSlim _prekeyGate = new(1, 1);
+    private bool _prekeysEnsured;
     private int _disposed;
 
     internal Messenger(AccountId accountId, WaConnection connection)
@@ -77,6 +82,7 @@ public sealed class Messenger : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
         return await _sender.SendAsync(chat, text, cancellationToken).ConfigureAwait(false);
     }
 
@@ -95,6 +101,108 @@ public sealed class Messenger : IAsyncDisposable
     internal void RaiseMessageReceived(MessageReceivedEventArgs args) => MessageReceived?.Invoke(this, args);
 
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
+
+    /// <summary>
+    /// Prekey-readiness trigger (04-03 Task 3, 04-RESEARCH Pattern 3): before the first
+    /// send of this connection, ensure own one-time prekeys are uploaded when the store's
+    /// remaining batch is below the Pattern-3 re-upload floor
+    /// (<see cref="PreKeyManager.ReuploadThreshold"/> — whatsmeow <c>prekeys.go</c>:
+    /// re-upload when the server-side one-time batch drops below 5). The remaining count
+    /// is derived from the own-bundle checkpoint (<c>GetBundleAsync</c> at the account's
+    /// own <c>user:device</c> address) by probing consecutive one-time ids in the store.
+    /// </summary>
+    /// <remarks>
+    /// Single flight per connection: one successful check (healthy or uploaded) latches
+    /// for the connection's lifetime, and the gate keeps concurrent sends to one flight.
+    /// A failure surfaces as a typed send-path error — never a silent skip — and leaves
+    /// the check unlatched so the next send retries. An unpaired account defers to the
+    /// send path's own loud pairing rule.
+    /// </remarks>
+    private async Task EnsureOwnPrekeysAsync(CancellationToken cancellationToken)
+    {
+        if (Volatile.Read(ref _prekeysEnsured))
+        {
+            return;
+        }
+
+        await _prekeyGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (Volatile.Read(ref _prekeysEnsured))
+            {
+                return;
+            }
+
+            StoreSession stores = await ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+            CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+            if (row?.PairedUser is null)
+            {
+                return; // unpaired: the send path fails loudly on its own pairing rule
+            }
+
+            string ownAddress = string.Create(
+                CultureInfo.InvariantCulture, $"{row.PairedUser}:{row.Device}@{DeviceDirectory.UsyncServer}");
+            PreKeyBundle? bundle = await stores.PreKeys.GetBundleAsync(ownAddress, cancellationToken).ConfigureAwait(false);
+            int remaining = await CountRemainingOneTimeKeysAsync(stores.PreKeys, bundle, cancellationToken).ConfigureAwait(false);
+            if (bundle is not null && remaining >= PreKeyManager.ReuploadThreshold)
+            {
+                Volatile.Write(ref _prekeysEnsured, true);
+                return; // healthy batch: zero upload IQs
+            }
+
+            // New ids never reuse a served id: signed-prekey ids advance by one; the
+            // one-time batch starts one past the highest probed id (probe counts only
+            // ids contiguous from the checkpoint, so this is collision-free).
+            var manager = new PreKeyManager(
+                RouterProvider() ?? throw new SdkConnectionException("The connection is not open: own prekeys were not uploaded."),
+                new DurableWriteRetryPolicy());
+            OwnPreKeyMaterial material = manager.GenerateOwnMaterial(
+                row.SigningKeyPrivate,
+                (bundle?.SignedPreKeyId ?? 0) + 1,
+                (bundle?.OneTimePreKeyId ?? 0) + remaining + 1,
+                PreKeyManager.UploadBatchSize);
+            await manager.UploadOwnKeysAsync(
+                (uint)row.RegistrationId,
+                X3dh.DeriveX25519Public(row.IdentityKeyPrivate),
+                material,
+                ownAddress,
+                stores.PreKeys,
+                stores.Identity,
+                cancellationToken).ConfigureAwait(false);
+            Volatile.Write(ref _prekeysEnsured, true);
+        }
+        finally
+        {
+            _prekeyGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Counts the one-time keys remaining in the store by probing consecutive ids from
+    /// the checkpoint's first-unserved id; the probe stops at the floor — callers only
+    /// need to know "below the floor or not".
+    /// </summary>
+    private static async Task<int> CountRemainingOneTimeKeysAsync(IPreKeyStore preKeys, PreKeyBundle? bundle, CancellationToken cancellationToken)
+    {
+        if (bundle is null || bundle.OneTimePreKeyId <= 0)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        while (count < PreKeyManager.ReuploadThreshold)
+        {
+            PreKeyRecordEntry? entry = await preKeys.GetPreKeyAsync(bundle.OneTimePreKeyId + count, cancellationToken).ConfigureAwait(false);
+            if (entry is null)
+            {
+                break;
+            }
+
+            count++;
+        }
+
+        return count;
+    }
 
     internal ValueTask<StoreSession> ResolveStoresAsync(CancellationToken cancellationToken) =>
         _connection.ResolveStoreSessionAsync(cancellationToken);
