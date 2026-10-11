@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 3
-current_phase_name: Pairing & Session Durability
+current_phase: 4
+current_phase_name: Signal E2EE & Messaging
 status: executing
-stopped_at: Completed 02-07-PLAN.md
-last_updated: "2026-10-09T11:53:56.101Z"
-last_activity: 2026-10-09
-last_activity_desc: Phase 02 execution resumed (wave continue)
-state_head: 84891b9ada23fd5cd6ae2b6b091e6b9b58654a08
+stopped_at: Completed 03-07-PLAN.md
+last_updated: "2026-10-11T00:49:48.266Z"
+state_head: 3d4eaf99adb07c53923d01ed5c483cf05f9046ce
 progress:
   total_phases: 9
-  completed_phases: 1
-  total_plans: 20
-  completed_plans: 13
-  percent: 11
+  completed_phases: 2
+  total_plans: 25
+  completed_plans: 20
+  percent: 33
+last_activity: 2026-10-10
+last_activity_desc: Phase 03 execution completed — all 7 waves executed
 ---
 
 # Project State
@@ -23,36 +23,45 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-07)
 
 **Core value:** Reliably send and receive messages through a linked WhatsApp account — across many accounts at once, without getting those accounts banned.
-**Current focus:** Phase 02 — Wire Protocol & Connection Resilience
+
+**Current focus:** Phase 03 — Pairing & Session Durability (complete)
 
 ## Current Position
 
-Phase: 3 (Pairing & Session Durability) — READY TO EXECUTE
-Plan: 2 of 5
+Phase: 4 (Signal E2EE & Messaging) — READY TO EXECUTE
+Plan: —
 Status: Ready to execute
-Last activity: 2026-10-09 — Phase 02 execution resumed (wave continue)
 
-Progress: [█░░░░░░░░░] 11%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 20
+- Average duration: —
+- Total execution time: — hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 5 | - | - |
+| 01 | 5 | 5 | — |
+| 02 | 8+2 | 10 | — |
+| 03 | 7 | 7 | — |
+| 04 | 0/TBD | Not started | - |
+| 05 | 0/TBD | Not started | - |
+| 06 | 0/TBD | Not started | - |
+| 07 | 0/TBD | Not started | - |
+| 8 | 0/TBD | Not started | - |
+| 9 | 0/TBD | Not started | - |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: N/A
+- Last 5 plans: all 7 phase-3 plans completed in 3 waves + verification
+- Trend: Velocity increasing as store seam stabilizes
 
 *Updated after each plan completion*
-**Per-Plan Metrics:**
+
+## Per-Plan Metrics:
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -61,8 +70,15 @@ Progress: [█░░░░░░░░░] 11%
 | Phase 01 P04 | 460m | 3 tasks | 10 files |
 | Phase 01 P05 | 14 min | 2 tasks | 3 files |
 | Phase 02 P02-07 | 35min | 3 tasks | 8 files |
+| Phase 03 03-01 | ~55min | 3 tasks | 24 files |
+| Phase 03 03-02 | ~30min | 3 tasks | 8 files |
+| Phase 03 03-03 | ~2h15m | 3 tasks | 6 files |
+| Phase 03 03-04 | ~24min | 3 tasks | 5 files |
+| Phase 03 03-05 | ~24min | 3 tasks | 5 files |
+| Phase 03 03-06 | ~1h | 3 tasks + sample | 6 files + sample host |
+| Phase 03 03-07 | ~1h | 3 tasks | 3 files |
 
-## Accumulated Context
+### Accumulated Context
 
 ### Decisions
 
@@ -90,6 +106,13 @@ Recent decisions affecting current work:
 - [Phase 02]: 02-07: server-shaped B consumed intro-first — 4-byte intro validated/stripped BEFORE WaFrame.Deframe (server shape intro||len||bytes); headerless B accepted; framing violations wrap into ProtocolHaltException fail-closed
 - [Phase 02]: 02-07: FrameReader.TryReadFrame is the sole inbound pump parser (flag strip + zlib inflate) before NoiseTransport.Decrypt; hand-rolled length parse and dead WatchAsync_OLD removed — zero production bypass (T-2-15)
 - [Phase 02]: 02-07: loopback fakes call production NoiseHandshake.ValidateIntroHeader instead of hardcoded intro byte-equality (ConnectionStateTests.cs committed as documented Rule 2 deviation — outside plan files list)
+- [Phase 03]: 03-01 resume spine proven end-to-end with success-gated Open
+- [Phase 03]: 03-02 ClientOutdated as honest terminal outcome replaces silent 405 retry loop
+- [Phase 03]: 03-03 pairing surface with QR payload rotation and PairingCoordinator
+- [Phase 03]: 03-04 pair-success verification with fail-closed HMAC/signature checks
+- [Phase 03]: 03-05 pairing code: 5B→8C generator, link-code crypto chain (PBKDF2→AES-CTR→HKDF→AES-GCM)
+- [Phase 03]: 03-06 kill/restart resume proof + 428 survival + concurrency backstop + PairingSample host
+- [Phase 03]: 03-07 end-of-phase UAT closeout with VALIDATION/Nyquist/provenance
 
 ### Pending Todos
 
@@ -97,16 +120,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Research flags for planning: Phase 2 (Noise XX WA variant), Phase 4 (clean-room Signal), Phase 7 (multi-account at scale) need `--research-phase`; Phase 6 (media crypto) research optional; Phase 3 light research on pairing-code flow.
-
-## Deferred Items
-
-| Category | Item | Status | Deferred At | Milestone |
-|----------|------|--------|-------------|-----------|
-| *(none)* | | | | |
+- Research flags for planning: Phase 4 (clean-room Signal), Phase 5 (ban-safety), Phase 6 (media crypto) need `--research-phase`; Phase 7 (multi-account at scale) research optional
+- No live phone in CI — UAT outcomes documented as NOT VERIFIED (see 03-VALIDATION.md)
+- 03-06 test `kill_restart_resume_with_drops_and_concurrency` has timeout on Phase C (428 drop wait) — separate investigation needed
 
 ## Session Continuity
 
-Last session: 2026-10-09T04:15:38.467Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-10-10T04:15:38.467Z
+Stopped at: Completed 03-07-PLAN.md
 Resume file: None
