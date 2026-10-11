@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 9
+open_count: 10
 waived_count: 0
 fixed_count: 0
-total_count: 9
-last_updated: 2026-10-09T04:13:40.232Z
+total_count: 10
+last_updated: 2026-10-11T12:17:56.048Z
 ---
 
 # Broken Windows Ledger
@@ -24,6 +24,7 @@ last_updated: 2026-10-09T04:13:40.232Z
 | 7 | 01 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Stores/StoreErrorSurfaceTests.cs |  | 01-04 [plan gap]: extra test file beyond the plan's <files> list — the plan mandated unit-testing LogAndWrap without naming a file for it | open |  | 2026-10-08T07:13:22.129Z |  |
 | 8 | 02 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Connection/ConnectionStateTests.cs |  | ConnectionStateTests.cs committed with 02-07 Task 2 though not in the plan files list (Rule 2: third loopback fake needed production intro validation) | open |  | 2026-10-09T04:13:39.383Z |  |
 | 9 | 02 | deviation | src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs |  | 02-07 verify runs needed fresh-hash rebuilds or -p:Deterministic=false to clear Windows SAC 0x800711C7 blocks on newly built DLLs (environment-only, no repo change) | open |  | 2026-10-09T04:13:40.232Z |  |
+| 10 | 04 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | Device-identity pin of own identity DJB bytes (ponytail) - upgrade when live-peer identity verification requires exact wire form | open |  | 2026-10-11T12:17:56.048Z |  |
 
 ````json
 [
@@ -141,6 +142,19 @@ last_updated: 2026-10-09T04:13:40.232Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-09T04:13:40.232Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 10,
+    "kind": "stub",
+    "phase": "04",
+    "file": "src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs",
+    "line": null,
+    "description": "Device-identity pin of own identity DJB bytes (ponytail) - upgrade when live-peer identity verification requires exact wire form",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-11T12:17:56.048Z",
     "resolved_at": null,
     "milestone": null
   }
