@@ -74,3 +74,19 @@ public enum SendOutcomeStatus
     /// <summary>No correlated reply arrived inside the send window; the message was dropped (never re-sent).</summary>
     TimedOut,
 }
+
+/// <summary>
+/// Typed warning raised when an ack's <c>phash</c> no longer matches the resolved device
+/// set the message fanned out to (04-03 Pitfall 3): the peer's device set moved. The SDK
+/// has already invalidated its device-list cache for <see cref="Chat"/>; the next send
+/// re-queries USync. The affected send still settles its normal <see cref="SendOutcome"/>.
+/// </summary>
+/// <param name="Chat">The peer chat whose device set moved.</param>
+/// <param name="MessageId">The message id whose ack carried the mismatched phash.</param>
+/// <param name="ExpectedPhash">The phash computed over the fanout device set.</param>
+/// <param name="ReceivedPhash">The phash the server returned on the ack.</param>
+public sealed record DeviceSetChangedEventArgs(
+    Domain.Jid Chat,
+    string MessageId,
+    string ExpectedPhash,
+    string ReceivedPhash);

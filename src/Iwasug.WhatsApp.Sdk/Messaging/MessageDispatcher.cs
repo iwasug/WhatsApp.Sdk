@@ -206,7 +206,8 @@ internal sealed class MessageDispatcher
         int? error = int.TryParse(errorAttr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ? parsed : null;
         node.Attrs.TryGetValue("t", out string? t);
         node.Attrs.TryGetValue("server_id", out string? serverId);
-        _owner.Sender.CompleteFromAck(messageId, error, t, serverId);
+        node.Attrs.TryGetValue("phash", out string? phash);
+        _owner.Sender.CompleteFromAck(messageId, error, t, serverId, phash);
     }
 
     private static DateTimeOffset? ParseTimestamp(BinaryNode node)

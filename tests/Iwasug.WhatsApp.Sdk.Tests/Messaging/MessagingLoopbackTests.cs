@@ -37,31 +37,31 @@ namespace Iwasug.WhatsApp.Sdk.Tests.Messaging;
 /// </remarks>
 public sealed class MessagingLoopbackTests
 {
-    private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(15);
+    internal static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(15);
 
-    private const string OwnUser = "15551234567";
-    private const int OwnDevice = 42;
-    private const string PeerUser = "15551239999";
-    private static readonly string PeerServer = "s.whatsapp.net";
+    internal const string OwnUser = "15551234567";
+    internal const int OwnDevice = 42;
+    internal const string PeerUser = "15551239999";
+    internal static readonly string PeerServer = "s.whatsapp.net";
 
-    private static AccountId NewAccount(string hint) =>
+    internal static AccountId NewAccount(string hint) =>
         AccountId.Create($"msg-loopback-{hint}-" + Guid.NewGuid().ToString("N"));
 
-    private static string DeviceJid(string user, int device) =>
+    internal static string DeviceJid(string user, int device) =>
         $"{user}:{device}@{PeerServer}";
 
     private static readonly RegistrationDefaults SeededRegistrationDefaults = new(
         new byte[32], 7, new byte[32], new byte[64], 42, "android", 2, 3000, 1043857760);
 
-    private sealed record OwnKeys(byte[] IdentityPrivate, byte[] IdentityDjb, uint RegistrationId);
+    internal sealed record OwnKeys(byte[] IdentityPrivate, byte[] IdentityDjb, uint RegistrationId);
 
-    private static OwnKeys CreateOwnKeys(uint registrationId)
+    internal static OwnKeys CreateOwnKeys(uint registrationId)
     {
         (byte[] priv, byte[] pub) = X3dh.GenerateX25519KeyPair();
         return new OwnKeys(priv, SignalCipher.ToDjbIdentity(pub), registrationId);
     }
 
-    private static async Task<HandshakePayloadProvider> CreateSeededPayloadsAsync(AccountId account, ICredentialStore credentials, OwnKeys own, CancellationToken cancellationToken)
+    internal static async Task<HandshakePayloadProvider> CreateSeededPayloadsAsync(AccountId account, ICredentialStore credentials, OwnKeys own, CancellationToken cancellationToken)
     {
         var row = new CredentialRecord(
             DateTimeOffset.UtcNow,
@@ -78,7 +78,7 @@ public sealed class MessagingLoopbackTests
     }
 
     /// <summary>Creates one synthetic Bob-side peer device (SignalSessionTests precedent).</summary>
-    private sealed record PeerDevice(
+    internal sealed record PeerDevice(
         string Jid,
         byte[] XIdentityPrivate,
         byte[] XIdentityDjb,
@@ -93,7 +93,7 @@ public sealed class MessagingLoopbackTests
         uint OneTimePreKeyId,
         uint RegistrationId);
 
-    private static PeerDevice CreatePeerDevice(string jid, uint signedPreKeyId, uint oneTimePreKeyId, uint registrationId)
+    internal static PeerDevice CreatePeerDevice(string jid, uint signedPreKeyId, uint oneTimePreKeyId, uint registrationId)
     {
         (byte[] xPriv, byte[] xPub) = X3dh.GenerateX25519KeyPair();
         (byte[] edPriv, byte[] edPubDjb) = X3dh.GenerateIdentityKeyPair();
@@ -112,7 +112,7 @@ public sealed class MessagingLoopbackTests
     /// Seeds the SDK-side Alice session for one peer device and returns the mirrored Bob
     /// ratchet the scripted peer decrypts with.
     /// </summary>
-    private static async Task<DoubleRatchet> SeedSessionPairAsync(
+    internal static async Task<DoubleRatchet> SeedSessionPairAsync(
         ISignalSessionStore sessions, OwnKeys own, PeerDevice device, CancellationToken cancellationToken)
     {
         var bundle = new PeerBundle(
@@ -142,7 +142,7 @@ public sealed class MessagingLoopbackTests
     }
 
     /// <summary>Six fixed store instances behind the registry factory seams.</summary>
-    private sealed class FixedStores : ISignalSessionStoreFactory, IIdentityStoreFactory, IPreKeyStoreFactory, IRecentMessageCacheStoreFactory, ISafetyStateStoreFactory, ICredentialStoreFactory
+    internal sealed class FixedStores : ISignalSessionStoreFactory, IIdentityStoreFactory, IPreKeyStoreFactory, IRecentMessageCacheStoreFactory, ISafetyStateStoreFactory, ICredentialStoreFactory
     {
         internal required ISignalSessionStore Sessions { get; init; }
         internal required IIdentityStore Identity { get; init; }
@@ -186,7 +186,7 @@ public sealed class MessagingLoopbackTests
     }
 
     /// <summary>The scripted loopback server: Noise responder + usync/encrypt IQ responder + message acker.</summary>
-    private sealed class ScriptedPeer
+    internal sealed class ScriptedPeer
     {
         private readonly LoopbackFrameTransport _transport;
         private readonly NoiseTransport _noise;
@@ -194,6 +194,12 @@ public sealed class MessagingLoopbackTests
 
         internal ConcurrentQueue<BinaryNode> MessageNodes { get; } = new();
         internal ConcurrentQueue<string> Log { get; } = new();
+
+        /// <summary>When true (default), every inbound message node is auto-acked; AckAttrs ride the auto-ack.</summary>
+        internal bool AutoAck { get; set; } = true;
+
+        /// <summary>Extra ack attrs for the auto-ack (error / phash facts); null = plain ack.</summary>
+        internal IReadOnlyDictionary<string, string>? AckAttrs { get; set; }
 
         /// <summary>Optional shared timeline (D-06 cross-queue ordering proof): ack arrivals append here.</summary>
         internal ConcurrentQueue<string>? Timeline { get; set; }
@@ -236,16 +242,25 @@ public sealed class MessagingLoopbackTests
                     case "message":
                         MessageNodes.Enqueue(node);
                         Log.Enqueue("message:" + node.Attrs.GetValueOrDefault("id"));
-                        if (node.Attrs.TryGetValue("id", out string? messageId) && !string.IsNullOrEmpty(messageId))
+                        if (AutoAck
+                            && node.Attrs.TryGetValue("id", out string? messageId)
+                            && !string.IsNullOrEmpty(messageId))
                         {
-                            await SendStanzaAsync(BinaryNode.Create(
-                                "ack",
-                                new Dictionary<string, string>(StringComparer.Ordinal)
+                            var ackAttrs = new Dictionary<string, string>(StringComparer.Ordinal)
+                            {
+                                ["class"] = "message",
+                                ["id"] = messageId,
+                                ["to"] = node.Attrs.GetValueOrDefault("from") ?? "",
+                            };
+                            if (AckAttrs is not null)
+                            {
+                                foreach ((string key, string value) in AckAttrs)
                                 {
-                                    ["class"] = "message",
-                                    ["id"] = messageId,
-                                    ["to"] = node.Attrs.GetValueOrDefault("from") ?? "",
-                                }));
+                                    ackAttrs[key] = value;
+                                }
+                            }
+
+                            await SendStanzaAsync(BinaryNode.Create("ack", ackAttrs));
                             Log.Enqueue("ack-sent:" + messageId);
                         }
 
@@ -313,7 +328,7 @@ public sealed class MessagingLoopbackTests
         }
     }
 
-    private static async Task<LoopbackFrameTransport> TakePeerAsync(ConcurrentQueue<LoopbackFrameTransport> peers, CancellationToken cancellationToken)
+    internal static async Task<LoopbackFrameTransport> TakePeerAsync(ConcurrentQueue<LoopbackFrameTransport> peers, CancellationToken cancellationToken)
     {
         LoopbackFrameTransport? peer;
         while (!peers.TryDequeue(out peer))
@@ -324,7 +339,7 @@ public sealed class MessagingLoopbackTests
         return peer!;
     }
 
-    private static async Task WaitForAsync(ConcurrentQueue<string> log, Func<string, bool> predicate, string what)
+    internal static async Task WaitForAsync(ConcurrentQueue<string> log, Func<string, bool> predicate, string what)
     {
         using var timeout = new CancellationTokenSource(WaitTimeout);
         while (!timeout.IsCancellationRequested)
@@ -347,7 +362,7 @@ public sealed class MessagingLoopbackTests
         throw new TimeoutException($"Timed out waiting for: {what}.");
     }
 
-    private static async Task WaitForCountAsync(ConcurrentQueue<MessageReceivedEventArgs> events, int count, string what)
+    internal static async Task WaitForCountAsync(ConcurrentQueue<MessageReceivedEventArgs> events, int count, string what)
     {
         using var timeout = new CancellationTokenSource(WaitTimeout);
         while (!timeout.IsCancellationRequested)
@@ -380,7 +395,7 @@ public sealed class MessagingLoopbackTests
     }
 
     /// <summary>Completes the scripted peer handshake and sends the open-gating success stanza.</summary>
-    private static async Task<ScriptedPeer> CompletePeerHandshakeAsync(
+    internal static async Task<ScriptedPeer> CompletePeerHandshakeAsync(
         ConcurrentQueue<LoopbackFrameTransport> peers,
         CancellationToken token)
     {
@@ -408,7 +423,7 @@ public sealed class MessagingLoopbackTests
         return new ScriptedPeer(transport, noise, token);
     }
 
-    private static ConnectionOptions TracerOptions() => new()
+    internal static ConnectionOptions TracerOptions() => new()
     {
         ConnectTimeoutMs = 5_000,
         QueryTimeoutMs = 5_000,
@@ -771,7 +786,7 @@ public sealed class MessagingLoopbackTests
             });
     }
 
-    private static Func<IFrameTransport> CreateClient(ConcurrentQueue<LoopbackFrameTransport> peers) => () =>
+    internal static Func<IFrameTransport> CreateClient(ConcurrentQueue<LoopbackFrameTransport> peers) => () =>
     {
         (LoopbackFrameTransport left, LoopbackFrameTransport right) = LoopbackFrameTransport.CreatePair();
         peers.Enqueue(right);

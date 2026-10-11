@@ -190,6 +190,19 @@ Iwasug.WhatsApp.Sdk.Errors.SdkStoreException
 Iwasug.WhatsApp.Sdk.Errors.SdkStoreException.SdkStoreException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException.SdkTransportException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out string! MessageId, out string! ExpectedPhash, out string! ReceivedPhash) -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.DeviceSetChangedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, string! MessageId, string! ExpectedPhash, string! ReceivedPhash) -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ExpectedPhash.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ExpectedPhash.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.MessageId.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.MessageId.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ReceivedPhash.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ReceivedPhash.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
@@ -208,6 +221,7 @@ Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Text.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Timestamp.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.Messenger
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.DeviceSetChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.MessageReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
@@ -465,6 +479,9 @@ override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.ToString() -> string!
@@ -526,6 +543,8 @@ static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator !=(Iwasug.WhatsApp.
 static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
 static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.operator !=(Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? right) -> bool

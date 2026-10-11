@@ -48,7 +48,10 @@ internal sealed class MessageSender
     private readonly DeviceDirectory _directory;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly DurableWriteRetryPolicy _retry = new();
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<SendOutcome>> _pending = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PendingSend> _pending = new(StringComparer.Ordinal);
+
+    /// <summary>One awaiting send: correlation id → chat (phash invalidation target), the fanout phash, and the completion.</summary>
+    private sealed record PendingSend(Jid Chat, string Phash, TaskCompletionSource<SendOutcome> Completion);
 
     internal MessageSender(Messenger owner, DeviceDirectory directory)
     {
@@ -99,6 +102,8 @@ internal sealed class MessageSender
         {
             throw new SdkFormatException($"No devices resolved for the recipient: the message was not sent.");
         }
+
+        string phash = DeviceDirectory.ComputePhash(devices);
 
         byte[] plaintext = MessageBuilder.BuildPlainText(text);
         long t = _owner.Clock.GetUtcNow().ToUnixTimeSeconds();
@@ -152,7 +157,7 @@ internal sealed class MessageSender
             });
 
         var completion = new TaskCompletionSource<SendOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[messageId] = completion;
+        _pending[messageId] = new PendingSend(chat, phash, completion);
         try
         {
             await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
@@ -177,18 +182,29 @@ internal sealed class MessageSender
     /// <summary>
     /// Correlates one inbound <c>ack</c> for a sent message id: completes the pending
     /// send exactly once; a late or duplicate ack finds no pending entry and is a no-op.
+    /// An ack <c>phash</c> that no longer matches the fanout set (Pitfall 3) invalidates
+    /// the device cache for the peer and raises the typed warning before the outcome
+    /// completes — the ack itself still settles the send normally.
     /// </summary>
-    internal void CompleteFromAck(string messageId, int? error, string? t, string? serverId)
+    internal void CompleteFromAck(string messageId, int? error, string? t, string? serverId, string? phash)
     {
-        if (!_pending.TryGetValue(messageId, out TaskCompletionSource<SendOutcome>? completion))
+        if (!_pending.TryGetValue(messageId, out PendingSend? pending))
         {
-            return; // late/duplicate ack — logged by the dispatcher, outcome untouched
+            return; // late/duplicate ack: no pending entry — a no-op, outcome untouched
+        }
+
+        if (!string.IsNullOrEmpty(phash)
+            && !string.Equals(phash, pending.Phash, StringComparison.Ordinal))
+        {
+            _directory.Invalidate(pending.Chat);
+            _owner.RaiseDeviceSetChanged(
+                new DeviceSetChangedEventArgs(pending.Chat, messageId, pending.Phash, phash));
         }
 
         SendOutcome outcome = error is > 0
             ? new SendOutcome(messageId, SendOutcomeStatus.ServerError, error, t, serverId)
             : new SendOutcome(messageId, SendOutcomeStatus.Sent, error, t, serverId);
-        completion.TrySetResult(outcome);
+        pending.Completion.TrySetResult(outcome);
     }
 
     /// <summary>True when a pending send waits on this id (ack-correlation seam for the dispatcher).</summary>

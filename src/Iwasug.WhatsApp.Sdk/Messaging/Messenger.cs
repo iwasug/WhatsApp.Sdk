@@ -53,6 +53,14 @@ public sealed class Messenger : IAsyncDisposable
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
 
     /// <summary>
+    /// Raised when a server ack carries a <c>phash</c> that no longer matches the device
+    /// set this SDK fanned the message out to (Pitfall 3): the peer's device set moved.
+    /// The device-list cache for the chat is invalidated before the event; the next send
+    /// re-queries USync. The affected send itself still settles its normal outcome.
+    /// </summary>
+    public event EventHandler<DeviceSetChangedEventArgs>? DeviceSetChanged;
+
+    /// <summary>
     /// Sends one E2EE text message to the chat: one logical send = one network send. On
     /// timeout the SDK returns the <see cref="SendOutcomeStatus.TimedOut"/> outcome with
     /// the id and drops — the host may re-call, which is a NEW send with a NEW id; the
@@ -85,6 +93,8 @@ public sealed class Messenger : IAsyncDisposable
     }
 
     internal void RaiseMessageReceived(MessageReceivedEventArgs args) => MessageReceived?.Invoke(this, args);
+
+    internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
 
     internal ValueTask<StoreSession> ResolveStoresAsync(CancellationToken cancellationToken) =>
         _connection.ResolveStoreSessionAsync(cancellationToken);
