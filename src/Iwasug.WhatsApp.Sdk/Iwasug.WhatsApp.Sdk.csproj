@@ -51,6 +51,14 @@
       provenance discipline and internal_access as the payload schemas above.
     -->
     <Protobuf Include="Proto\adv.proto" GrpcServices="None" OutputOptions="internal_access" />
+    <!--
+      Signal session/sender-key schemas (04-01): hand-written SessionStructure,
+      SenderKeyRecordStructure, and Signal/PreKey/SenderKey wire messages,
+      schema-sourced field-for-field from Baileys MIT WAProto.proto at commit
+      0af2386 (see the file header). Same internal_access discipline: the
+      generated types stay out of the public surface.
+    -->
+    <Protobuf Include="Proto\signal.proto" GrpcServices="None" OutputOptions="internal_access" />
   </ItemGroup>
 
   <!--

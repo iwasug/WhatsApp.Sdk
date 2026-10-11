@@ -1,0 +1,138 @@
+// Copyright (c) Iwa Sugriwa. Licensed under the MIT License.
+//
+// PROVENANCE (NOTICE.md "whatsmeow rule" + provenance-recording policy):
+//   - This schema is HAND-WRITTEN for this repository. No bytes were copied
+//     from whatsmeow (MPL-2.0) or from any other upstream .proto file.
+//   - Field numbers and field roles were learned read-only from the
+//     MIT-licensed Baileys sources at commit 0af2386: WAProto/WAProto.proto
+//     (message SignalMessage, PreKeySignalMessage, SenderKeyMessage,
+//     SenderKeyDistributionMessage, SessionStructure with nested Chain /
+//     ChainKey / MessageKey / PendingPreKey, SenderKeyRecordStructure with
+//     nested SenderKeyStateStructure / SenderChainKey / SenderSigningKey /
+//     SenderMessageKey, and MessageKey). The PendingPreKey.signedPreKeyId
+//     number below (3) follows the live Baileys read, which supersedes the
+//     04-RESEARCH Pattern 1 transcription. No whatsmeow bytes were involved.
+//   - Wire-layout behavior (version byte, DJB identity encoding, MAC scope)
+//     was learned read-only from Baileys src/Signal/libsignal.ts,
+//     src/Utils/signal.ts, and src/Utils/crypto.ts at the same commit
+//     (NOTICE.md rows); the C# below is independently written.
+//
+// SCOPE (04-01): Signal session/sender-key record structures plus the
+// Signal/PreKey/SenderKey wire messages for 1:1 E2EE. Group plaintext
+// (Message/SKDM wrapper) arrives with message.proto in plan 04-02.
+
+syntax = "proto3";
+
+package wa.signal;
+
+option csharp_namespace = "Iwasug.WhatsApp.Sdk.Signal";
+
+// One Double Ratchet message: the header (ratchet key + counters) plus the
+// AES-256-CBC ciphertext of the padded plaintext. Carried on the wire as
+// version-byte || serialized-body || truncated-MAC (see SignalCipher).
+message SignalMessage {
+  bytes ratchetKey = 1;
+  uint32 counter = 2;
+  uint32 previousCounter = 3;
+  bytes ciphertext = 4;
+}
+
+// First message of a session (Alice -> Bob): the sender's base key and
+// DJB-encoded identity key, the bundle coordinates the session was built
+// from, and the COMPLETE inner whisper wire (version || proto || MAC —
+// the responder replays it through the regular decrypt path, so the first
+// message stays MAC-authenticated; see SignalCipher.EncryptPreKeyMessage).
+message PreKeySignalMessage {
+  uint32 preKeyId = 1;
+  bytes baseKey = 2;
+  bytes identityKey = 3;
+  bytes message = 4;
+  uint32 registrationId = 5;
+  uint32 signedPreKeyId = 6;
+}
+
+// One sender-key group message (plan 04-05 carries it; schema lands here so
+// the record structures below reference a complete set).
+message SenderKeyMessage {
+  uint32 id = 1;
+  uint32 iteration = 2;
+  bytes ciphertext = 3;
+}
+
+// Sender-key distribution payload (the axolotl inner form).
+message SenderKeyDistributionMessage {
+  uint32 id = 1;
+  uint32 iteration = 2;
+  bytes chainKey = 3;
+  bytes signingKey = 4;
+}
+
+// Persisted Double Ratchet state. The bytes are SDK-owned serialization
+// written through ISignalSessionStore (see SignalSessionRecord): hosts
+// persist them opaquely and must not parse them.
+message SessionStructure {
+  uint32 sessionVersion = 1;
+  bytes localIdentityPublic = 2;
+  bytes remoteIdentityPublic = 3;
+  bytes rootKey = 4;
+  uint32 previousCounter = 5;
+  Chain senderChain = 6;
+  repeated Chain receiverChains = 7;
+  PendingPreKey pendingPreKey = 9;
+  uint32 remoteRegistrationId = 10;
+  uint32 localRegistrationId = 11;
+  bool needsRefresh = 12;
+  bytes aliceBaseKey = 13;
+
+  message Chain {
+    bytes senderRatchetKey = 1;
+    bytes senderRatchetKeyPrivate = 2;
+    ChainKey chainKey = 3;
+    repeated MessageKey messageKeys = 4;
+
+    message ChainKey {
+      uint32 index = 1;
+      bytes key = 2;
+    }
+
+    message MessageKey {
+      uint32 index = 1;
+      bytes cipherKey = 2;
+      bytes macKey = 3;
+      bytes iv = 4;
+    }
+  }
+
+  message PendingPreKey {
+    uint32 preKeyId = 1;
+    bytes baseKey = 2;
+    int32 signedPreKeyId = 3;
+  }
+}
+
+// Persisted sender-key state (plan 04-05 carries it; schema lands here).
+message SenderKeyRecordStructure {
+  repeated SenderKeyStateStructure senderKeyStates = 1;
+
+  message SenderKeyStateStructure {
+    uint32 senderKeyId = 1;
+    SenderChainKey senderChainKey = 2;
+    SenderSigningKey senderSigningKey = 3;
+    repeated SenderMessageKey senderMessageKeys = 4;
+
+    message SenderChainKey {
+      uint32 iteration = 1;
+      bytes seed = 2;
+    }
+
+    message SenderSigningKey {
+      bytes public = 1;
+      bytes private = 2;
+    }
+
+    message SenderMessageKey {
+      uint32 iteration = 1;
+      bytes seed = 2;
+    }
+  }
+}

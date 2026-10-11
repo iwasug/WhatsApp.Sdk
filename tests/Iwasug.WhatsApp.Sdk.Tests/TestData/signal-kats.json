@@ -1,0 +1,46 @@
+{
+  "provenance": {
+    "doc": "Wave-0 spike byte-layout fixture set (04-01 Task 1). Schemas learned read-only from Baileys MIT WAProto/WAProto.proto at commit 0af2386; wire layout (version byte 0x33, 33-byte DJB identities, MAC scope version||body||sender||receiver truncated to 8 bytes) learned read-only from Baileys MIT src/Signal/libsignal.ts, src/Utils/signal.ts, and src/Utils/crypto.ts at the same commit; X3DH DH order / F-prefix KDF / WhisperText label from the public Signal X3DH spec rev 1 (read 2026-10-11), with no whatsmeow bytes involved anywhere. Vectors below are self-consistent pinning of that published layout (C# independently written) — NOT live-captured traffic; the 04-05 live-device UAT is the interop backstop. KNOWN RISK (XEdDSA): X3DH specifies Sig as XEdDSA but this plan verifies with NSec Ed25519 over the same DJB bytes (no vetted .NET XEdDSA primitive in-tree; hand-rolled curve math is forbidden) — UAT must confirm a real bundle signature against VerifySignedPreKey. Key material appears only as fixed test inputs (never real keys); tests compare public wire bytes as hex and key-derived values as SHA-256 fingerprints so failing runs cannot print secrets.",
+    "upstream": "WhiskeySockets/Baileys@0af2386 (MIT)",
+    "whatsmeow_bytes": false
+  },
+  "kdf_ck": {
+    "chain_key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "message_key": "9b4c8120a4823a95f47cde17a244f4507244ee6e3957d1fab9fa29b44d3829b7",
+    "next_chain_key": "4304c22c84a53755ab08ead8d97a8d429be5efa480682d7ad1da27f73e1fbe1d"
+  },
+  "message_key_expansion": {
+    "input": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "aes_key": "ae6449be12723637876584a7df98c071db0e75ba6ab7b460cc2a7296f307f047",
+    "hmac_key": "0401a64c2cd81d3b05a13bebd2e1fccb12301c657f78c486dfc5a844f949a4e2",
+    "iv": "40466bc04780ff25aca2e1f87a54f076"
+  },
+  "message_encrypt": {
+    "aes_key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+    "hmac_key": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+    "iv": "808182838485868788898a8b8c8d8e8f",
+    "plaintext_hex": "48656c6c6f2c205369676e616c21",
+    "plaintext_utf8": "Hello, Signal!",
+    "sender_identity_djb": "050102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+    "receiver_identity_djb": "052122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40",
+    "ratchet_key": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+    "counter": 7,
+    "previous_counter": 3,
+    "wire": "330a20a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf1007180322a0012067fd12556a900b385e67066b3bece009b3c58129daf514e4fa19c9d2bea3eaafee5f40c4f308f9e51f38bc45ea94fd75ca29978bdd264aff197ee6bf36c08781f07e0d2906e1634c1f92928631e2ae22f8c352c28d34ab5e4f87b0331c60f247643fc439c4e4be281d0bc28cc2d1410172515860954ffc056cdf1d82e289fb8eb545c40cb861c04308e357544bda1b355fe9d3b9078d7fde0ee5c73d02333c42ff4e19131c0e9f"
+  },
+  "prekey_message": {
+    "base_key": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+    "identity_djb": "050102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+    "registration_id": 1234,
+    "signed_pre_key_id": 22,
+    "pre_key_id": 1101,
+    "wire": "3308cd081220c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf1a21050102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2022d201330a20a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf1007180322a0012067fd12556a900b385e67066b3bece009b3c58129daf514e4fa19c9d2bea3eaafee5f40c4f308f9e51f38bc45ea94fd75ca29978bdd264aff197ee6bf36c08781f07e0d2906e1634c1f92928631e2ae22f8c352c28d34ab5e4f87b0331c60f247643fc439c4e4be281d0bc28cc2d1410172515860954ffc056cdf1d82e289fb8eb545c40cb861c04308e357544bda1b355fe9d3b9078d7fde0ee5c73d02333c42ff4e19131c0e9f28d2093016"
+  },
+  "sender_key_signature": {
+    "signing_private": "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "message_hex": "73656e6465722d6b65792d74657374",
+    "message_utf8": "sender-key-test",
+    "signing_public_djb": "0513d9908a70925992ed546007d27f50da68ba7217ef62ac3cca784529ff10471c",
+    "signature": "d4d30df5821ad3e40fd58ed3932c4a75cf6a162dd9b9cda00981c99f3b449efcf983e845c38556f1480afa86b6703019f478b6c8f71b0884bb0299a4ce744705"
+  }
+}

@@ -70,6 +70,13 @@
     <Content Include="TestData\link-code-kats.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--
+      Signal byte-layout fixtures (04-01 Wave-0 spike): pinned wire vectors
+      proving the cipher layout; read-only proof input like the noise vectors.
+    -->
+    <Content Include="TestData\signal-kats.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
