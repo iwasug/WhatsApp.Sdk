@@ -114,7 +114,8 @@ public sealed class SignalCoreTests
         Convert.FromHexString(vectors.KdfCk.MessageKey).Should().HaveCount(32);
         Convert.FromHexString(vectors.Expansion.Input).Should().HaveCount(32);
         Convert.FromHexString(vectors.MessageEncrypt.PlaintextHex).Should().NotBeEmpty();
-        Convert.FromHexString(vectors.PreKeyMessage.BaseKey).Should().HaveCount(32);
+        Convert.FromHexString(vectors.PreKeyMessage.BaseKey).Should().HaveCount(33);
+        vectors.PreKeyMessage.BaseKey.Should().StartWith("05");
         Convert.FromHexString(vectors.PreKeyMessage.IdentityDjb).Should().HaveCount(33);
         Convert.FromHexString(vectors.Signature.SigningPublicDjb).Should().HaveCount(33);
         Convert.FromHexString(vectors.Signature.Signature).Should().HaveCount(64);
@@ -347,7 +348,6 @@ public sealed class SignalCoreTests
                 alice.XIdentityDjb, aliceSession.BasePublic);
 
             Fingerprint(aliceSession.RootKey).Should().Be(Fingerprint(bobSession.RootKey));
-            Fingerprint(aliceSession.ChainKey).Should().Be(Fingerprint(bobSession.ChainKey));
         }
     }
 
@@ -376,13 +376,14 @@ public sealed class SignalCoreTests
 
         (byte[] ephPriv, _) = X3dh.GenerateX25519KeyPair();
         AliceSession aliceSession = X3dh.InitializeAlice(aliceKeys.XIdentityPrivate, ephPriv, bundle, bobKeys.EdPublicDjb);
+        (byte[] sendPriv, byte[] sendPub) = X3dh.GenerateX25519KeyPair();
         BobSession bobSession = X3dh.InitializeBob(
             bobKeys.XIdentityPrivate, bobKeys.SignedPreKeyPrivate, bobKeys.OneTimePrivate, true,
             aliceKeys.XIdentityDjb, aliceSession.BasePublic);
 
-        var alice = DoubleRatchet.InitializeAlice(aliceSession, ephPriv, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, bundle, 1001);
+        var alice = DoubleRatchet.InitializeAlice(aliceSession, sendPriv, sendPub, bundle, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, 1001);
         var bob = DoubleRatchet.InitializeBob(
-            bobSession, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
+            bobSession, bobKeys.SignedPreKeyPrivate, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
 
         byte[] plaintext = Encoding.UTF8.GetBytes("Wave-0 spike: the whole path in one proof.");
         SignalEncryptOutcome first = alice.Encrypt(plaintext, CancellationToken.None);
@@ -425,13 +426,14 @@ public sealed class SignalCoreTests
 
         (byte[] ephPriv, _) = X3dh.GenerateX25519KeyPair();
         AliceSession aliceSession = X3dh.InitializeAlice(aliceKeys.XIdentityPrivate, ephPriv, bundle, bobKeys.EdPublicDjb);
+        (byte[] sendPriv, byte[] sendPub) = X3dh.GenerateX25519KeyPair();
         BobSession bobSession = X3dh.InitializeBob(
             bobKeys.XIdentityPrivate, bobKeys.SignedPreKeyPrivate, bobKeys.OneTimePrivate, true,
             aliceKeys.XIdentityDjb, aliceSession.BasePublic);
 
-        var alice = DoubleRatchet.InitializeAlice(aliceSession, ephPriv, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, bundle, 1001);
+        var alice = DoubleRatchet.InitializeAlice(aliceSession, sendPriv, sendPub, bundle, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, 1001);
         var bob = DoubleRatchet.InitializeBob(
-            bobSession, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
+            bobSession, bobKeys.SignedPreKeyPrivate, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
 
         byte[] wire = alice.Encrypt(Encoding.UTF8.GetBytes("once only"), CancellationToken.None)
             .Should().BeOfType<SignalEncryptOutcome.PreKeyMessageSent>().Subject.WireBytes;
@@ -456,11 +458,12 @@ public sealed class SignalCoreTests
 
         (byte[] ephPriv, _) = X3dh.GenerateX25519KeyPair();
         AliceSession aliceSession = X3dh.InitializeAlice(aliceKeys.XIdentityPrivate, ephPriv, bundle, bobKeys.EdPublicDjb);
+        (byte[] sendPriv, byte[] sendPub) = X3dh.GenerateX25519KeyPair();
         BobSession bobSession = X3dh.InitializeBob(
             bobKeys.XIdentityPrivate, bobKeys.SignedPreKeyPrivate, null, false,
             aliceKeys.XIdentityDjb, aliceSession.BasePublic);
 
-        var alice = DoubleRatchet.InitializeAlice(aliceSession, ephPriv, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, bundle, 1001);
+        var alice = DoubleRatchet.InitializeAlice(aliceSession, sendPriv, sendPub, bundle, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, 1001);
 
         // Alice's first message is prekey-form; send a second (regular-form) message for wire tampering.
         alice.Encrypt(Encoding.UTF8.GetBytes("first"), CancellationToken.None);
@@ -468,7 +471,7 @@ public sealed class SignalCoreTests
             .Should().BeOfType<SignalEncryptOutcome.MessageSent>().Subject.WireBytes;
 
         var bob = DoubleRatchet.InitializeBob(
-            bobSession, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
+            bobSession, bobKeys.SignedPreKeyPrivate, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
 
         byte[] badMac = (byte[])wire.Clone();
         badMac[badMac.Length - 1] ^= 0xFF;
@@ -505,12 +508,13 @@ public sealed class SignalCoreTests
         PeerBundle bundle = BundleOf(bobKeys, false);
         (byte[] ephPriv, _) = X3dh.GenerateX25519KeyPair();
         AliceSession aliceSession = X3dh.InitializeAlice(aliceKeys.XIdentityPrivate, ephPriv, bundle, bobKeys.EdPublicDjb);
+        (byte[] sendPriv, byte[] sendPub) = X3dh.GenerateX25519KeyPair();
         BobSession bobSession = X3dh.InitializeBob(
             bobKeys.XIdentityPrivate, bobKeys.SignedPreKeyPrivate, null, false,
             aliceKeys.XIdentityDjb, aliceSession.BasePublic);
-        var alice = DoubleRatchet.InitializeAlice(aliceSession, ephPriv, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, bundle, 1001);
+        var alice = DoubleRatchet.InitializeAlice(aliceSession, sendPriv, sendPub, bundle, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, 1001);
         var bob = DoubleRatchet.InitializeBob(
-            bobSession, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
+            bobSession, bobKeys.SignedPreKeyPrivate, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, 1234, 1001);
 
         byte[] wire = alice.Encrypt(Encoding.UTF8.GetBytes("hello"), CancellationToken.None)
             .Should().BeOfType<SignalEncryptOutcome.PreKeyMessageSent>().Subject.WireBytes;

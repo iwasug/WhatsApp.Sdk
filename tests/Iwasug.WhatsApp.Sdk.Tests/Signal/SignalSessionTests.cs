@@ -74,11 +74,12 @@ public sealed class SignalSessionTests
         BobSession bobSession = X3dh.InitializeBob(
             bobKeys.XIdentityPrivate, bobKeys.SignedPreKeyPrivate, bobKeys.OneTimePrivate, true,
             aliceKeys.XIdentityDjb, aliceSession.BasePublic);
+        (byte[] sendPriv, byte[] sendPub) = X3dh.GenerateX25519KeyPair();
 
         var alice = DoubleRatchet.InitializeAlice(
-            aliceSession, ephPriv, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, bundle, aliceReg);
+            aliceSession, sendPriv, sendPub, bundle, aliceKeys.XIdentityDjb, bobKeys.XIdentityDjb, aliceReg);
         var bob = DoubleRatchet.InitializeBob(
-            bobSession, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, bobReg, aliceReg);
+            bobSession, bobKeys.SignedPreKeyPrivate, bobKeys.XIdentityDjb, aliceKeys.XIdentityDjb, aliceSession.BasePublic, bobReg, aliceReg);
         return (alice, bob, bundle);
     }
 
@@ -295,6 +296,28 @@ public sealed class SignalSessionTests
         reloaded.Should().NotBeNull();
         reloaded!.Serialize().Should().Equal(durable, "no unpersisted advance survives a persist failure");
         DecryptAs(reloaded!, EncryptAs(alice, "m1", out _), isPreKey: false).Should().Be("m1");
+    }
+
+    [Fact]
+    public void stale_prekey_after_dh_ratchet_reports_duplicate_and_stays_healthy()
+    {
+        (DoubleRatchet alice, DoubleRatchet bob, _) = CreatePair(1001, 1234);
+
+        byte[] m0 = EncryptAs(alice, "m0", out _);
+        DecryptAs(bob, m0, isPreKey: true).Should().Be("m0");
+
+        byte[] reply = EncryptAs(bob, "reply", out _);
+        DecryptAs(alice, reply, isPreKey: false).Should().Be("reply");
+        byte[] mA2 = EncryptAs(alice, "mA2", out _);
+        DecryptAs(bob, mA2, isPreKey: false).Should().Be("mA2");
+
+        // Both sides ratcheted past the base: the original prekey is stale.
+        bob.Decrypt(m0, isPreKey: true, CancellationToken.None)
+            .Should().BeOfType<SignalDecryptOutcome.Failed>()
+            .Which.Reason.Should().Be(SignalDecryptFailure.DuplicatePreKey);
+
+        // The session still takes the next in-order message afterwards.
+        DecryptAs(bob, EncryptAs(alice, "mA3", out _), isPreKey: false).Should().Be("mA3");
     }
 
     [Fact]

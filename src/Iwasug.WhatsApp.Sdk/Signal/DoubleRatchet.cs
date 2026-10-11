@@ -62,8 +62,9 @@ internal static class SignalSessionGate
 /// Construction is factory-only: <see cref="InitializeAlice"/> (from an
 /// <see cref="AliceSession"/> plus bundle coordinates) or
 /// <see cref="InitializeBob"/> (from a <see cref="BobSession"/> plus
-/// Alice's advertised base key). Alice's base keypair doubles as her first
-/// sending ratchet keypair (public Signal construction); Bob mints his
+/// Alice's advertised base key). The base keypair serves only X3DH and the
+/// prekey envelope; first chains derive via DH-ratchet steps (official
+/// libsignal initSession / calculateSendingRatchet lineage). Bob mints his
 /// sending chain on his first send.
 /// </para>
 /// <para>
@@ -149,31 +150,43 @@ internal sealed class DoubleRatchet
     }
 
     /// <summary>
-    /// Alice side: the X3DH root plus the first sending chain; her ephemeral
-    /// base keypair doubles as the first sending ratchet keypair.
+    /// Alice side: the X3DH root plus a freshly minted first sending chain.
+    /// The ephemeral base keypair serves only X3DH and the prekey envelope;
+    /// the first sending ratchet is a fresh keypair DH-ratcheted against the
+    /// peer signed prekey (official libsignal initSession /
+    /// calculateSendingRatchet lineage).
     /// </summary>
-    /// <param name="session">X3DH output (root, first chain, base public).</param>
-    /// <param name="basePrivate">The ephemeral private behind <c>session.BasePublic</c>. Never logged.</param>
+    /// <param name="session">X3DH output (root key and DJB base public).</param>
+    /// <param name="sendingPrivate">Fresh sending private for the first chain (32 bytes). Never logged.</param>
+    /// <param name="sendingPublic">Fresh sending public for the first chain (32 bytes raw).</param>
+    /// <param name="bundle">The bundle the session was built from (peer signed-prekey DH input plus coordinates).</param>
     /// <param name="localIdentityDjb">Our identity (33-byte DJB).</param>
     /// <param name="remoteIdentityDjb">Peer identity (33-byte DJB).</param>
-    /// <param name="bundle">The bundle the session was built from (coordinates for the first prekey message).</param>
     /// <param name="localRegistrationId">Our 14-bit registration id (the credential row owns it; carried on the first prekey message).</param>
     internal static DoubleRatchet InitializeAlice(
         AliceSession session,
-        byte[] basePrivate,
+        byte[] sendingPrivate,
+        byte[] sendingPublic,
+        PeerBundle bundle,
         byte[] localIdentityDjb,
         byte[] remoteIdentityDjb,
-        PeerBundle bundle,
         uint localRegistrationId)
     {
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(basePrivate);
+        ArgumentNullException.ThrowIfNull(sendingPrivate);
+        ArgumentNullException.ThrowIfNull(sendingPublic);
         ArgumentNullException.ThrowIfNull(localIdentityDjb);
         ArgumentNullException.ThrowIfNull(remoteIdentityDjb);
         ArgumentNullException.ThrowIfNull(bundle);
-        if (basePrivate.Length != X3dh.KeyLength)
+        if (sendingPrivate.Length != X3dh.KeyLength || sendingPublic.Length != X3dh.KeyLength)
         {
-            throw new SdkFormatException("Signal private keys must be 32 bytes.");
+            throw new SdkFormatException("Signal ratchet keys must be 32 bytes.");
+        }
+
+        if (session.BasePublic.Length != SignalCipher.DjbIdentityLength
+            || session.BasePublic[0] != SignalCipher.DjbTypeByte)
+        {
+            throw new SdkFormatException("Signal base keys must be 33-byte DJB-encoded values.");
         }
 
         if (localRegistrationId > X3dh.MaxRegistrationId)
@@ -187,13 +200,16 @@ internal sealed class DoubleRatchet
             throw new SdkFormatException("Signal identity keys must be 33-byte DJB-encoded values.");
         }
 
+        byte[] dh = X3dh.Agree(sendingPrivate, bundle.SignedPreKey);
+        (byte[] root, byte[] sendChain) = KdfRk(session.RootKey, dh);
+        CryptographicOperations.ZeroMemory(dh);
         return new DoubleRatchet(
-            (byte[])session.RootKey.Clone(),
-            (byte[])session.ChainKey.Clone(),
+            root,
+            sendChain,
             null,
-            (byte[])basePrivate.Clone(),
-            (byte[])session.BasePublic.Clone(),
-            (byte[])bundle.SignedPreKey.Clone(),
+            (byte[])sendingPrivate.Clone(),
+            SignalCipher.ToDjbIdentity(sendingPublic),
+            SignalCipher.ToDjbIdentity(bundle.SignedPreKey),
             (byte[])session.BasePublic.Clone(),
             (byte[])localIdentityDjb.Clone(),
             (byte[])remoteIdentityDjb.Clone(),
@@ -205,54 +221,68 @@ internal sealed class DoubleRatchet
     }
 
     /// <summary>
-    /// Bob side: the X3DH root plus the first receiving chain; the sending
-    /// chain is minted on Bob's first send (standard lazy DH ratchet).
+    /// Bob side: the X3DH root with the signed-prekey pair as the initial
+    /// ratchet (official libsignal initSession responder lineage); the first
+    /// receiving chain derives on the first receipt via the DH-ratchet path,
+    /// and the sending chain is minted on Bob's first send.
     /// </summary>
-    /// <param name="session">X3DH output (root, first chain).</param>
+    /// <param name="session">X3DH output (root key).</param>
+    /// <param name="signedPreKeyPrivate">Our signed-prekey private (32 bytes): the initial ratchet and first-receipt DH input. Never logged.</param>
     /// <param name="localIdentityDjb">Our identity (33-byte DJB).</param>
     /// <param name="remoteIdentityDjb">Alice's identity (33-byte DJB).</param>
-    /// <param name="aliceBaseKey">Alice's advertised base public (replay-dedup pin).</param>
+    /// <param name="aliceBaseKeyDjb">Alice's advertised DJB base public (replay-dedup pin and initial peer ratchet).</param>
     /// <param name="localRegistrationId">Our 14-bit registration id.</param>
     /// <param name="remoteRegistrationId">Alice's 14-bit registration id.</param>
     internal static DoubleRatchet InitializeBob(
         BobSession session,
+        byte[] signedPreKeyPrivate,
         byte[] localIdentityDjb,
         byte[] remoteIdentityDjb,
-        byte[] aliceBaseKey,
+        byte[] aliceBaseKeyDjb,
         uint localRegistrationId,
         uint remoteRegistrationId)
     {
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(signedPreKeyPrivate);
         ArgumentNullException.ThrowIfNull(localIdentityDjb);
         ArgumentNullException.ThrowIfNull(remoteIdentityDjb);
-        ArgumentNullException.ThrowIfNull(aliceBaseKey);
+        ArgumentNullException.ThrowIfNull(aliceBaseKeyDjb);
+        if (signedPreKeyPrivate.Length != X3dh.KeyLength)
+        {
+            throw new SdkFormatException("Signal private keys must be 32 bytes.");
+        }
+
         if (localIdentityDjb.Length != SignalCipher.DjbIdentityLength
-            || remoteIdentityDjb.Length != SignalCipher.DjbIdentityLength)
+            || remoteIdentityDjb.Length != SignalCipher.DjbIdentityLength
+            || aliceBaseKeyDjb.Length != SignalCipher.DjbIdentityLength
+            || aliceBaseKeyDjb[0] != SignalCipher.DjbTypeByte)
         {
             throw new SdkFormatException("Signal identity keys must be 33-byte DJB-encoded values.");
         }
 
-        if (aliceBaseKey.Length != X3dh.KeyLength)
+        byte[] signedPreKeyPublic = X3dh.DeriveX25519Public(signedPreKeyPrivate);
+        try
         {
-            throw new SdkFormatException("Signal base keys must be 32 bytes.");
+            return new DoubleRatchet(
+                (byte[])session.RootKey.Clone(),
+                null,
+                null,
+                (byte[])signedPreKeyPrivate.Clone(),
+                SignalCipher.ToDjbIdentity(signedPreKeyPublic),
+                (byte[])aliceBaseKeyDjb.Clone(),
+                (byte[])aliceBaseKeyDjb.Clone(),
+                (byte[])localIdentityDjb.Clone(),
+                (byte[])remoteIdentityDjb.Clone(),
+                localRegistrationId,
+                remoteRegistrationId,
+                needsPreKeySend: false,
+                peerSignedPreKeyId: 0,
+                peerOneTimePreKeyId: null);
         }
-
-        (byte[] priv, byte[] pub) = X3dh.GenerateX25519KeyPair();
-        return new DoubleRatchet(
-            (byte[])session.RootKey.Clone(),
-            null,
-            (byte[])session.ChainKey.Clone(),
-            priv,
-            pub,
-            (byte[])aliceBaseKey.Clone(),
-            (byte[])aliceBaseKey.Clone(),
-            (byte[])localIdentityDjb.Clone(),
-            (byte[])remoteIdentityDjb.Clone(),
-            localRegistrationId,
-            remoteRegistrationId,
-            needsPreKeySend: false,
-            peerSignedPreKeyId: 0,
-            peerOneTimePreKeyId: null);
+        finally
+        {
+            CryptographicOperations.ZeroMemory(signedPreKeyPublic);
+        }
     }
 
     /// <summary>The established base key (replay-dedup pin; fresh copy).</summary>
@@ -362,11 +392,12 @@ internal sealed class DoubleRatchet
             return new SignalDecryptOutcome.Failed(SignalDecryptFailure.UnexpectedPreKey);
         }
 
-        // The inner wire replays through the regular path, so a first message
+        // The inner wire replays through the regular path. A first message
         // arriving after later ones still decrypts (its key was staged as a
-        // skipped key under the base ratchet). Only a stale first message for
-        // a session that already ratcheted past the base - no staged key and
-        // a moved-on peer ratchet - reports a duplicate.
+        // skipped key under the base ratchet); a fresh first message drives
+        // the DH-ratchet path (its ratchet is new to us). Only a stale first
+        // message for a session that already ratcheted past the base - no
+        // staged key and a moved-on peer ratchet - reports a duplicate.
         SignalDecryptFailure? innerSplit = SignalCipher.TrySplitEnvelope(
             content.InnerMessage, out _, out byte[]? innerBody, out _);
         if (innerSplit.HasValue || innerBody is null)
@@ -381,8 +412,9 @@ internal sealed class DoubleRatchet
         }
 
         byte[] innerRatchet = inner.RatchetKey.ToByteArray();
-        if (!CryptographicOperations.FixedTimeEquals(innerRatchet, _peerRatchetPublic)
-            && FindSkipped(innerRatchet, inner.Counter) < 0)
+        if (FindSkipped(innerRatchet, inner.Counter) < 0
+            && !CryptographicOperations.FixedTimeEquals(innerRatchet, _peerRatchetPublic)
+            && !CryptographicOperations.FixedTimeEquals(_peerRatchetPublic, _aliceBaseKey))
         {
             return new SignalDecryptOutcome.Failed(SignalDecryptFailure.DuplicatePreKey);
         }
@@ -582,7 +614,10 @@ internal sealed class DoubleRatchet
         byte[] oldPeerRatchet = (byte[])_peerRatchetPublic.Clone();
         own(oldPeerRatchet);
 
-        byte[] dh = X3dh.Agree(_ownRatchetPrivate, headerKey);
+        byte[] headerRaw = SignalCipher.FromDjbIdentity(headerKey);
+        own(headerRaw);
+
+        byte[] dh = X3dh.Agree(_ownRatchetPrivate, headerRaw);
         own(dh);
         (byte[] root1, byte[] recvChain) = KdfRk(_rootKey, dh);
         own(root1);
@@ -594,7 +629,7 @@ internal sealed class DoubleRatchet
         own(freshPriv);
         own(freshPub);
 
-        byte[] dh2 = X3dh.Agree(freshPriv, headerKey);
+        byte[] dh2 = X3dh.Agree(freshPriv, headerRaw);
         own(dh2);
         (byte[] root2, byte[] sendChain) = KdfRk(root1, dh2);
         own(root2);
@@ -665,10 +700,14 @@ internal sealed class DoubleRatchet
         CryptographicOperations.ZeroMemory(_ownRatchetPrivate);
         _ownRatchetPrivate = freshPriv;
         transfer(freshPriv);
-        _ownRatchetPublic = freshPub;
+        byte[] freshPubDjb = SignalCipher.ToDjbIdentity(freshPub);
+        own(freshPubDjb);
+        CryptographicOperations.ZeroMemory(freshPub);
         transfer(freshPub);
+        _ownRatchetPublic = freshPubDjb;
+        transfer(freshPubDjb);
         _peerRatchetPublic = newPeerRatchet;
-        _pn = _ns;
+        _pn = _ns == 0 ? 0 : _ns - 1;
         _ns = 0;
         _nr = header.Counter + 1;
         return outcome;
@@ -696,7 +735,16 @@ internal sealed class DoubleRatchet
     {
         // Bob's first send: DH-ratchet forward under a fresh keypair.
         (byte[] newPriv, byte[] newPub) = X3dh.GenerateX25519KeyPair();
-        byte[] dh = X3dh.Agree(newPriv, _peerRatchetPublic);
+        byte[] peerRaw = SignalCipher.FromDjbIdentity(_peerRatchetPublic);
+        byte[] dh;
+        try
+        {
+            dh = X3dh.Agree(newPriv, peerRaw);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(peerRaw);
+        }
         try
         {
             (byte[] root, byte[] sendChain) = KdfRk(_rootKey, dh);
@@ -712,7 +760,8 @@ internal sealed class DoubleRatchet
 
         CryptographicOperations.ZeroMemory(_ownRatchetPrivate);
         _ownRatchetPrivate = newPriv;
-        _ownRatchetPublic = newPub;
+        _ownRatchetPublic = SignalCipher.ToDjbIdentity(newPub);
+        CryptographicOperations.ZeroMemory(newPub);
     }
 
     /// <summary>KDF_CK: message key = HMAC(ck, 0x01); next chain = HMAC(ck, 0x02) (public Double Ratchet construction).</summary>
@@ -921,7 +970,8 @@ internal sealed class DoubleRatchet
             || remoteIdentity.Length != SignalCipher.DjbIdentityLength
             || remoteIdentity[0] != SignalCipher.DjbTypeByte
             || rootKey.Length != X3dh.KeyLength
-            || aliceBaseKey.Length != X3dh.KeyLength)
+            || aliceBaseKey.Length != SignalCipher.DjbIdentityLength
+            || aliceBaseKey[0] != SignalCipher.DjbTypeByte)
         {
             throw new SdkFormatException("Signal session bytes failed validation.");
         }
@@ -933,7 +983,8 @@ internal sealed class DoubleRatchet
         }
 
         if (structure.SenderChain is null
-            || structure.SenderChain.SenderRatchetKey.Length != X3dh.KeyLength
+            || structure.SenderChain.SenderRatchetKey.Length != SignalCipher.DjbIdentityLength
+            || structure.SenderChain.SenderRatchetKey[0] != SignalCipher.DjbTypeByte
             || structure.SenderChain.SenderRatchetKeyPrivate.Length != X3dh.KeyLength)
         {
             throw new SdkFormatException("Signal session bytes failed validation.");
@@ -967,7 +1018,8 @@ internal sealed class DoubleRatchet
             }
 
             byte[] pendingBase = structure.PendingPreKey.BaseKey.ToByteArray();
-            if (pendingBase.Length != X3dh.KeyLength
+            if (pendingBase.Length != SignalCipher.DjbIdentityLength
+                || pendingBase[0] != SignalCipher.DjbTypeByte
                 || !pendingBase.AsSpan().SequenceEqual(aliceBaseKey))
             {
                 throw new SdkFormatException("Signal session bytes failed validation.");
@@ -998,7 +1050,8 @@ internal sealed class DoubleRatchet
         for (int i = 0; i < structure.ReceiverChains.Count; i++)
         {
             SessionStructure.Types.Chain chain = structure.ReceiverChains[i];
-            if (chain.SenderRatchetKey.Length != X3dh.KeyLength)
+            if (chain.SenderRatchetKey.Length != SignalCipher.DjbIdentityLength
+                || chain.SenderRatchetKey[0] != SignalCipher.DjbTypeByte)
             {
                 throw new SdkFormatException("Signal session bytes failed validation.");
             }

@@ -84,8 +84,8 @@ internal abstract record PreKeyEnvelopeOutcome
 /// Byte layout (pinned by the Wave-0 spike fixtures, which win over prose):
 /// the wire form is <c>version(0x33) || serialized-SignalMessage ||
 /// MAC[..8]</c>, where the MAC is HMAC-SHA256 over
-/// <c>version || body || sender-DJB-identity || receiver-DJB-identity</c>
-/// truncated to 8 bytes. The version byte is <c>0x33</c> (libsignal
+/// <c>sender-DJB || receiver-DJB || version || body</c>
+/// truncated to 8 bytes (official libsignal SessionCipher.js, read-only). The version byte is <c>0x33</c> (libsignal
 /// <c>(3 &lt;&lt; 4) | 3</c>), confirmed read-only in Baileys
 /// <c>src/Signal/libsignal.ts</c> at commit 0af2386
 /// (<c>(version &amp; 0xf) !== 3</c> rejects; <c>sigType === 3</c> marks
@@ -93,6 +93,10 @@ internal abstract record PreKeyEnvelopeOutcome
 /// (<c>0x05 || 32-byte key</c>, Baileys <c>generateSignalPubKey</c> in
 /// <c>src/Utils/crypto.ts</c> at the same commit — the 33-byte length is
 /// asserted live in <c>libsignal.ts</c>'s pkmsg identity extraction).
+/// Ratchet keys (<c>SignalMessage.ratchetKey</c>) and prekey base keys
+/// (<c>PreKeySignalMessage.baseKey</c>) are likewise 33-byte DJB on the wire
+/// (official libsignal SessionCipher.js/ SessionBuilder.js: the stored
+/// keypair public already carries the 0x05 prefix and is used verbatim).
 /// Plaintext is PKCS7-style padded to a multiple of 160 bytes before
 /// AES-256-CBC (fixture-pinned; the 04-05 live-device UAT is the interop
 /// backstop for the block size).
@@ -232,7 +236,7 @@ internal static class SignalCipher
     /// <param name="plaintext">Message bytes; must not be empty (fail-closed).</param>
     /// <param name="senderIdentityDjb">Sender identity in 33-byte DJB form.</param>
     /// <param name="receiverIdentityDjb">Receiver identity in 33-byte DJB form.</param>
-    /// <param name="ratchetPublicKey">Current sending ratchet public key (32 bytes).</param>
+    /// <param name="ratchetPublicKey">Current sending ratchet public key in 33-byte DJB form.</param>
     /// <param name="counter">Sending chain index for this message.</param>
     /// <param name="previousCounter">Length of the previous sending chain.</param>
     /// <returns>The complete whisper wire bytes (version || proto || MAC).</returns>
@@ -253,10 +257,7 @@ internal static class SignalCipher
         ThrowUnlessKey(iv, IvLength);
         ThrowUnlessDjb(senderIdentityDjb);
         ThrowUnlessDjb(receiverIdentityDjb);
-        if (ratchetPublicKey.Length != RawKeyLength)
-        {
-            throw new SdkFormatException("Signal ratchet keys must be 32 bytes.");
-        }
+        ThrowUnlessDjb(ratchetPublicKey);
 
         if (plaintext is null || plaintext.Length == 0)
         {
@@ -348,7 +349,7 @@ internal static class SignalCipher
 
     /// <summary>
     /// Parses a <c>SignalMessage</c> body and validates its length rules
-    /// (32-byte ratchet key, non-empty block-aligned ciphertext); null when
+    /// (33-byte DJB ratchet key, non-empty block-aligned ciphertext); null when
     /// the body is not a well-formed message (never throws).
     /// </summary>
     internal static SignalMessage? TryParseWhisperBody(byte[] body)
@@ -366,7 +367,10 @@ internal static class SignalCipher
 
         byte[] ratchetKey = message.RatchetKey.ToByteArray();
         byte[] ciphertext = message.Ciphertext.ToByteArray();
-        if (ratchetKey.Length != RawKeyLength || ciphertext.Length == 0 || ciphertext.Length % 16 != 0)
+        if (ratchetKey.Length != DjbIdentityLength
+            || ratchetKey[0] != DjbTypeByte
+            || ciphertext.Length == 0
+            || ciphertext.Length % 16 != 0)
         {
             return null;
         }
@@ -459,7 +463,7 @@ internal static class SignalCipher
     /// the responder replays it through the regular decrypt path. The 04-05
     /// live-device UAT is the interop backstop for this embedding choice.
     /// </param>
-    /// <param name="baseKey">Our ephemeral base public key (32 bytes).</param>
+    /// <param name="baseKey">Our ephemeral base public key in 33-byte DJB form.</param>
     /// <param name="identityKeyDjb">Our identity key in 33-byte DJB form.</param>
     /// <param name="registrationId">Our 14-bit registration id.</param>
     /// <param name="signedPreKeyId">The peer bundle's signed-prekey id.</param>
@@ -479,9 +483,9 @@ internal static class SignalCipher
             throw new SdkFormatException("Signal prekey messages must carry a non-empty inner message.");
         }
 
-        if (baseKey.Length != RawKeyLength)
+        if (baseKey.Length != DjbIdentityLength || baseKey[0] != DjbTypeByte)
         {
-            throw new SdkFormatException("Signal base keys must be 32 bytes.");
+            throw new SdkFormatException("Signal base keys must be 33-byte DJB-encoded values.");
         }
 
         ThrowUnlessDjb(identityKeyDjb);
@@ -536,7 +540,8 @@ internal static class SignalCipher
         byte[] baseKey = preKey.BaseKey.ToByteArray();
         byte[] identityKey = preKey.IdentityKey.ToByteArray();
         byte[] inner = preKey.Message.ToByteArray();
-        if (baseKey.Length != RawKeyLength
+        if (baseKey.Length != DjbIdentityLength
+            || baseKey[0] != DjbTypeByte
             || identityKey.Length != DjbIdentityLength
             || identityKey[0] != DjbTypeByte
             || inner.Length == 0)
@@ -623,11 +628,11 @@ internal static class SignalCipher
         ReadOnlySpan<byte> senderIdentityDjb,
         ReadOnlySpan<byte> receiverIdentityDjb)
     {
-        byte[] input = new byte[1 + body.Length + senderIdentityDjb.Length + receiverIdentityDjb.Length];
-        input[0] = versionByte;
-        body.CopyTo(input.AsSpan(1));
-        senderIdentityDjb.CopyTo(input.AsSpan(1 + body.Length));
-        receiverIdentityDjb.CopyTo(input.AsSpan(1 + body.Length + senderIdentityDjb.Length));
+        byte[] input = new byte[senderIdentityDjb.Length + receiverIdentityDjb.Length + 1 + body.Length];
+        senderIdentityDjb.CopyTo(input.AsSpan(0));
+        receiverIdentityDjb.CopyTo(input.AsSpan(senderIdentityDjb.Length));
+        input[senderIdentityDjb.Length + receiverIdentityDjb.Length] = versionByte;
+        body.CopyTo(input.AsSpan(senderIdentityDjb.Length + receiverIdentityDjb.Length + 1));
         try
         {
             byte[] full = HMACSHA256.HashData(hmacKey.ToArray(), input);

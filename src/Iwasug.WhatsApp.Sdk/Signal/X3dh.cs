@@ -32,11 +32,11 @@ internal sealed record PeerBundle(
     uint? OneTimePreKeyId,
     uint RegistrationId);
 
-/// <summary>Alice's (initiator) X3DH output: the shared root, the first sending chain key, and her base public.</summary>
-internal sealed record AliceSession(byte[] RootKey, byte[] ChainKey, byte[] BasePublic);
+/// <summary>Alice's (initiator) X3DH output: the shared root and her DJB-encoded base public.</summary>
+internal sealed record AliceSession(byte[] RootKey, byte[] BasePublic);
 
-/// <summary>Bob's (responder) X3DH output: the shared root and the first receiving chain key.</summary>
-internal sealed record BobSession(byte[] RootKey, byte[] ChainKey);
+/// <summary>Bob's (responder) X3DH output: the shared root (chains derive via DH-ratchet steps).</summary>
+internal sealed record BobSession(byte[] RootKey);
 
 /// <summary>
 /// X3DH session establishment over NSec + BCL (04-01, internal): bundle
@@ -90,9 +90,6 @@ internal static class X3dh
     /// <summary>Ed25519 signature length.</summary>
     internal const int SignatureLength = 64;
 
-    /// <summary>Derived root+chain length (HKDF output).</summary>
-    internal const int DerivedLength = 64;
-
     /// <summary>X3DH HKDF info label (public Signal construction).</summary>
     internal const string InfoLabel = "WhisperText";
 
@@ -138,7 +135,9 @@ internal static class X3dh
             throw new SdkFormatException("Signal bundle signed pre-key signature is invalid.");
         }
 
-        byte[] ephemeralPublic = DeriveX25519Public(ephemeralPrivate);
+        byte[] ephemeralRaw = DeriveX25519Public(ephemeralPrivate);
+        byte[] ephemeralPublic = SignalCipher.ToDjbIdentity(ephemeralRaw);
+        CryptographicOperations.ZeroMemory(ephemeralRaw);
         try
         {
             byte[] dh1 = Agree(ownIdentityPrivate, bundle.SignedPreKey);
@@ -158,8 +157,8 @@ internal static class X3dh
                                 : Concat(dh1, dh2, dh3, Agree(ephemeralPrivate, bundle.OneTimePreKey));
                             try
                             {
-                                (byte[] root, byte[] chain) = DeriveRootAndChain(secret);
-                                return new AliceSession(root, chain, ephemeralPublic);
+                                byte[] root = DeriveRootKey(secret);
+                                return new AliceSession(root, ephemeralPublic);
                             }
                             finally
                             {
@@ -202,7 +201,7 @@ internal static class X3dh
     /// <param name="oneTimePrivate">Our 32-byte one-time private for the consumed id, or null when Alice used no one-time key. Never logged.</param>
     /// <param name="aliceUsedOneTimeKey">Whether Alice's prekey message names a one-time id (must agree with <paramref name="oneTimePrivate"/>).</param>
     /// <param name="aliceIdentityDjb">Alice's 33-byte DJB identity.</param>
-    /// <param name="aliceBaseKey">Alice's 32-byte base public.</param>
+    /// <param name="aliceBaseKeyDjb">Alice's 33-byte DJB base public (stripped to raw for DH).</param>
     /// <exception cref="SdkFormatException">Any key is missized, or the one-time-key expectation disagrees.</exception>
     internal static BobSession InitializeBob(
         ReadOnlySpan<byte> ownIdentityPrivate,
@@ -210,7 +209,7 @@ internal static class X3dh
         byte[]? oneTimePrivate,
         bool aliceUsedOneTimeKey,
         ReadOnlySpan<byte> aliceIdentityDjb,
-        ReadOnlySpan<byte> aliceBaseKey)
+        ReadOnlySpan<byte> aliceBaseKeyDjb)
     {
         ThrowUnlessPrivate(ownIdentityPrivate);
         ThrowUnlessPrivate(signedPreKeyPrivate);
@@ -219,9 +218,9 @@ internal static class X3dh
             throw new SdkFormatException("Signal identity keys must be 33-byte DJB-encoded values.");
         }
 
-        if (aliceBaseKey.Length != KeyLength)
+        if (aliceBaseKeyDjb.Length != DjbIdentityLength || aliceBaseKeyDjb[0] != SignalCipher.DjbTypeByte)
         {
-            throw new SdkFormatException("Signal base keys must be 32 bytes.");
+            throw new SdkFormatException("Signal base keys must be 33-byte DJB-encoded values.");
         }
 
         bool haveOneTime = oneTimePrivate is not null;
@@ -236,25 +235,26 @@ internal static class X3dh
         }
 
         byte[] aliceIdentityRaw = SignalCipher.FromDjbIdentity(aliceIdentityDjb);
+        byte[] aliceBaseRaw = SignalCipher.FromDjbIdentity(aliceBaseKeyDjb);
         try
         {
             // Same concatenation order as Alice (DH is commutative per pair).
             byte[] dh1 = Agree(signedPreKeyPrivate, aliceIdentityRaw);
             try
             {
-                byte[] dh2 = Agree(ownIdentityPrivate, aliceBaseKey);
+                byte[] dh2 = Agree(ownIdentityPrivate, aliceBaseRaw);
                 try
                 {
-                    byte[] dh3 = Agree(signedPreKeyPrivate, aliceBaseKey);
+                    byte[] dh3 = Agree(signedPreKeyPrivate, aliceBaseRaw);
                     try
                     {
                         byte[] secret = haveOneTime
-                            ? Concat(dh1, dh2, dh3, Agree(oneTimePrivate, aliceBaseKey))
+                            ? Concat(dh1, dh2, dh3, Agree(oneTimePrivate, aliceBaseRaw))
                             : Concat(dh1, dh2, dh3);
                         try
                         {
-                            (byte[] root, byte[] chain) = DeriveRootAndChain(secret);
-                            return new BobSession(root, chain);
+                            byte[] root = DeriveRootKey(secret);
+                            return new BobSession(root);
                         }
                         finally
                         {
@@ -279,6 +279,7 @@ internal static class X3dh
         finally
         {
             CryptographicOperations.ZeroMemory(aliceIdentityRaw);
+            CryptographicOperations.ZeroMemory(aliceBaseRaw);
         }
     }
 
@@ -479,7 +480,7 @@ internal static class X3dh
         }
     }
 
-    private static (byte[] RootKey, byte[] ChainKey) DeriveRootAndChain(byte[] secret)
+    private static byte[] DeriveRootKey(byte[] secret)
     {
         // X3DH §2.2 KDF: input key material is F ‖ KM with F = 32 0xFF bytes
         // (X25519 domain separation from XEdDSA), salt zeros, info the label.
@@ -491,16 +492,12 @@ internal static class X3dh
             byte[] okm = HKDF.DeriveKey(
                 HashAlgorithmName.SHA256,
                 ikm,
-                DerivedLength,
+                KeyLength,
                 new byte[KeyLength],
                 Encoding.ASCII.GetBytes(InfoLabel));
             try
             {
-                byte[] root = new byte[KeyLength];
-                byte[] chain = new byte[KeyLength];
-                okm.AsSpan(0, KeyLength).CopyTo(root);
-                okm.AsSpan(KeyLength, KeyLength).CopyTo(chain);
-                return (root, chain);
+                return (byte[])okm.Clone();
             }
             finally
             {
