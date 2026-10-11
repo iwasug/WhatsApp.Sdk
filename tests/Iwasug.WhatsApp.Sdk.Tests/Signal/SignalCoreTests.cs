@@ -440,10 +440,11 @@ public sealed class SignalCoreTests
             .Should().BeOfType<SignalDecryptOutcome.Decrypted>();
 
         // Replaying the same PreKeySignalMessage never creates a second
-        // session: the established base key pins it as a duplicate.
+        // session: the established base key routes the inner message to the
+        // regular path, where its consumed counter reports a typed failure.
         bob.Decrypt(wire, isPreKey: true, CancellationToken.None)
             .Should().BeOfType<SignalDecryptOutcome.Failed>()
-            .Which.Reason.Should().Be(SignalDecryptFailure.DuplicatePreKey);
+            .Which.Reason.Should().Be(SignalDecryptFailure.OldCounter);
     }
 
     [Fact]

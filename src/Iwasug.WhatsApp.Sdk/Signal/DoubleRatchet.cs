@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using Google.Protobuf;
+using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.Runtime;
 
 namespace Iwasug.WhatsApp.Sdk.Signal;
 
@@ -358,14 +362,11 @@ internal sealed class DoubleRatchet
             return new SignalDecryptOutcome.Failed(SignalDecryptFailure.UnexpectedPreKey);
         }
 
-        if (_receivedAny)
-        {
-            return new SignalDecryptOutcome.Failed(SignalDecryptFailure.DuplicatePreKey);
-        }
-
-        // Fresh session's first delivery: the inner wire rides the base
-        // ratchet at counter zero and replays through the regular path
-        // (same chain, MAC verified under the initial chain key).
+        // The inner wire replays through the regular path, so a first message
+        // arriving after later ones still decrypts (its key was staged as a
+        // skipped key under the base ratchet). Only a stale first message for
+        // a session that already ratcheted past the base - no staged key and
+        // a moved-on peer ratchet - reports a duplicate.
         SignalDecryptFailure? innerSplit = SignalCipher.TrySplitEnvelope(
             content.InnerMessage, out _, out byte[]? innerBody, out _);
         if (innerSplit.HasValue || innerBody is null)
@@ -374,10 +375,16 @@ internal sealed class DoubleRatchet
         }
 
         SignalMessage? inner = SignalCipher.TryParseWhisperBody(innerBody);
-        if (inner is null
-            || !CryptographicOperations.FixedTimeEquals(inner.RatchetKey.ToByteArray(), _peerRatchetPublic))
+        if (inner is null)
         {
             return new SignalDecryptOutcome.Failed(SignalDecryptFailure.MalformedMessage);
+        }
+
+        byte[] innerRatchet = inner.RatchetKey.ToByteArray();
+        if (!CryptographicOperations.FixedTimeEquals(innerRatchet, _peerRatchetPublic)
+            && FindSkipped(innerRatchet, inner.Counter) < 0)
+        {
+            return new SignalDecryptOutcome.Failed(SignalDecryptFailure.DuplicatePreKey);
         }
 
         return DecryptRegular(content.InnerMessage);
@@ -766,5 +773,400 @@ internal sealed class DoubleRatchet
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// Serializes the full session state to SDK-owned <c>SessionStructure</c>
+    /// bytes - the producer behind <c>SignalSessionRecord.SessionState</c>.
+    /// Hosts persist these bytes opaquely and must not parse them.
+    /// </summary>
+    /// <remarks>
+    /// SDK-owned encoding notes (not a public contract): the sender chain is
+    /// always emitted (own ratchet keys are required to keep sending after a
+    /// restart); its <c>chainKey</c> is absent exactly when no sending chain
+    /// exists yet (Bob before his first send). The first receiver chain is
+    /// the current receiving chain; a keyless first chain with no staged keys
+    /// is the no-receiving marker (Alice before Bob's reply) recording the
+    /// peer ratchet. Later keyless chains carry staged keys of exhausted
+    /// ratchets. Staged <c>MessageKey.cipherKey</c> holds the raw 32-byte
+    /// chain message key with <c>macKey</c>/<c>iv</c> empty (strict on load).
+    /// <c>pendingPreKey</c> is emitted exactly when the first send must still
+    /// use prekey form, carrying the bundle coordinates it must name;
+    /// <c>needsRefresh</c> stays false: replays are rejected via the base-key
+    /// pin and counters.
+    /// </remarks>
+    internal byte[] Serialize()
+    {
+        var structure = new SessionStructure
+        {
+            SessionVersion = SessionVersion,
+            LocalIdentityPublic = ByteString.CopyFrom(_localIdentityDjb),
+            RemoteIdentityPublic = ByteString.CopyFrom(_remoteIdentityDjb),
+            RootKey = ByteString.CopyFrom(_rootKey),
+            PreviousCounter = _pn,
+            RemoteRegistrationId = _remoteRegistrationId,
+            LocalRegistrationId = _localRegistrationId,
+            NeedsRefresh = false,
+            AliceBaseKey = ByteString.CopyFrom(_aliceBaseKey),
+        };
+
+        var senderChain = new SessionStructure.Types.Chain
+        {
+            SenderRatchetKey = ByteString.CopyFrom(_ownRatchetPublic),
+            SenderRatchetKeyPrivate = ByteString.CopyFrom(_ownRatchetPrivate),
+        };
+        if (_sendingChainKey is not null)
+        {
+            senderChain.ChainKey = new SessionStructure.Types.Chain.Types.ChainKey
+            {
+                Index = _ns,
+                Key = ByteString.CopyFrom(_sendingChainKey),
+            };
+        }
+
+        structure.SenderChain = senderChain;
+
+        var current = new SessionStructure.Types.Chain
+        {
+            SenderRatchetKey = ByteString.CopyFrom(_peerRatchetPublic),
+        };
+        if (_receivingChainKey is not null)
+        {
+            current.ChainKey = new SessionStructure.Types.Chain.Types.ChainKey
+            {
+                Index = _nr,
+                Key = ByteString.CopyFrom(_receivingChainKey),
+            };
+        }
+
+        foreach (SkippedKey staged in _skipped)
+        {
+            if (staged.RatchetKey.AsSpan().SequenceEqual(_peerRatchetPublic))
+            {
+                current.MessageKeys.Add(new SessionStructure.Types.Chain.Types.MessageKey
+                {
+                    Index = staged.Counter,
+                    CipherKey = ByteString.CopyFrom(staged.MessageKey),
+                });
+            }
+        }
+
+        structure.ReceiverChains.Add(current);
+
+        foreach (System.Linq.IGrouping<string, SkippedKey> group
+            in _skipped
+                .Where(s => !s.RatchetKey.AsSpan().SequenceEqual(_peerRatchetPublic))
+                .GroupBy(s => Convert.ToHexString(s.RatchetKey)))
+        {
+            var exhausted = new SessionStructure.Types.Chain
+            {
+                SenderRatchetKey = ByteString.CopyFrom(group.First().RatchetKey),
+            };
+            foreach (SkippedKey staged in group)
+            {
+                exhausted.MessageKeys.Add(new SessionStructure.Types.Chain.Types.MessageKey
+                {
+                    Index = staged.Counter,
+                    CipherKey = ByteString.CopyFrom(staged.MessageKey),
+                });
+            }
+
+            structure.ReceiverChains.Add(exhausted);
+        }
+
+        if (_needsPreKeySend)
+        {
+            structure.PendingPreKey = new SessionStructure.Types.PendingPreKey
+            {
+                PreKeyId = _peerOneTimePreKeyId ?? 0,
+                BaseKey = ByteString.CopyFrom(_aliceBaseKey),
+                SignedPreKeyId = (int)_peerSignedPreKeyId,
+            };
+        }
+
+        return structure.ToByteArray();
+    }
+
+    /// <summary>
+    /// Rebuilds a session from <see cref="Serialize"/> bytes. Every length
+    /// rule is validated before any state is constructed: a tampered blob
+    /// throws a rule-only <see cref="SdkFormatException"/> and never yields
+    /// a partial session.
+    /// </summary>
+    /// <exception cref="SdkFormatException">The bytes are not a well-formed v1 session.</exception>
+    internal static DoubleRatchet Deserialize(byte[] bytes)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        SessionStructure structure;
+        try
+        {
+            structure = SessionStructure.Parser.ParseFrom(bytes);
+        }
+        catch (InvalidProtocolBufferException ex)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.", ex);
+        }
+
+        if (structure.SessionVersion != SessionVersion)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        byte[] localIdentity = structure.LocalIdentityPublic.ToByteArray();
+        byte[] remoteIdentity = structure.RemoteIdentityPublic.ToByteArray();
+        byte[] rootKey = structure.RootKey.ToByteArray();
+        byte[] aliceBaseKey = structure.AliceBaseKey.ToByteArray();
+        if (localIdentity.Length != SignalCipher.DjbIdentityLength
+            || localIdentity[0] != SignalCipher.DjbTypeByte
+            || remoteIdentity.Length != SignalCipher.DjbIdentityLength
+            || remoteIdentity[0] != SignalCipher.DjbTypeByte
+            || rootKey.Length != X3dh.KeyLength
+            || aliceBaseKey.Length != X3dh.KeyLength)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        if (structure.RemoteRegistrationId > X3dh.MaxRegistrationId
+            || structure.LocalRegistrationId > X3dh.MaxRegistrationId)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        if (structure.SenderChain is null
+            || structure.SenderChain.SenderRatchetKey.Length != X3dh.KeyLength
+            || structure.SenderChain.SenderRatchetKeyPrivate.Length != X3dh.KeyLength)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        byte[]? sendingChainKey = null;
+        uint ns = 0;
+        if (structure.SenderChain.ChainKey is not null)
+        {
+            if (structure.SenderChain.ChainKey.Key.Length != X3dh.KeyLength)
+            {
+                throw new SdkFormatException("Signal session bytes failed validation.");
+            }
+
+            sendingChainKey = structure.SenderChain.ChainKey.Key.ToByteArray();
+            ns = structure.SenderChain.ChainKey.Index;
+        }
+
+        // PendingPreKey is the explicit first-send marker: present exactly
+        // when the first send must still use prekey form, carrying the bundle
+        // coordinates it must name. Anything else here is foreign bytes.
+        bool needsPreKeySend = false;
+        uint peerSignedPreKeyId = 0;
+        uint? peerOneTimePreKeyId = null;
+        if (structure.PendingPreKey is not null)
+        {
+            if (structure.PendingPreKey.SignedPreKeyId < 0
+                || structure.PendingPreKey.PreKeyId == 0 && structure.PendingPreKey.SignedPreKeyId == 0)
+            {
+                throw new SdkFormatException("Signal session bytes failed validation.");
+            }
+
+            byte[] pendingBase = structure.PendingPreKey.BaseKey.ToByteArray();
+            if (pendingBase.Length != X3dh.KeyLength
+                || !pendingBase.AsSpan().SequenceEqual(aliceBaseKey))
+            {
+                throw new SdkFormatException("Signal session bytes failed validation.");
+            }
+
+            needsPreKeySend = true;
+            peerSignedPreKeyId = (uint)structure.PendingPreKey.SignedPreKeyId;
+            peerOneTimePreKeyId = structure.PendingPreKey.PreKeyId == 0
+                ? null
+                : structure.PendingPreKey.PreKeyId;
+        }
+
+        if (structure.NeedsRefresh)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        byte[]? receivingChainKey = null;
+        uint nr = 0;
+        byte[]? peerRatchetPublic = null;
+        var skipped = new List<SkippedKey>();
+        var seen = new HashSet<(string Ratchet, uint Counter)>();
+        if (structure.ReceiverChains.Count == 0)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        for (int i = 0; i < structure.ReceiverChains.Count; i++)
+        {
+            SessionStructure.Types.Chain chain = structure.ReceiverChains[i];
+            if (chain.SenderRatchetKey.Length != X3dh.KeyLength)
+            {
+                throw new SdkFormatException("Signal session bytes failed validation.");
+            }
+
+            if (chain.ChainKey is not null && chain.ChainKey.Key.Length == 0)
+            {
+                throw new SdkFormatException("Signal session bytes failed validation.");
+            }
+
+            byte[] ratchet = chain.SenderRatchetKey.ToByteArray();
+            bool hasKey = chain.ChainKey is not null;
+            if (hasKey)
+            {
+                if (i != 0)
+                {
+                    throw new SdkFormatException("Signal session bytes failed validation.");
+                }
+
+                if (chain.ChainKey!.Key.Length != X3dh.KeyLength)
+                {
+                    throw new SdkFormatException("Signal session bytes failed validation.");
+                }
+
+                peerRatchetPublic = ratchet;
+                receivingChainKey = chain.ChainKey.Key.ToByteArray();
+                nr = chain.ChainKey.Index;
+            }
+            else if (i == 0)
+            {
+                if (chain.MessageKeys.Count != 0 || structure.ReceiverChains.Count != 1)
+                {
+                    throw new SdkFormatException("Signal session bytes failed validation.");
+                }
+
+                peerRatchetPublic = ratchet;
+            }
+
+            foreach (SessionStructure.Types.Chain.Types.MessageKey staged in chain.MessageKeys)
+            {
+                if (staged.CipherKey.Length != X3dh.KeyLength
+                    || staged.MacKey.Length != 0
+                    || staged.Iv.Length != 0)
+                {
+                    throw new SdkFormatException("Signal session bytes failed validation.");
+                }
+
+                string fingerprint = Convert.ToHexString(ratchet);
+                if (!seen.Add((fingerprint, staged.Index)))
+                {
+                    throw new SdkFormatException("Signal session bytes failed validation.");
+                }
+
+                skipped.Add(new SkippedKey(
+                    (byte[])ratchet.Clone(), staged.Index, staged.CipherKey.ToByteArray()));
+            }
+        }
+
+        if (peerRatchetPublic is null)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        if (skipped.Count > MaxSkippedMessageKeys)
+        {
+            throw new SdkFormatException("Signal session bytes failed validation.");
+        }
+
+        bool receivedAny = nr > 0 || skipped.Count > 0;
+
+        var session = new DoubleRatchet(
+            rootKey,
+            sendingChainKey,
+            receivingChainKey,
+            structure.SenderChain.SenderRatchetKeyPrivate.ToByteArray(),
+            structure.SenderChain.SenderRatchetKey.ToByteArray(),
+            peerRatchetPublic,
+            aliceBaseKey,
+            localIdentity,
+            remoteIdentity,
+            structure.LocalRegistrationId,
+            structure.RemoteRegistrationId,
+            needsPreKeySend,
+            peerSignedPreKeyId,
+            peerOneTimePreKeyId);
+        session._ns = ns;
+        session._nr = nr;
+        session._pn = structure.PreviousCounter;
+        session._receivedAny = receivedAny;
+        foreach (SkippedKey staged in skipped)
+        {
+            session._skipped.Add(staged);
+        }
+
+        return session;
+    }
+
+    /// <summary>
+    /// Thin durable adapter over <see cref="ISignalSessionStore"/>: sessions are keyed
+    /// by the full per-device AD JID, every state-advancing mutation persists
+    /// through <see cref="DurableWriteRetryPolicy"/> before the protocol
+    /// continues (D-06), and every mutation serializes behind the per-address
+    /// gate. The repository holds no cached instances: each operation loads
+    /// fresh bytes, so a persist failure can never leave a caller holding
+    /// state newer than what a restart would reload.
+    /// </summary>
+    internal sealed class SignalSessionRepository
+    {
+        private readonly ISignalSessionStore _store;
+        private readonly DurableWriteRetryPolicy _retry;
+
+        /// <summary>Creates a repository over <paramref name="store"/> with <paramref name="retryPolicy"/> durability.</summary>
+        internal SignalSessionRepository(ISignalSessionStore store, DurableWriteRetryPolicy retryPolicy)
+        {
+            _store = store ?? throw new ArgumentNullException(nameof(store));
+            _retry = retryPolicy ?? throw new ArgumentNullException(nameof(retryPolicy));
+        }
+
+        /// <summary>
+        /// The store key for a peer session: the canonical full per-device AD
+        /// JID (<see cref="Jid.ToString"/> including the device index) - never
+        /// the bare user (04-RESEARCH Open Question 1 / Pitfall 5: Double
+        /// Ratchet sessions are strictly per-device, so two devices of one
+        /// user never collide). Keyed by the arrival JID; PN to LID aliasing
+        /// is a mapping note for later phases, not a second key.
+        /// </summary>
+        internal static string AddressFor(Jid peer)
+        {
+            ArgumentNullException.ThrowIfNull(peer);
+            return peer.ToString();
+        }
+
+        /// <summary>
+        /// Loads the session for <paramref name="address"/>, or null when no
+        /// session exists (missing is not failure). A tampered blob throws a
+        /// rule-only <see cref="SdkFormatException"/> - never a partial session.
+        /// </summary>
+        internal async Task<DoubleRatchet?> LoadAsync(string address, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(address);
+            using IDisposable loadLease = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false);
+            SignalSessionRecord? record = await _store.GetAsync(address, cancellationToken).ConfigureAwait(false);
+            if (record is null)
+            {
+                return null;
+            }
+
+            return DoubleRatchet.Deserialize(record.SessionState);
+        }
+
+        /// <summary>
+        /// Persists <paramref name="session"/> under <paramref name="address"/>,
+        /// awaiting durability before returning (D-06). On persist failure the
+        /// durable bytes are untouched: callers must reload rather than keep
+        /// using the unpersisted advance.
+        /// </summary>
+        internal async Task SaveAsync(string address, DoubleRatchet session, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(address);
+            ArgumentNullException.ThrowIfNull(session);
+            using IDisposable saveLease = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false);
+            byte[] state = session.Serialize();
+            await _retry.ExecuteAsync<bool>(
+                async ct =>
+                {
+                    await _store.PutAsync(address, new SignalSessionRecord(address, state), ct).ConfigureAwait(false);
+                    return true;
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
     }
 }
