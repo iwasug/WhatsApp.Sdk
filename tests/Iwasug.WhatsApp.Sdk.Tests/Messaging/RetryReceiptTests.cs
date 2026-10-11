@@ -82,9 +82,11 @@ public sealed class RetryReceiptTests
 
     /// <summary>
     /// A self-verifiable <c>&lt;keys&gt;</c> block for the peer device: raw Ed25519
-    /// identity (the key the skey signature verifies under — the plan's XEdDSA
-    /// approximation means identity and signing key are the same Ed25519 pair here),
-    /// a one-time prekey, and the device's signed prekey with its real signature.
+    /// identity (the key the skey signature verifies under), a one-time prekey, and
+    /// the device's signed prekey with its real signature. Carrying the Ed25519
+    /// public as <c>identity</c> is a LOOPBACK-ONLY convention that lets the test
+    /// verify its own block; the production wire identity is the X25519 DH key,
+    /// whose Ed25519 verification gap is CR-01 (XEdDSA, tracked for 04-05 UAT).
     /// </summary>
     private static BinaryNode BuildPeerKeysBlock(PeerDevice device)
     {

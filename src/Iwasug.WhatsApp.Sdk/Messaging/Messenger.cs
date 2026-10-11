@@ -446,7 +446,12 @@ public sealed class Messenger : IAsyncDisposable
                 RouterProvider() ?? throw new SdkConnectionException("The connection is not open: own prekeys were not uploaded."),
                 new DurableWriteRetryPolicy());
             OwnPreKeyMaterial material = manager.GenerateOwnMaterial(
-                row.SigningKeyPrivate,
+                // Signed by the IDENTITY private, not the device-signing key: the
+                // documented XEdDSA approximation is "identity and signing key are
+                // the same Ed25519 pair". Verification still imports the wire
+                // identity (X25519 bytes) as Ed25519, so first-contact verify only
+                // truly works once XEdDSA lands (CR-01, tracked for 04-05 UAT).
+                row.IdentityKeyPrivate,
                 (bundle?.SignedPreKeyId ?? 0) + 1,
                 (bundle?.OneTimePreKeyId ?? 0) + remaining + 1,
                 PreKeyManager.UploadBatchSize);

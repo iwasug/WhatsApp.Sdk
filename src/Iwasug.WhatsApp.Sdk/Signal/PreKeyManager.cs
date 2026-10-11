@@ -137,7 +137,7 @@ internal sealed class PreKeyManager
     /// of one-time prekeys with sequential ids from
     /// <paramref name="oneTimeStartId"/>.
     /// </summary>
-    /// <param name="signingPrivate">Own Ed25519 identity signing private (32 bytes, e.g. CredentialRecord.SigningKeyPrivate). Never logged.</param>
+    /// <param name="signingPrivate">Own Ed25519 identity private (32 bytes) — the SAME pair the advertised identity derives from (CredentialRecord.IdentityKeyPrivate, per the documented XEdDSA approximation; never the unrelated device-signing key). Never logged.</param>
     /// <param name="signedPreKeyId">Signed-prekey id (24-bit).</param>
     /// <param name="oneTimeStartId">First one-time id (24-bit; the batch must fit).</param>
     /// <param name="oneTimeCount">Batch size (at least 1).</param>

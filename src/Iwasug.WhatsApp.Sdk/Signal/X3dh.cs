@@ -62,14 +62,19 @@ internal sealed record BobSession(byte[] RootKey);
 /// <c>Sig(IKB, Encode(SPKB))</c>).
 /// </para>
 /// <para>
-/// XEdDSA NOTE (known interop risk, tracked for the 04-05 live-device UAT):
+/// XEdDSA NOTE (known interop risk, tracked for the 04-05 live-device UAT — CR-01):
 /// X3DH §2.2 specifies <c>Sig</c> as XEdDSA, but this plan's crypto surface
 /// is NSec + BCL only (STACK.md forbids hand-rolled curve math, and no vetted
 /// .NET XEdDSA primitive exists in-tree), so signing/verification here is
-/// Ed25519 over the same DJB-encoded bytes through NSec. The seam is exactly
-/// <see cref="SignWithIdentity"/>/<see cref="VerifySignedPreKey"/>: if UAT
-/// against a real bundle rejects our verification, only those two functions
-/// change (plus fixtures) — no caller touches curve bytes directly.
+/// Ed25519 over the same DJB-encoded bytes through NSec. Own uploads sign the
+/// signed-prekey with the identity private (the documented approximation:
+/// identity and signing key are the same Ed25519 pair), but the wire identity
+/// is the X25519 DH public and verification imports those bytes as Ed25519 —
+/// so first-contact signature verification still fails SDK↔SDK and SDK↔real-WA
+/// until XEdDSA lands. When it does, the change is NOT confined to
+/// <see cref="SignWithIdentity"/>/<see cref="VerifySignedPreKey"/>: the
+/// production signing-key selection (own prekey upload) and every verify-key
+/// selection (bundle identity passes) move with them.
 /// </para>
 /// <para>
 /// Discipline (Shared Patterns 4, T-4-01): NSec typed keys for every curve
@@ -108,8 +113,10 @@ internal static class X3dh
     /// explicitly because the plan's NSec-only crypto approximates XEdDSA
     /// (XEdDSA unifies the DH identity and the verify key; Ed25519 cannot —
     /// one keypair can never satisfy both, so the keys travel separately).
-    /// Production callers pass the bundle identity (the UAT-validated
-    /// semantic); tests pass the synthetic peer's distinct signing public.
+    /// Production callers pass the bundle identity — the X25519 wire bytes
+    /// imported as Ed25519, the documented approximation that does NOT verify
+    /// real XEdDSA signatures (CR-01, tracked for the 04-05 UAT); tests pass
+    /// the synthetic peer's distinct signing public.
     /// When the XEdDSA primitive lands, this parameter disappears.
     /// </param>
     /// <returns>Root key, first chain key, and our base public (fresh copies owned by the caller).</returns>
@@ -315,10 +322,14 @@ internal static class X3dh
             return false;
         }
 
-        // NOTE: the bundle identity is an X25519 key on the WhatsApp wire,
-        // but the signed-prekey signature is Ed25519 over the DJB encoding.
-        // Verification imports the raw 32 bytes as an Ed25519 public key,
-        // exactly as Baileys' verify path imports the DJB form's key bytes.
+        // NOTE: the bundle identity is an X25519 key on the WhatsApp wire, while
+        // the signed-prekey signature is Ed25519 over the DJB encoding. This
+        // verification imports the raw 32 bytes as an Ed25519 public key — the
+        // plan's NSec-only approximation. Baileys itself does NOT verify this
+        // way: it verifies the skey signature with XEdDSA (the identity's
+        // birationally-converted Ed25519 point), so this path rejects real-WA
+        // signatures — and our own uploads' signatures — until XEdDSA lands
+        // (CR-01, tracked for the 04-05 UAT).
         byte[] djbSigned = SignalCipher.ToDjbIdentity(signedPreKeyPublic);
         try
         {
