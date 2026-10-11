@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 ~override Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(object obj) -> bool
 abstract Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
 const Iwasug.WhatsApp.Sdk.Accounts.AccountId.MaxLength = 128 -> int
@@ -222,13 +222,15 @@ Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out string? Text) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out string? Text, out string? QuotedMessageId) -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? other) -> bool
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.IsFromMe.get -> bool
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.IsFromMe.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Key.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.MessageReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, string? Text) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.MessageReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, string? Text, string? QuotedMessageId = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.QuotedMessageId.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.QuotedMessageId.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Sender.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Text.get -> string?
@@ -243,6 +245,7 @@ Iwasug.WhatsApp.Sdk.Messaging.Messenger.IsDeliveryReceiptsEnabled(Iwasug.WhatsAp
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.MarkReadAsync(System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!>! keys, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.MessageReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReceiptReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReplyAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! quotedMessageId, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SetDeliveryReceipts(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, bool enabled) -> void
 Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind

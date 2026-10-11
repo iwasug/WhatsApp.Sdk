@@ -18,13 +18,15 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// <param name="IsFromMe">Whether the message was sent by this account.</param>
 /// <param name="Timestamp">The message timestamp (UTC) from the wire <c>t</c> attribute when present, else receipt time.</param>
 /// <param name="Text">The decrypted conversation text; null when the message carries no conversation body.</param>
+/// <param name="QuotedMessageId">The wire message id of this received message (04-04, MSG-05): pass it as <c>quotedMessageId</c> to <see cref="Messenger.ReplyAsync"/> to reply while quoting it. Null when the wire carried no <c>id</c> (the message was never quotable).</param>
 public sealed record MessageReceivedEventArgs(
     Domain.MessageKeyRecord Key,
     Domain.Jid Chat,
     Domain.Jid Sender,
     bool IsFromMe,
     DateTimeOffset Timestamp,
-    string? Text);
+    string? Text,
+    string? QuotedMessageId = null);
 
 /// <summary>
 /// Terminal outcome of one send operation (04-03, MSG-03). Exactly one outcome

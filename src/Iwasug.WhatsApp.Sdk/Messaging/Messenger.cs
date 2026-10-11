@@ -107,6 +107,68 @@ public sealed class Messenger : IAsyncDisposable
     }
 
     /// <summary>
+    /// Sends one E2EE reply that quotes a cached message (04-04, MSG-05): the quoted
+    /// id, sender, chat, and former plaintext all come from the recent-message cache
+    /// entry written when that message was sent or received — the cache is the ONLY
+    /// quote source (Pitfall 6), never a caller-supplied text. The payload is a
+    /// quote-carrying extended-text message; everything else about the send (per-account
+    /// gate, one logical send = one network send, terminal <see cref="SendOutcome"/>)
+    /// is identical to <see cref="SendMessageAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// The quote's <c>remoteJid</c> is always the cached chat JID and its
+    /// <c>participant</c> is the cached sender when present (the wire fixture shows a
+    /// participant on 1:1 quotes too, so it is not group-gated). A cache miss, an
+    /// entry without retained text, or an unparseable cached chat JID fails closed
+    /// with <see cref="SdkFormatException"/> BEFORE any node is built or sent.
+    /// </remarks>
+    /// <param name="chat">The destination chat JID.</param>
+    /// <param name="quotedMessageId">The id of the cached message to quote (e.g. <see cref="MessageReceivedEventArgs.QuotedMessageId"/> or a prior <see cref="SendOutcome.MessageId"/>).</param>
+    /// <param name="text">The reply text (non-empty; UTF-8 inside the protobuf payload).</param>
+    /// <param name="cancellationToken">Caller cancellation (unwrapped; a cancelled send never touches the wire).</param>
+    /// <returns>The terminal <see cref="SendOutcome"/> for the generated message id.</returns>
+    /// <exception cref="SdkFormatException">The quoted id is unknown to the cache, the reply text is null/empty, the cached chat JID is malformed, or the chat JID is malformed.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    public async Task<SendOutcome> ReplyAsync(Jid chat, string quotedMessageId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        if (string.IsNullOrWhiteSpace(quotedMessageId))
+        {
+            throw new SdkFormatException("The quoted message id must not be null, empty, or whitespace.");
+        }
+
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        StoreSession stores = await ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        RecentMessageEntry? entry = await stores.RecentMessages.GetAsync(quotedMessageId, cancellationToken).ConfigureAwait(false);
+        if (entry is null)
+        {
+            throw new SdkFormatException("The quoted message id is not in the recent-message cache: the reply was not sent.");
+        }
+
+        if (!Jid.TryParse(entry.ChatJid, out Jid? quotedChat) || quotedChat is null)
+        {
+            throw new SdkFormatException("The cached chat for the quoted message is malformed: the reply was not sent.");
+        }
+
+        var quoted = new QuotedMessageRef(
+            entry.MessageKey,
+            string.IsNullOrEmpty(entry.Sender) ? null : entry.Sender,
+            entry.Text ?? string.Empty,
+            entry.ChatJid);
+        byte[] payload = MessageBuilder.BuildQuotedText(text, quoted);
+        return await _sender.SendPayloadAsync(chat, text, payload, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Opts in (or out) to sending delivery receipts for <paramref name="chat"/> (04-04
     /// MSG-04, Open Question 4): when enabled, every successfully decrypted inbound
     /// message in that chat triggers one wire-exact <c>&lt;receipt type="delivery"&gt;</c>

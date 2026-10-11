@@ -67,10 +67,39 @@ internal sealed class MessageSender
     /// <exception cref="SdkFormatException">Text is null/empty or the destination is malformed or resolves no devices.</exception>
     /// <exception cref="SdkConnectionException">The connection is not open or the send raced a teardown.</exception>
     /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
-    internal async Task<SendOutcome> SendAsync(Jid chat, string text, CancellationToken cancellationToken)
+    internal Task<SendOutcome> SendAsync(Jid chat, string text, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(chat);
         if (string.IsNullOrEmpty(text))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        return SendPayloadAsync(chat, text, MessageBuilder.BuildPlainText(text), cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends one E2EE message from pre-marshalled plaintext bytes (04-04, MSG-05): the
+    /// quote-carrying reply path builds its extended-text payload itself and hands it
+    /// here, so the whole send path (gate, one-network-send contract, ack correlation,
+    /// D-20 cache write) stays shared with <see cref="SendAsync"/>. The cached display
+    /// text is <paramref name="displayText"/>; the cached resend payload is
+    /// <paramref name="plaintext"/> verbatim (so a peer retry receipt for this id
+    /// resends the exact quoted bytes).
+    /// </summary>
+    /// <exception cref="SdkFormatException">The plaintext is null/empty, the display text is null/empty, or the destination is malformed or resolves no devices.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open or the send raced a teardown.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    internal async Task<SendOutcome> SendPayloadAsync(Jid chat, string displayText, byte[] plaintext, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        ArgumentNullException.ThrowIfNull(plaintext);
+        if (plaintext.Length == 0)
+        {
+            throw new SdkFormatException("Message plaintext must not be empty.");
+        }
+
+        if (string.IsNullOrEmpty(displayText))
         {
             throw new SdkFormatException("Message text must not be null or empty.");
         }
@@ -81,7 +110,7 @@ internal sealed class MessageSender
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await SendCoreAsync(chat, messageId, text, cancellationToken).ConfigureAwait(false);
+            return await SendCoreAsync(chat, messageId, displayText, plaintext, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -89,7 +118,7 @@ internal sealed class MessageSender
         }
     }
 
-    private async Task<SendOutcome> SendCoreAsync(Jid chat, string messageId, string text, CancellationToken cancellationToken)
+    private async Task<SendOutcome> SendCoreAsync(Jid chat, string messageId, string displayText, byte[] plaintext, CancellationToken cancellationToken)
     {
         StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
         CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
@@ -106,7 +135,6 @@ internal sealed class MessageSender
 
         string phash = DeviceDirectory.ComputePhash(devices);
 
-        byte[] plaintext = MessageBuilder.BuildPlainText(text);
         long t = _owner.Clock.GetUtcNow().ToUnixTimeSeconds();
 
         // MSG-06 resend source (Pitfall 6: the recent cache is the ONLY resend source):
@@ -121,7 +149,7 @@ internal sealed class MessageSender
                     messageId,
                     chat.ToString(),
                     DateTimeOffset.FromUnixTimeSeconds(t),
-                    text,
+                    displayText,
                     null,
                     plaintext),
                 cancellationToken).ConfigureAwait(false);

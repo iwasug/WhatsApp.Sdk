@@ -175,7 +175,7 @@ internal sealed class MessageDispatcher
 
             string? text = message.Conversation.Length == 0 ? null : message.Conversation;
             var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
-            _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text));
+            _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text, messageId));
 
             // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort — a
             // receipt failure never breaks the receive path (the message is already acked).
