@@ -31,6 +31,38 @@ public sealed class RecentCachePolicyTests
         await peer.SendStanzaAsync(BuildInboundMessageNode(messageId, DeviceJid(PeerUser, 52), wire, encType));
     }
 
+    /// <summary>
+    /// The recent-cache write and its horizon purge run AFTER the ack (D-06 ordering:
+    /// persist → ack → event → cache), so observing `ack:…` in the peer log does not yet
+    /// prove the store state the assertions below expect — poll the store until
+    /// <paramref name="done"/> holds, failing with the established <c>WaitForAsync</c>
+    /// TimeoutException shape if it never does.
+    /// </summary>
+    private static async Task<RecentMessageEntry?> WaitForCacheStateAsync(
+        IRecentMessageCacheStore store, string messageId, Func<RecentMessageEntry?, bool> done, CancellationToken token)
+    {
+        using var timeout = new CancellationTokenSource(WaitTimeout);
+        while (!timeout.IsCancellationRequested)
+        {
+            RecentMessageEntry? entry = await store.GetAsync(messageId, token);
+            if (done(entry))
+            {
+                return entry;
+            }
+
+            try
+            {
+                await Task.Delay(10, timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        throw new TimeoutException($"Timed out waiting for recent-cache state of '{messageId}'.");
+    }
+
     [Fact]
     public async Task cache_write_failure_log_and_continue_still_acks_and_raises_the_event()
     {
@@ -49,7 +81,8 @@ public sealed class RecentCachePolicyTests
         // The cache store throws on every write; the receive path must not notice.
         await SendInboundAsync(peer, rig.PeerAlice!, "cache-1", "survives a broken cache", token);
         await WaitForAsync(peer.Log, entry => entry == "ack:cache-1", "the ack went out despite the cache failure");
-        events.Should().HaveCount(1, "the event fired despite the cache failure");
+        await WaitForCountAsync(events, 1, "the event fired despite the cache failure");
+        events.Should().HaveCount(1, "the event fired exactly once despite the cache failure");
         events.Single().Text.Should().Be("survives a broken cache");
 
         // The pump keeps running: a later message flows the same path.
@@ -70,7 +103,8 @@ public sealed class RecentCachePolicyTests
         await SendInboundAsync(peer, rig.PeerAlice!, "obs-1", "hello cache", token);
         await WaitForAsync(peer.Log, entry => entry == "ack:obs-1", "the message was processed");
 
-        RecentMessageEntry? entry = await rig.RecentMessages.GetAsync("obs-1", token);
+        RecentMessageEntry? entry = await WaitForCacheStateAsync(
+            rig.RecentMessages, "obs-1", e => e is not null, token);
         entry.Should().NotBeNull("the cache write is durable and observable by an independent read");
         entry!.ChatJid.Should().Be(rig.Chat.ToString());
         entry.Sender.Should().Be(rig.DeviceA.Jid);
@@ -98,8 +132,10 @@ public sealed class RecentCachePolicyTests
         await SendInboundAsync(peer, rig.PeerAlice!, "fresh-1", "fresh", token);
         await WaitForAsync(peer.Log, entry => entry == "ack:fresh-1", "the fresh message was processed");
 
-        (await rig.RecentMessages.GetAsync("stale-1", token))
-            .Should().BeNull("entries older than the 30-day horizon are purged on the write path (D-20)");
+        // The purge runs after the ack on the write path — wait for it, don't race it.
+        RecentMessageEntry? stale = await WaitForCacheStateAsync(
+            rig.RecentMessages, "stale-1", e => e is null, token);
+        stale.Should().BeNull("entries older than the 30-day horizon are purged on the write path (D-20)");
         (await rig.RecentMessages.GetAsync("fresh-1", token))
             .Should().NotBeNull("the fresh entry survives the horizon purge");
     }
@@ -120,9 +156,11 @@ public sealed class RecentCachePolicyTests
             token);
 
         await SendInboundAsync(peer, rig.PeerAlice!, "purge-drive", "drive the purge", token);
-        await WaitForAsync(peer.Log, entry => entry == "ack:purge-drive", "the horizon purge ran on the write path");
+        await WaitForAsync(peer.Log, entry => entry == "ack:purge-drive", "the write path ran");
 
-        RecentMessageEntry? lookup = await rig.RecentMessages.GetAsync("purged-1", token);
+        // The purge runs after the ack on the write path — wait for it, don't race it.
+        RecentMessageEntry? lookup = await WaitForCacheStateAsync(
+            rig.RecentMessages, "purged-1", e => e is null, token);
         lookup.Should().BeNull(
             "the resend lookup finds nothing after the horizon: plan 04-04's retry path degrades to the " +
             "no-resend outcome (D-05 lossy cache) — a null read, never a throw and never a fabricate");
