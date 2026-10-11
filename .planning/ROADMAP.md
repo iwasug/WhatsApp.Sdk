@@ -127,7 +127,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Host sends and receives delivery/read receipts, marks messages read by per-message key, and replies quoting a specific message via the per-account recent-message cache.
   5. Inbound decryption failures recover via retry receipts with no lost messages, and the host receives typed events (message, receipt, connection, logout) with `CancellationToken` honored end-to-end.
 
-**Plans**: 3/5 plans executed
+**Plans**: 4/5 plans executed
 
 **Wave 1** *(depends on Phase 3)*
 - [x] 04-01-PLAN.md — Signal protocol core: byte-layout spike fixtures, X3DH, Double Ratchet, prekey management (tracer)
@@ -139,7 +139,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
 - [x] 04-03-PLAN.md — 1:1 send/receive loop with SendOutcome correlation (tracer)
 
 **Wave 4** *(depends on 04-03)*
-- [ ] 04-04-PLAN.md — Receipts, retry exchange, quoting/reply metadata (tracer)
+- [x] 04-04-PLAN.md — Receipts, retry exchange, quoting/reply metadata (tracer)
 
 **Wave 5** *(depends on 04-04)*
 - [ ] 04-05-PLAN.md — Group sender keys, typed event stream, validation closeout (tracer)
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
-| 4. Signal E2EE & Messaging | 3/5 | In Progress|  |
+| 4. Signal E2EE & Messaging | 4/5 | In Progress|  |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |

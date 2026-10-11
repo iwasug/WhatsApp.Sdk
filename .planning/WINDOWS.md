@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 10
-waived_count: 0
+open_count: 12
+waived_count: 1
 fixed_count: 0
-total_count: 10
-last_updated: 2026-10-11T12:17:56.048Z
+total_count: 13
+last_updated: 2026-10-11T16:08:47.331Z
 ---
 
 # Broken Windows Ledger
@@ -25,6 +25,9 @@ last_updated: 2026-10-11T12:17:56.048Z
 | 8 | 02 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Connection/ConnectionStateTests.cs |  | ConnectionStateTests.cs committed with 02-07 Task 2 though not in the plan files list (Rule 2: third loopback fake needed production intro validation) | open |  | 2026-10-09T04:13:39.383Z |  |
 | 9 | 02 | deviation | src/Iwasug.WhatsApp.Sdk/Connection/WaConnection.cs |  | 02-07 verify runs needed fresh-hash rebuilds or -p:Deterministic=false to clear Windows SAC 0x800711C7 blocks on newly built DLLs (environment-only, no repo change) | open |  | 2026-10-09T04:13:40.232Z |  |
 | 10 | 04 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | Device-identity pin of own identity DJB bytes (ponytail) - upgrade when live-peer identity verification requires exact wire form | open |  | 2026-10-11T12:17:56.048Z |  |
+| 11 | 4 | deviation | src/Iwasug.WhatsApp.Sdk/Signal/DoubleRatchet.cs |  | DoubleRatchet.LoadUnlockedAsync/SaveUnlockedAsync added outside the plan files list (Rule 2: per-address session gate concurrency edge for retry resend) | open |  | 2026-10-11T16:06:32.896Z |  |
+| 12 | 4 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | Device-identity child pins own identity DJB bytes (carried from 04-03 ponytail) in BuildResendNode; upgrade to marshalled Account proto at 04-05 UAT | open |  | 2026-10-11T16:06:33.556Z |  |
+| 13 | 4 | stub | src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs |  | verify-response-probe | waived | Not a defect: accidental executor probe entry (verify-response-probe) created while checking CLI output shape during 04-04 execution — waiving to keep the ledger clean | 2026-10-11T16:07:25.912Z | 2026-10-11T16:08:47.331Z |
 
 ````json
 [
@@ -156,6 +159,45 @@ last_updated: 2026-10-11T12:17:56.048Z
     "reason": "",
     "recorded_at": "2026-10-11T12:17:56.048Z",
     "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 11,
+    "kind": "deviation",
+    "phase": "4",
+    "file": "src/Iwasug.WhatsApp.Sdk/Signal/DoubleRatchet.cs",
+    "line": null,
+    "description": "DoubleRatchet.LoadUnlockedAsync/SaveUnlockedAsync added outside the plan files list (Rule 2: per-address session gate concurrency edge for retry resend)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-11T16:06:32.896Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 12,
+    "kind": "stub",
+    "phase": "4",
+    "file": "src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs",
+    "line": null,
+    "description": "Device-identity child pins own identity DJB bytes (carried from 04-03 ponytail) in BuildResendNode; upgrade to marshalled Account proto at 04-05 UAT",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-11T16:06:33.556Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 13,
+    "kind": "stub",
+    "phase": "4",
+    "file": "src/Iwasug.WhatsApp.Sdk/Messaging/MessageSender.cs",
+    "line": null,
+    "description": "verify-response-probe",
+    "status": "waived",
+    "reason": "Not a defect: accidental executor probe entry (verify-response-probe) created while checking CLI output shape during 04-04 execution — waiving to keep the ledger clean",
+    "recorded_at": "2026-10-11T16:07:25.912Z",
+    "resolved_at": "2026-10-11T16:08:47.331Z",
     "milestone": null
   }
 ]
