@@ -245,6 +245,7 @@ public sealed class MessagingLoopbackTests
         private readonly CancellationToken _token;
 
         internal ConcurrentQueue<BinaryNode> MessageNodes { get; } = new();
+        internal ConcurrentQueue<BinaryNode> ReceiptNodes { get; } = new();
         internal ConcurrentQueue<string> Log { get; } = new();
 
         /// <summary>When true (default), every inbound message node is auto-acked; AckAttrs ride the auto-ack.</summary>
@@ -320,6 +321,11 @@ public sealed class MessagingLoopbackTests
                     case "ack":
                         Log.Enqueue("ack:" + node.Attrs.GetValueOrDefault("id"));
                         Timeline?.Enqueue("ack:" + node.Attrs.GetValueOrDefault("id"));
+                        break;
+                    case "receipt":
+                        ReceiptNodes.Enqueue(node);
+                        Log.Enqueue("receipt:" + node.Attrs.GetValueOrDefault("type") + ":" + node.Attrs.GetValueOrDefault("id"));
+                        Timeline?.Enqueue("receipt:" + node.Attrs.GetValueOrDefault("type") + ":" + node.Attrs.GetValueOrDefault("id"));
                         break;
                 }
             }

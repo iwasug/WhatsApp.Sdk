@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -55,12 +56,28 @@ public sealed class MessageWireFixtureTests
         [property: JsonPropertyName("ciphertextHex")] string CiphertextHex,
         [property: JsonPropertyName("nodeHex")] string NodeHex);
 
+    private sealed record FixtureReceiptNode(
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("to")] string To,
+        [property: JsonPropertyName("participant")] string? Participant,
+        [property: JsonPropertyName("t")] string T,
+        [property: JsonPropertyName("ids")] IReadOnlyList<string> Ids,
+        [property: JsonPropertyName("nodeHex")] string NodeHex);
+
+    private sealed record FixtureReceiptNodes(
+        [property: JsonPropertyName("provenance")] string Provenance,
+        [property: JsonPropertyName("readSingle")] FixtureReceiptNode ReadSingle,
+        [property: JsonPropertyName("readList")] FixtureReceiptNode ReadList,
+        [property: JsonPropertyName("delivery")] FixtureReceiptNode Delivery,
+        [property: JsonPropertyName("group")] FixtureReceiptNode Group);
+
     private sealed record WireFixtures(
         [property: JsonPropertyName("provenance")] string Provenance,
         [property: JsonPropertyName("plainAscii")] FixtureText PlainAscii,
         [property: JsonPropertyName("plainNonAscii")] FixtureText PlainNonAscii,
         [property: JsonPropertyName("quote")] FixtureQuote Quote,
-        [property: JsonPropertyName("messageNode")] FixtureNode MessageNode);
+        [property: JsonPropertyName("messageNode")] FixtureNode MessageNode,
+        [property: JsonPropertyName("receiptNodes")] FixtureReceiptNodes ReceiptNodes);
 
     private static WireFixtures LoadFixtures()
     {
@@ -182,6 +199,61 @@ public sealed class MessageWireFixtureTests
         fromQuote.ExtendedTextMessage.Should().NotBeNull();
         fromPlain.ExtendedTextMessage.Should().BeNull("plain payloads carry no extended-text field");
         fromPlain.Conversation.Should().NotBeEmpty();
+    }
+
+    /// <summary>
+    /// Pattern-4 receipt node bytes (04-04 Task 1): read single-id (no list), read with
+    /// list children, delivery, and the group form with participant — pinned byte-exact.
+    /// </summary>
+    [Fact]
+    public void receipt_nodes_pin_pattern4_wire_byte_forms()
+    {
+        WireFixtures fixtures = LoadFixtures();
+        FixtureReceiptNodes receipts = fixtures.ReceiptNodes;
+        DateTimeOffset Stamp(FixtureReceiptNode f) =>
+            DateTimeOffset.FromUnixTimeSeconds(long.Parse(f.T, CultureInfo.InvariantCulture));
+
+        AssertReceiptNode(receipts.ReadSingle, ReceiptHandler.BuildReadReceiptNode(
+            Jid.Parse(receipts.ReadSingle.To), receipts.ReadSingle.Ids, null, Stamp(receipts.ReadSingle)));
+        AssertReceiptNode(receipts.ReadList, ReceiptHandler.BuildReadReceiptNode(
+            Jid.Parse(receipts.ReadList.To), receipts.ReadList.Ids, null, Stamp(receipts.ReadList)));
+        AssertReceiptNode(receipts.Delivery, ReceiptHandler.BuildDeliveryReceiptNode(
+            Jid.Parse(receipts.Delivery.To), receipts.Delivery.Ids[0], Stamp(receipts.Delivery)));
+        AssertReceiptNode(receipts.Group, ReceiptHandler.BuildReadReceiptNode(
+            Jid.Parse(receipts.Group.To), receipts.Group.Ids, receipts.Group.Participant, Stamp(receipts.Group)));
+    }
+
+    private static void AssertReceiptNode(FixtureReceiptNode pinned, BinaryNode node)
+    {
+        byte[] encoded = BinaryNodeCodec.Encode(node);
+        Hex(encoded).Should().Be(pinned.NodeHex, $"the {pinned.Type} receipt node bytes are pinned");
+
+        BinaryNode decoded = BinaryNodeCodec.Decode(encoded);
+        decoded.Tag.Should().Be("receipt");
+        decoded.Attrs["type"].Should().Be(pinned.Type);
+        decoded.Attrs["id"].Should().Be(pinned.Ids[0]);
+        decoded.Attrs["to"].Should().Be(pinned.To);
+        decoded.Attrs["t"].Should().Be(pinned.T);
+        if (pinned.Participant is null)
+        {
+            decoded.Attrs.Should().NotContainKey("participant", "participant appears only for group senders");
+        }
+        else
+        {
+            decoded.Attrs["participant"].Should().Be(pinned.Participant);
+        }
+
+        if (pinned.Ids.Count == 1)
+        {
+            decoded.Children.Should().BeNullOrEmpty("a single-id receipt has no list children");
+            return;
+        }
+
+        BinaryNode list = decoded.Children.Should().ContainSingle("the only child is the list wrapper").Which;
+        list.Tag.Should().Be("list");
+        List<BinaryNode> items = (list.Children ?? []).Where(c => c.Tag == "item").ToList();
+        items.Should().HaveCount(pinned.Ids.Count - 1, "the first id rides the attribute, the rest ride the list");
+        items.Select(i => i.Attrs["id"]).Should().Equal(pinned.Ids.Skip(1));
     }
 
     [Fact]

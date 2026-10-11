@@ -25,5 +25,37 @@
     "encType": "msg",
     "ciphertextHex": "434950484552544558542d504c414345484f4c4445522d30303030303030303030",
     "nodeHex": "f80a1308fc103345423046495845444d53474944303111faff0522222222220304381aff051720000000f801f804110cf70003ff052222222222f801f8061d5145044dfc21434950484552544558542d504c414345484f4c4445522d30303030303030303030"
+  },
+  "receiptNodes": {
+    "provenance": "Pattern-4 shapes (whatsmeow receipt.go behavioral reference, 04-RESEARCH lines 252-262); every byte is this repository's own BinaryNodeCodec encoding over ReceiptHandler construction - no whatsmeow bytes anywhere.",
+    "readSingle": {
+      "type": "read",
+      "to": "2222222222@s.whatsapp.net",
+      "t": "1720000000",
+      "ids": ["3EB0FIXEDMSGID01"],
+      "nodeHex": "f8090708fc103345423046495845444d534749443031042a11faff052222222222031aff051720000000"
+    },
+    "readList": {
+      "type": "read",
+      "to": "2222222222@s.whatsapp.net",
+      "t": "1720000000",
+      "ids": ["3EB0FIXEDMSGID01", "3EB0FIXEDMSGID02"],
+      "nodeHex": "f80a0708fc103345423046495845444d534749443031042a11faff052222222222031aff051720000000f801f80271f801f8033f08fc103345423046495845444d534749443032"
+    },
+    "delivery": {
+      "type": "delivery",
+      "to": "2222222222@s.whatsapp.net",
+      "t": "1720000000",
+      "ids": ["3EB0FIXEDMSGID01"],
+      "nodeHex": "f8090708fc103345423046495845444d534749443031047b11faff052222222222031aff051720000000"
+    },
+    "group": {
+      "type": "read",
+      "to": "9876543210-123456789@g.us",
+      "participant": "2222222222:3@s.whatsapp.net",
+      "t": "1720000000",
+      "ids": ["3EB0FIXEDMSGID01", "3EB0FIXEDMSGID02"],
+      "nodeHex": "f80c0708fc103345423046495845444d534749443031042a11faff0a9876543210a1234567891c1aff05172000000005f70003ff052222222222f801f80271f801f8033f08fc103345423046495845444d534749443032"
+    }
   }
 }

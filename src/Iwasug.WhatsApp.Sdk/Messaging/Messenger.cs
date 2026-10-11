@@ -37,6 +37,7 @@ public sealed class Messenger : IAsyncDisposable
     private readonly DeviceDirectory _directory;
     private readonly MessageSender _sender;
     private readonly MessageDispatcher _dispatcher;
+    private readonly ReceiptHandler _receipts;
     private readonly SemaphoreSlim _prekeyGate = new(1, 1);
     private bool _prekeysEnsured;
     private int _disposed;
@@ -49,6 +50,7 @@ public sealed class Messenger : IAsyncDisposable
             connection.Clock);
         _sender = new MessageSender(this, _directory);
         _dispatcher = new MessageDispatcher(this);
+        _receipts = new ReceiptHandler(this);
     }
 
     /// <summary>
@@ -56,6 +58,15 @@ public sealed class Messenger : IAsyncDisposable
     /// message, after the durable session write and the ack have completed (D-06).
     /// </summary>
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
+
+    /// <summary>
+    /// Raised (on the dispatcher's async path) when an inbound <c>receipt</c> node parses
+    /// (04-04, MSG-04): the kind, ids, chat, and optional group participant, parsed
+    /// bounds-checked. Informational only — receipts gate no SDK behavior and no security
+    /// decision (T-4-14); a duplicate receipt raises the event again and the host decides
+    /// what to trust.
+    /// </summary>
+    public event EventHandler<ReceiptReceivedEventArgs>? ReceiptReceived;
 
     /// <summary>
     /// Raised when a server ack carries a <c>phash</c> that no longer matches the device
@@ -86,6 +97,55 @@ public sealed class Messenger : IAsyncDisposable
         return await _sender.SendAsync(chat, text, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Opts in (or out) to sending delivery receipts for <paramref name="chat"/> (04-04
+    /// MSG-04, Open Question 4): when enabled, every successfully decrypted inbound
+    /// message in that chat triggers one wire-exact <c>&lt;receipt type="delivery"&gt;</c>
+    /// node after its ack and event. The gate is process-local host policy (not durable
+    /// state), off by default, with no presence coupling.
+    /// </summary>
+    /// <param name="chat">The chat to opt in (or out) for.</param>
+    /// <param name="enabled">Whether delivery receipts should be sent for this chat.</param>
+    /// <exception cref="ArgumentNullException">The chat is null.</exception>
+    public void SetDeliveryReceipts(Jid chat, bool enabled)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        _receipts.SetDeliveryReceipts(chat, enabled);
+    }
+
+    /// <summary>Whether delivery receipts are enabled for <paramref name="chat"/> (see <see cref="SetDeliveryReceipts"/>).</summary>
+    public bool IsDeliveryReceiptsEnabled(Jid chat) => _receipts.IsDeliveryReceiptsEnabled(chat);
+
+    /// <summary>
+    /// Marks <paramref name="keys"/> read (04-04 MSG-04, Pattern 4 verbatim): sends one
+    /// <c>&lt;receipt type="read"&gt;</c> per sender group (the same-sender-only rule —
+    /// keys are grouped by chat and participant automatically), with the first id in the
+    /// <c>id</c> attribute, the rest as <c>&lt;list&gt;&lt;item/&gt;</c> children, the
+    /// <c>participant</c> attribute only for group senders, and <c>t</c> always present.
+    /// </summary>
+    /// <remarks>
+    /// Idempotent at the wire level (MSG-04 idempotency edge): calling twice with the
+    /// same keys sends two identical receipts — receipts are stateless protocol nodes
+    /// with no client-side dedup machine.
+    /// </remarks>
+    /// <param name="keys">The message keys to mark read; one call may span multiple senders.</param>
+    /// <param name="cancellationToken">Caller cancellation.</param>
+    /// <exception cref="SdkFormatException">The key list is empty or a key is malformed.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    public async Task MarkReadAsync(IReadOnlyList<MessageKeyRecord> keys, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        if (keys.Count == 0)
+        {
+            throw new SdkFormatException("MarkRead needs at least one message key.");
+        }
+
+        await _receipts.SendReadReceiptsAsync(keys, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -101,6 +161,10 @@ public sealed class Messenger : IAsyncDisposable
     internal void RaiseMessageReceived(MessageReceivedEventArgs args) => MessageReceived?.Invoke(this, args);
 
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
+
+    internal void RaiseReceiptReceived(ReceiptReceivedEventArgs args) => ReceiptReceived?.Invoke(this, args);
+
+    internal ReceiptHandler Receipts => _receipts;
 
     /// <summary>
     /// Prekey-readiness trigger (04-03 Task 3, 04-RESEARCH Pattern 3): before the first

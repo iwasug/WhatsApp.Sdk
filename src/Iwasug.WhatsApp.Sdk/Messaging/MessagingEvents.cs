@@ -90,3 +90,59 @@ public sealed record DeviceSetChangedEventArgs(
     string MessageId,
     string ExpectedPhash,
     string ReceivedPhash);
+
+/// <summary>
+/// Receipt type vocabulary (04-04, MSG-04 — 04-RESEARCH Pattern 4): the six kinds the
+/// SDK parses from inbound <c>receipt</c> nodes. Types outside this vocabulary (e.g.
+/// <c>read_self</c>) are silently ignored — informational only (T-4-14).
+/// </summary>
+public enum ReceiptKind
+{
+    /// <summary>The peer's server confirmed delivery (<c>type="delivery"</c>, also the historical no-type form).</summary>
+    Delivery,
+
+    /// <summary>The peer marked the messages read (<c>type="read"</c>).</summary>
+    Read,
+
+    /// <summary>The peer played a voice note (<c>type="played"</c>).</summary>
+    Played,
+
+    /// <summary>Sender receipt for from-me messages (<c>type="sender"</c>).</summary>
+    Sender,
+
+    /// <summary>The client was not "online" — the server forwards but WA apps don't render (<c>type="inactive"</c>).</summary>
+    Inactive,
+
+    /// <summary>The peer failed to decrypt our message and requests a resend (<c>type="retry"</c>).</summary>
+    Retry,
+}
+
+/// <summary>
+/// Event arguments for one parsed inbound <c>receipt</c> node (04-04, MSG-04 —
+/// Pattern 4 shape): the kind, the referenced message ids (attribute id first, then
+/// <c>list/item</c> children in wire order), the chat, the optional group participant,
+/// and the receipt timestamp.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Handler contract (identical to <see cref="MessageReceivedEventArgs"/>): return
+/// quickly, never call <see cref="Connection.WaConnection.DisposeAsync"/> from the
+/// handler, handler exceptions are logged and swallowed.
+/// </para>
+/// <para>
+/// Receipts are informational typed events that gate no SDK behavior and no security
+/// decision (T-4-14): the attrs are adversary-influenced and parsed bounds-checked, a
+/// duplicate receipt raises the event again, and the host decides what to trust.
+/// </para>
+/// </remarks>
+/// <param name="Kind">The receipt type (see <see cref="ReceiptKind"/>).</param>
+/// <param name="MessageIds">The referenced message ids, verbatim from the wire.</param>
+/// <param name="Chat">The chat the receipt belongs to (bare user form for 1:1).</param>
+/// <param name="Participant">The group sender the receipt references; null outside groups.</param>
+/// <param name="Timestamp">The receipt timestamp (UTC) from the wire <c>t</c> attribute when present, else receipt time.</param>
+public sealed record ReceiptReceivedEventArgs(
+    ReceiptKind Kind,
+    IReadOnlyList<string> MessageIds,
+    Domain.Jid Chat,
+    Domain.Jid? Participant,
+    DateTimeOffset Timestamp);

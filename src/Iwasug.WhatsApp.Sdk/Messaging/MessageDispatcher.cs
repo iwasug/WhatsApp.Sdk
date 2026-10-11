@@ -13,8 +13,9 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// <summary>
 /// Inbound stanza dispatch over <see cref="WaConnection.StanzaReceived"/> (04-03):
 /// <c>message</c> nodes run the decrypt → persist → ack → event → cache ordering
-/// contract; <c>ack</c> nodes correlate pending sends; <c>receipt</c> nodes are plan
-/// 04-04's surface and are ignored here.
+/// contract; <c>ack</c> nodes correlate pending sends; <c>receipt</c> nodes parse
+/// bounds-checked into typed <see cref="ReceiptReceivedEventArgs"/> events (04-04,
+/// MSG-04) and the opt-in delivery receipt rides out after the message's ack + event.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -89,7 +90,7 @@ internal sealed class MessageDispatcher
                 HandleAck(node);
                 break;
             case "receipt":
-                // Plan 04-04 owns receipts; the pump keeps delivering.
+                HandleReceipt(node);
                 break;
         }
     }
@@ -160,6 +161,21 @@ internal sealed class MessageDispatcher
         var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
         _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text));
 
+        // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort — a
+        // receipt failure never breaks the receive path (the message is already acked).
+        if (_owner.IsDeliveryReceiptsEnabled(chat))
+        {
+            try
+            {
+                await _owner.Receipts.SendDeliveryReceiptAsync(
+                    chat, messageId, _owner.Clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Log-and-continue: the receipt is best-effort by contract.
+            }
+        }
+
         try
         {
             await stores.RecentMessages.PutAsync(
@@ -208,6 +224,75 @@ internal sealed class MessageDispatcher
         node.Attrs.TryGetValue("server_id", out string? serverId);
         node.Attrs.TryGetValue("phash", out string? phash);
         _owner.Sender.CompleteFromAck(messageId, error, t, serverId, phash);
+    }
+
+    /// <summary>
+    /// Inbound receipt parse (Pattern 4, bounds-checked): ids ride the <c>id</c>
+    /// attribute plus <c>list/item</c> children, groups carry <c>participant</c>, and
+    /// the parsed values surface as the typed <see cref="ReceiptReceivedEventArgs"/>
+    /// event. Malformed or unknown-kind receipts are silently ignored (T-4-14:
+    /// informational events that gate no SDK behavior). Receipt nodes are not acked in
+    /// 04-04 scope; the <c>retry</c> kind's response path lands with Task 2's exchange.
+    /// </summary>
+    private void HandleReceipt(BinaryNode node)
+    {
+        string typeAttr = node.Attrs.TryGetValue("type", out string? type) && !string.IsNullOrEmpty(type)
+            ? type
+            : "delivery"; // the historical no-type receipt form is a delivery receipt
+        if (!TryParseReceiptKind(typeAttr, out ReceiptKind kind)
+            || !node.Attrs.TryGetValue("id", out string? idAttr)
+            || string.IsNullOrEmpty(idAttr)
+            || !node.Attrs.TryGetValue("from", out string? fromAttr)
+            || !Jid.TryParse(fromAttr, out Jid? from)
+            || from is null)
+        {
+            return; // unknown kind or malformed receipt: silently ignored
+        }
+
+        var ids = new List<string> { idAttr };
+        foreach (BinaryNode child in node.Children ?? (IReadOnlyList<BinaryNode>)[])
+        {
+            if (!string.Equals(child.Tag, "list", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (BinaryNode item in child.Children ?? (IReadOnlyList<BinaryNode>)[])
+            {
+                if (string.Equals(item.Tag, "item", StringComparison.Ordinal)
+                    && item.Attrs.TryGetValue("id", out string? itemId)
+                    && !string.IsNullOrEmpty(itemId))
+                {
+                    ids.Add(itemId);
+                }
+            }
+        }
+
+        Jid? participant = null;
+        if (node.Attrs.TryGetValue("participant", out string? participantAttr)
+            && !string.IsNullOrEmpty(participantAttr)
+            && Jid.TryParse(participantAttr, out Jid? parsedParticipant))
+        {
+            participant = parsedParticipant;
+        }
+
+        Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
+        DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
+        _owner.RaiseReceiptReceived(new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp));
+    }
+
+    private static bool TryParseReceiptKind(string type, out ReceiptKind kind)
+    {
+        switch (type)
+        {
+            case "delivery": kind = ReceiptKind.Delivery; return true;
+            case "read": kind = ReceiptKind.Read; return true;
+            case "played": kind = ReceiptKind.Played; return true;
+            case "sender": kind = ReceiptKind.Sender; return true;
+            case "inactive": kind = ReceiptKind.Inactive; return true;
+            case "retry": kind = ReceiptKind.Retry; return true;
+            default: kind = default; return false;
+        }
     }
 
     private static DateTimeOffset? ParseTimestamp(BinaryNode node)
