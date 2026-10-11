@@ -440,8 +440,15 @@ public sealed class Messenger : IAsyncDisposable
             }
 
             // New ids never reuse a served id: signed-prekey ids advance by one; the
-            // one-time batch starts one past the highest probed id (probe counts only
-            // ids contiguous from the checkpoint, so this is collision-free).
+            // one-time batch starts past the checkpoint's contiguous run, then BUMPS
+            // past every occupied slot (WR-05) — a retry-path spend leaves a hole the
+            // contiguous count cannot see, and overwriting a live stored id would
+            // destroy a key already served to a peer.
+            int oneTimeStart = await FindFreeOneTimeStartAsync(
+                stores.PreKeys,
+                (bundle?.OneTimePreKeyId ?? 0) + remaining + 1,
+                PreKeyManager.UploadBatchSize,
+                cancellationToken).ConfigureAwait(false);
             var manager = new PreKeyManager(
                 RouterProvider() ?? throw new SdkConnectionException("The connection is not open: own prekeys were not uploaded."),
                 new DurableWriteRetryPolicy());
@@ -453,7 +460,7 @@ public sealed class Messenger : IAsyncDisposable
                 // truly works once XEdDSA lands (CR-01, tracked for 04-05 UAT).
                 row.IdentityKeyPrivate,
                 (bundle?.SignedPreKeyId ?? 0) + 1,
-                (bundle?.OneTimePreKeyId ?? 0) + remaining + 1,
+                oneTimeStart,
                 PreKeyManager.UploadBatchSize);
             await manager.UploadOwnKeysAsync(
                 (uint)row.RegistrationId,
@@ -496,6 +503,56 @@ public sealed class Messenger : IAsyncDisposable
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// Scan headroom for the free-window probe (WR-05): bounds how far past the
+    /// requested floor the batch start may bump when live stored ids block the
+    /// window. Realistic layouts never approach it; exceeding it surfaces as the
+    /// send path's typed id-range failure, never as a silent overwrite.
+    /// </summary>
+    private const int MaxOneTimeScanHeadroom = 1024;
+
+    /// <summary>
+    /// Finds the first one-time-prekey id window <c>[start, start + count - 1]</c> at
+    /// or above <paramref name="floorId"/> whose every slot is free in the store
+    /// (WR-05): the readiness recompute probes only ids contiguous from the bundle
+    /// checkpoint, so a retry-path spend can leave a hole that makes the contiguous
+    /// count miss still-live stored keys — deriving the batch start from that count
+    /// alone would overwrite ids already served to peers, destroying keys their
+    /// holders' prekey messages still need. Bumping past every occupied slot
+    /// guarantees a fresh batch never overwrites a live key.
+    /// </summary>
+    private static async Task<int> FindFreeOneTimeStartAsync(
+        IPreKeyStore preKeys,
+        int floorId,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        long start = floorId < 0 ? 0 : floorId;
+        long scanLimit = start + count + MaxOneTimeScanHeadroom;
+        while (start + count - 1 <= PreKeyManager.MaxPreKeyId && start < scanLimit)
+        {
+            long blockedAt = -1;
+            for (long id = start; id < start + count; id++)
+            {
+                PreKeyRecordEntry? entry = await preKeys.GetPreKeyAsync((int)id, cancellationToken).ConfigureAwait(false);
+                if (entry is not null)
+                {
+                    blockedAt = id;
+                    break;
+                }
+            }
+
+            if (blockedAt < 0)
+            {
+                return (int)start; // the whole window is free
+            }
+
+            start = blockedAt + 1; // bump past the occupied slot, re-check the window
+        }
+
+        return (int)start; // no free window within the headroom: GenerateOwnMaterial validates the range loudly
     }
 
     internal ValueTask<StoreSession> ResolveStoresAsync(CancellationToken cancellationToken) =>
