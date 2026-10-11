@@ -20,7 +20,11 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// through <see cref="DoubleRatchet"/> (<c>pkmsg</c> for a fresh prekey session, <c>msg</c>
 /// after), assemble the node through <see cref="MessageBuilder"/>'s node seam, send via
 /// the connection's <c>SendNodeAsync</c>, and await the correlated reply before returning
-/// the <see cref="SendOutcome"/>.
+/// the <see cref="SendOutcome"/>. The group branch (04-05, MSG-02) shares the gate, the
+/// one-network-send contract, and the ack correlation: members resolve through
+/// <see cref="GroupDirectory"/>, an SKDM fans out pairwise per sender-key generation
+/// through the same per-device sessions, and one signed <c>skmsg</c> ciphertext rides the
+/// same node with the deterministic <c>phash</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -47,6 +51,8 @@ internal sealed class MessageSender
 {
     private readonly Messenger _owner;
     private readonly DeviceDirectory _directory;
+    private readonly GroupDirectory _groups;
+    private readonly SenderKeyRepository _senderKeys;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly DurableWriteRetryPolicy _retry = new();
     private readonly ConcurrentDictionary<string, PendingSend> _pending = new(StringComparer.Ordinal);
@@ -54,10 +60,30 @@ internal sealed class MessageSender
     /// <summary>One awaiting send: correlation id → chat (phash invalidation target), the fanout phash, and the completion.</summary>
     private sealed record PendingSend(Jid Chat, string Phash, TaskCompletionSource<SendOutcome> Completion);
 
-    internal MessageSender(Messenger owner, DeviceDirectory directory)
+    /// <summary>
+    /// Per-group SKDM distribution tracking (04-05 MSG-02 idempotency edge): the
+    /// sender-key generation id this set belongs to plus the member device forms
+    /// that generation's SKDM has already been delivered to. Process-local and
+    /// SDK-owned policy (D-08); mutations happen only under the send gate, so the
+    /// set needs no lock. A restarted process redelistributes once (self-healing).
+    /// </summary>
+    private sealed class Distribution
+    {
+        internal Distribution(uint senderKeyId) => SenderKeyId = senderKeyId;
+
+        internal uint SenderKeyId { get; }
+
+        internal HashSet<string> Devices { get; } = new(StringComparer.Ordinal);
+    }
+
+    private readonly Dictionary<string, Distribution> _distributions = new(StringComparer.Ordinal);
+
+    internal MessageSender(Messenger owner, DeviceDirectory directory, GroupDirectory groups, SenderKeyRepository senderKeys)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
+        _groups = groups ?? throw new ArgumentNullException(nameof(groups));
+        _senderKeys = senderKeys ?? throw new ArgumentNullException(nameof(senderKeys));
     }
 
     /// <summary>
@@ -140,31 +166,7 @@ internal sealed class MessageSender
         // MSG-06 resend source (Pitfall 6: the recent cache is the ONLY resend source):
         // store the marshalled plaintext keyed by this send's id before anything rides
         // the wire, so a peer retry receipt for this id can always find its material.
-        // D-20 log-and-continue: a cache failure never breaks the send — the retry's
-        // documented outcome is a degrade, not a send failure.
-        try
-        {
-            await stores.RecentMessages.PutAsync(
-                new RecentMessageEntry(
-                    messageId,
-                    chat.ToString(),
-                    DateTimeOffset.FromUnixTimeSeconds(t),
-                    displayText,
-                    null,
-                    plaintext),
-                cancellationToken).ConfigureAwait(false);
-            await stores.RecentMessages.PurgeExpiredAsync(
-                DateTimeOffset.FromUnixTimeSeconds(t) - MessageDispatcher.RetentionHorizon,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            // D-20 log-and-continue: the send proceeds; a later retry degrades instead.
-        }
+        await TryCacheRecentAsync(stores, messageId, chat, displayText, t, plaintext, sender: null, cancellationToken).ConfigureAwait(false);
 
         var ciphertexts = new List<DeviceCiphertext>(devices.Count);
         bool anyPreKey = false;
@@ -214,27 +216,204 @@ internal sealed class MessageSender
                 ["t"] = t.ToString(CultureInfo.InvariantCulture),
             });
 
-        var completion = new TaskCompletionSource<SendOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[messageId] = new PendingSend(chat, phash, completion);
+        return await AwaitAckAsync(node, chat, messageId, phash, onSent: null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends one E2EE group message via the sender-key path (04-05, MSG-02):
+    /// members resolve through <see cref="GroupDirectory"/> (participants-for-fanout
+    /// only), every member DEVICE resolves through <see cref="DeviceDirectory"/>,
+    /// an SKDM fans out pairwise to exactly the devices that have not yet received
+    /// this sender-key generation (idempotency edge: a repeated send with a live
+    /// key issues NO new distribution), and ONE signed <c>skmsg</c> ciphertext plus
+    /// the deterministic <c>phash</c> rides the same <c>&lt;message&gt;</c> node.
+    /// </summary>
+    /// <exception cref="SdkFormatException">Text is null/empty, the group JID is malformed, the account is not a member (or the participant list resolves empty), or no member devices resolve — always with zero frames.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open or the send raced a teardown.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    internal Task<SendOutcome> SendGroupAsync(Jid group, string text, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        return SendGroupPayloadAsync(group, text, MessageBuilder.BuildPlainText(text), cancellationToken);
+    }
+
+    private async Task<SendOutcome> SendGroupPayloadAsync(Jid group, string displayText, byte[] plaintext, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(plaintext);
+        if (plaintext.Length == 0)
+        {
+            throw new SdkFormatException("Message plaintext must not be empty.");
+        }
+
+        if (string.IsNullOrEmpty(displayText))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string messageId = GenerateMessageId();
+        await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
-
-            TimeSpan ackWindow = TimeSpan.FromMilliseconds(_owner.Connection.SendAckTimeoutMs);
-            Task timeout = Task.Delay(ackWindow, _owner.Clock, cancellationToken);
-            Task winner = await Task.WhenAny(completion.Task, timeout).ConfigureAwait(false);
-            if (!ReferenceEquals(winner, completion.Task))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return new SendOutcome(messageId, SendOutcomeStatus.TimedOut);
-            }
-
-            return await completion.Task.ConfigureAwait(false);
+            return await SendGroupCoreAsync(group, messageId, displayText, plaintext, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            _pending.TryRemove(messageId, out _);
+            _sendGate.Release();
         }
+    }
+
+    private async Task<SendOutcome> SendGroupCoreAsync(Jid group, string messageId, string displayText, byte[] plaintext, CancellationToken cancellationToken)
+    {
+        StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (row?.PairedUser is null)
+        {
+            throw new SdkConnectionException("The account is not paired: the message was not sent.");
+        }
+
+        // T-4-16 empty-input edge: a not-a-member group (typed reply failure) or an
+        // empty participant list fails BEFORE any node is built — zero frames.
+        IReadOnlyList<Jid> members = await _groups.ResolveAsync(group, cancellationToken).ConfigureAwait(false);
+        if (members.Count == 0)
+        {
+            throw new SdkFormatException("The group participant list resolved empty: the group message was not sent.");
+        }
+
+        var memberDevices = new List<Jid>();
+        foreach (Jid member in members)
+        {
+            IReadOnlyList<Jid> devices = await _directory.ResolveAsync(member, row.PairedUser, cancellationToken).ConfigureAwait(false);
+            memberDevices.AddRange(devices);
+        }
+
+        if (memberDevices.Count == 0)
+        {
+            throw new SdkFormatException("No member devices resolved for the group: the message was not sent.");
+        }
+
+        // Deterministic phash over the own-excluded member device set (Pattern 6;
+        // fixture-pinned in SenderKeyTests — the spelling is Jid.ToString()).
+        string phash = DeviceDirectory.ComputePhash(memberDevices);
+
+        long t = _owner.Clock.GetUtcNow().ToUnixTimeSeconds();
+        await TryCacheRecentAsync(stores, messageId, group, displayText, t, plaintext, sender: null, cancellationToken).ConfigureAwait(false);
+
+        // Sender key + SKDM fanout set (idempotency edge): distribute this
+        // generation's SKDM exactly once per member device.
+        string senderKeyAddress = SenderKeyRepository.OutboundAddress(group);
+        SenderKey senderKey = _senderKeys.TryLoad(senderKeyAddress) ?? SenderKey.Create();
+        uint senderKeyId = senderKey.ActiveKeyId;
+        if (!_distributions.TryGetValue(group.ToString(), out Distribution? distribution)
+            || distribution.SenderKeyId != senderKeyId)
+        {
+            distribution = new Distribution(senderKeyId);
+            _distributions[group.ToString()] = distribution;
+        }
+
+        var skdmCiphertexts = new List<DeviceCiphertext>();
+        bool anyPreKey = false;
+        byte[]? skdmPlaintext = null;
+        foreach (Jid device in memberDevices)
+        {
+            if (distribution.Devices.Contains(device.ToString()))
+            {
+                continue; // already distributed this generation — no duplicate SKDM fanout
+            }
+
+            skdmPlaintext ??= MessageBuilder.BuildSenderKeyDistribution(
+                group.ToString(),
+                senderKey.BuildDistribution());
+
+            DoubleRatchet ratchet = await EnsureSessionAsync(stores, row, device, cancellationToken).ConfigureAwait(false);
+            SignalEncryptOutcome outcome = ratchet.Encrypt(skdmPlaintext, cancellationToken);
+            byte[] wire;
+            string encType;
+            if (outcome is SignalEncryptOutcome.PreKeyMessageSent preKey)
+            {
+                wire = preKey.WireBytes;
+                encType = MessageBuilder.EncTypePreKey;
+                anyPreKey = true;
+            }
+            else
+            {
+                wire = ((SignalEncryptOutcome.MessageSent)outcome).WireBytes;
+                encType = MessageBuilder.EncTypeMessage;
+            }
+
+            // D-06: the ratchet advanced — persist before anything rides the wire.
+            await PersistSessionAsync(stores, device, ratchet, cancellationToken).ConfigureAwait(false);
+            skdmCiphertexts.Add(new DeviceCiphertext(device, encType, wire));
+        }
+
+        // ONE signed skmsg ciphertext for the whole group; the sender chain advanced
+        // and is persisted (D-06) BEFORE the node leaves the wire — a cancelled or
+        // timed-out send leaves the chain at a consistent persisted iteration.
+        byte[] skmsg = senderKey.Encrypt(plaintext);
+        _senderKeys.Save(senderKeyAddress, senderKey);
+
+        var children = new List<BinaryNode>();
+        if (skdmCiphertexts.Count > 0)
+        {
+            children.Add(BinaryNode.FromChildren(
+                "participants",
+                [.. BuildRecipientChildren(skdmCiphertexts)],
+                null));
+        }
+
+        if (anyPreKey)
+        {
+            // Pattern 2: the device-identity child rides the node when any child is pkmsg.
+            children.Add(BinaryNode.FromBytes(
+                "device-identity",
+                SignalCipher.ToDjbIdentity(X3dh.DeriveX25519Public(row.IdentityKeyPrivate)),
+                null));
+        }
+
+        children.Add(BinaryNode.FromBytes(
+            "enc",
+            skmsg,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["v"] = MessageBuilder.EncVersion,
+                ["type"] = MessageBuilder.EncTypeSenderKey,
+            }));
+
+        BinaryNode node = BinaryNode.FromChildren(
+            "message",
+            children,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["id"] = messageId,
+                ["to"] = group.ToString(),
+                ["type"] = "text",
+                ["t"] = t.ToString(CultureInfo.InvariantCulture),
+                ["phash"] = phash,
+            });
+
+        return await AwaitAckAsync(
+            node,
+            group,
+            messageId,
+            phash,
+            () =>
+            {
+                // The node left the wire: this generation's SKDM is delivered to
+                // exactly these devices (a timeout still marks them — the frames
+                // reached the wire; a pre-wire failure never reaches this callback).
+                foreach (DeviceCiphertext skdm in skdmCiphertexts)
+                {
+                    distribution.Devices.Add(skdm.Device.ToString());
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -255,6 +434,13 @@ internal sealed class MessageSender
             && !string.Equals(phash, pending.Phash, StringComparison.Ordinal))
         {
             _directory.Invalidate(pending.Chat);
+            if (string.Equals(pending.Chat.Server, GroupDirectory.GroupServer, StringComparison.Ordinal))
+            {
+                // Group ack: the member device set moved — the participant cache
+                // re-queries on the next send (device sets re-resolve through TTL).
+                _groups.Invalidate(pending.Chat);
+            }
+
             _owner.RaiseDeviceSetChanged(
                 new DeviceSetChangedEventArgs(pending.Chat, messageId, pending.Phash, phash));
         }
@@ -536,6 +722,85 @@ internal sealed class MessageSender
                 ["t"] = originalTimestamp.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
                 ["device_fanout"] = "false",
             });
+    }
+
+    /// <summary>
+    /// Best-effort recent-cache write for one outbound send (D-20 log-and-continue):
+    /// the marshalled plaintext is stored keyed by this send's id so a peer retry
+    /// receipt or a quoted reply can always find its material; a cache failure
+    /// never breaks the send — the retry's documented outcome is a degrade.
+    /// </summary>
+    private async Task TryCacheRecentAsync(
+        StoreSession stores,
+        string messageId,
+        Jid chat,
+        string displayText,
+        long timestampSeconds,
+        byte[] plaintext,
+        string? sender,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await stores.RecentMessages.PutAsync(
+                new RecentMessageEntry(
+                    messageId,
+                    chat.ToString(),
+                    DateTimeOffset.FromUnixTimeSeconds(timestampSeconds),
+                    displayText,
+                    sender,
+                    plaintext),
+                cancellationToken).ConfigureAwait(false);
+            await stores.RecentMessages.PurgeExpiredAsync(
+                DateTimeOffset.FromUnixTimeSeconds(timestampSeconds) - MessageDispatcher.RetentionHorizon,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // D-20 log-and-continue: the send proceeds; a later retry degrades instead.
+        }
+    }
+
+    /// <summary>
+    /// One network send + exactly-one-terminal-outcome: register the pending
+    /// entry, send the node, invoke <paramref name="onSent"/> the moment the node
+    /// leaves the wire (distribution-marking seam for the group path), then await
+    /// the correlated ack inside the send window.
+    /// </summary>
+    private async Task<SendOutcome> AwaitAckAsync(
+        BinaryNode node,
+        Jid chat,
+        string messageId,
+        string phash,
+        Action? onSent,
+        CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<SendOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[messageId] = new PendingSend(chat, phash, completion);
+        try
+        {
+            await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+            onSent?.Invoke();
+
+            TimeSpan ackWindow = TimeSpan.FromMilliseconds(_owner.Connection.SendAckTimeoutMs);
+            Task timeout = Task.Delay(ackWindow, _owner.Clock, cancellationToken);
+            Task winner = await Task.WhenAny(completion.Task, timeout).ConfigureAwait(false);
+            if (!ReferenceEquals(winner, completion.Task))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new SendOutcome(messageId, SendOutcomeStatus.TimedOut);
+            }
+
+            return await completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _pending.TryRemove(messageId, out _);
+        }
     }
 
     private static BinaryNode? FirstChild(BinaryNode parent, string tag)

@@ -35,6 +35,8 @@ public sealed class Messenger : IAsyncDisposable
 {
     private readonly WaConnection _connection;
     private readonly DeviceDirectory _directory;
+    private readonly GroupDirectory _groups;
+    private readonly SenderKeyRepository _senderKeys;
     private readonly MessageSender _sender;
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
@@ -48,8 +50,10 @@ public sealed class Messenger : IAsyncDisposable
         _directory = new DeviceDirectory(
             RouterProvider,
             connection.Clock);
-        _sender = new MessageSender(this, _directory);
-        _dispatcher = new MessageDispatcher(this);
+        _groups = new GroupDirectory(RouterProvider, connection.Clock);
+        _senderKeys = new SenderKeyRepository();
+        _sender = new MessageSender(this, _directory, _groups, _senderKeys);
+        _dispatcher = new MessageDispatcher(this, _senderKeys);
         _receipts = new ReceiptHandler(this);
     }
 
@@ -104,6 +108,31 @@ public sealed class Messenger : IAsyncDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
         await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
         return await _sender.SendAsync(chat, text, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends one E2EE text message to a group via the sender-key path (04-05, MSG-02):
+    /// members resolve through <see cref="GroupDirectory"/> (participants-for-fanout
+    /// only — GRPM-01 stays deferred), an SKDM fans out pairwise per sender-key
+    /// generation, and ONE signed <c>skmsg</c> ciphertext rides the same node with the
+    /// deterministic <c>phash</c>. One logical send = one network send, exactly like
+    /// <see cref="SendMessageAsync"/>; on timeout the SDK returns
+    /// <see cref="SendOutcomeStatus.TimedOut"/> and drops — the host may re-call (a NEW
+    /// send with a NEW id; a repeat with a live sender key issues NO duplicate SKDM).
+    /// </summary>
+    /// <param name="group">The group JID (e.g. <c>123-456@g.us</c>).</param>
+    /// <param name="text">The message text (non-empty; UTF-8 inside the protobuf payload).</param>
+    /// <param name="cancellationToken">Caller cancellation (unwrapped; a cancelled send never touches the wire).</param>
+    /// <returns>The terminal <see cref="SendOutcome"/> for the generated message id.</returns>
+    /// <exception cref="SdkFormatException">The group JID is malformed, the text is null/empty, the account is not a member (or the participant list resolves empty), or no member devices resolve.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    public async Task<SendOutcome> SendGroupMessageAsync(Jid group, string text, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        return await _sender.SendGroupAsync(group, text, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -260,6 +260,13 @@ public sealed class MessagingLoopbackTests
         internal string[] UsyncDevices { get; set; } = [];
         internal int UploadQueries;
 
+        /// <summary>
+        /// Group participant JIDs returned by the <c>w:g2</c> groupMetadata responder
+        /// (04-05 MSG-02): null = the not-a-member reply (result without a
+        /// <c>group</c> node); [] = a member reply with an empty participant list.
+        /// </summary>
+        internal string[]? GroupParticipants { get; set; }
+
         internal ScriptedPeer(LoopbackFrameTransport transport, NoiseTransport noise, CancellationToken token)
         {
             _transport = transport;
@@ -355,6 +362,39 @@ public sealed class MessagingLoopbackTests
                     new Dictionary<string, string>(StringComparer.Ordinal) { ["type"] = "result" });
                 Log.Enqueue("usync");
                 await ReplyAsync(queryId, BinaryNodeCodec.Encode(response));
+                return;
+            }
+
+            if (xmlns == "w:g2")
+            {
+                // Group metadata reply (04-05, MSG-02): members reply carries a
+                // <group> node with one participant child per member; the
+                // not-a-member reply carries no group node at all.
+                string? groupJid = inner.Attrs.GetValueOrDefault("to");
+                Log.Enqueue("group-info");
+                if (GroupParticipants is null)
+                {
+                    await ReplyAsync(queryId, BinaryNodeCodec.Encode(BinaryNode.Create("iq", new Dictionary<string, string>(StringComparer.Ordinal) { ["type"] = "result" })));
+                    return;
+                }
+
+                var participants = new List<BinaryNode>();
+                foreach (string memberJid in GroupParticipants)
+                {
+                    participants.Add(BinaryNode.Create(
+                        "participant",
+                        new Dictionary<string, string>(StringComparer.Ordinal) { ["jid"] = memberJid }));
+                }
+
+                BinaryNode group = BinaryNode.FromChildren(
+                    "group",
+                    participants,
+                    new Dictionary<string, string>(StringComparer.Ordinal) { ["id"] = groupJid ?? "" });
+                BinaryNode groupResponse = BinaryNode.FromChildren(
+                    "iq",
+                    [group],
+                    new Dictionary<string, string>(StringComparer.Ordinal) { ["type"] = "result" });
+                await ReplyAsync(queryId, BinaryNodeCodec.Encode(groupResponse));
                 return;
             }
 

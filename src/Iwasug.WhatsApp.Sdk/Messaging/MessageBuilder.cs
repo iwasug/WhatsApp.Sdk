@@ -75,6 +75,9 @@ internal static class MessageBuilder
     /// <summary>Enc type token for first-contact prekey messages.</summary>
     internal const string EncTypePreKey = "pkmsg";
 
+    /// <summary>Enc type token for sender-key group messages (04-05, MSG-02).</summary>
+    internal const string EncTypeSenderKey = "skmsg";
+
     /// <summary>
     /// Builds the serialized plaintext for a plain-text message:
     /// <c>Message { Conversation = text }</c>.
@@ -139,6 +142,40 @@ internal static class MessageBuilder
             {
                 Text = text,
                 ContextInfo = context,
+            },
+        }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for one sender-key distribution (04-05,
+    /// MSG-02): <c>Message { SenderKeyDistributionMessage { GroupId,
+    /// AxolotlSenderKeyDistributionMessage } }</c>. The wrapper replaces the message
+    /// payload for the pairwise SKDM fanout — it is delivered 1:1-encrypted to each
+    /// member device and never appears as a message event on the receiving side.
+    /// </summary>
+    /// <param name="groupId">The group chat JID the distribution belongs to (canonical form).</param>
+    /// <param name="distributionWire">The complete SKDM wire (<c>version || serialized axolotl SKDM</c>).</param>
+    /// <returns>The serialized <c>Message</c> plaintext bytes.</returns>
+    /// <exception cref="SdkFormatException">The group id is null/empty or the distribution bytes are null/empty.</exception>
+    internal static byte[] BuildSenderKeyDistribution(string groupId, byte[] distributionWire)
+    {
+        if (string.IsNullOrEmpty(groupId))
+        {
+            throw new SdkFormatException("Sender-key distribution group ids must not be null or empty.");
+        }
+
+        ArgumentNullException.ThrowIfNull(distributionWire);
+        if (distributionWire.Length == 0)
+        {
+            throw new SdkFormatException("Sender-key distribution bytes must not be empty.");
+        }
+
+        return new Message
+        {
+            SenderKeyDistributionMessage = new SenderKeyDistributionMessage
+            {
+                GroupId = groupId,
+                AxolotlSenderKeyDistributionMessage = ByteString.CopyFrom(distributionWire),
             },
         }.ToByteArray();
     }

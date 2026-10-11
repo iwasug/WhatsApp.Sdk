@@ -54,11 +54,13 @@ internal sealed class MessageDispatcher
     internal static readonly TimeSpan RetentionHorizon = TimeSpan.FromDays(30);
 
     private readonly Messenger _owner;
+    private readonly SenderKeyRepository _senderKeys;
     private int _disposed;
 
-    internal MessageDispatcher(Messenger owner)
+    internal MessageDispatcher(Messenger owner, SenderKeyRepository senderKeys)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        _senderKeys = senderKeys ?? throw new ArgumentNullException(nameof(senderKeys));
     }
 
     /// <summary>
@@ -132,8 +134,17 @@ internal sealed class MessageDispatcher
         byte[] wire = enc.Data ?? throw new SdkFormatException("Inbound enc children must carry byte content.");
 
         Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
-        bool isFromMe = string.Equals(DeviceDirectory.BaseUser(from), row.PairedUser, StringComparison.Ordinal);
         DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
+
+        if (string.Equals(encType, MessageBuilder.EncTypeSenderKey, StringComparison.Ordinal))
+        {
+            // Group path (04-05, MSG-02): an skmsg decrypts through the stored sender
+            // key keyed by (group, participant) — the 1:1 session path never sees it.
+            await HandleGroupMessageAsync(node, from, chat, messageId, wire, timestamp, row, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        bool isFromMe = string.Equals(DeviceDirectory.BaseUser(from), row.PairedUser, StringComparison.Ordinal);
 
         // CONCURRENCY CONTRACT (04-04 MSG-06): the full load → decrypt → persist
         // operation holds the per-address session gate, and a retry receipt for the
@@ -170,6 +181,17 @@ internal sealed class MessageDispatcher
 
             // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4).
             await repository.SaveUnlockedAsync(address, session, cancellationToken).ConfigureAwait(false);
+
+            if (message.SenderKeyDistributionMessage is not null)
+            {
+                // SKDM branch (04-05, MSG-02): the sender key persists BEFORE the ack
+                // (D-06), keyed by (group, sender identity) — the SKDM only ever arrives
+                // inside a successfully decrypted 1:1 message from its sender (T-4-15).
+                // No message event and no cache write: a distribution is not a message.
+                StoreSenderKeyDistribution(message.SenderKeyDistributionMessage, from);
+                await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
             await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
 
@@ -213,6 +235,127 @@ internal sealed class MessageDispatcher
     }
 
     /// <summary>
+    /// Inbound group <c>skmsg</c> dispatch (04-05, MSG-02): decrypts through the
+    /// sender key stored for (group, participant); on success the 1:1 ordering
+    /// contract resumes unchanged — persist the advanced sender key (D-06) → ack
+    /// (with <c>participant</c>) → raise <see cref="MessageReceivedEventArgs"/>
+    /// carrying the group chat and the participant → recent cache. A missing key
+    /// or a failed signature is a typed outcome: the capped Pattern-5 retry
+    /// receipt goes out, NO ack claims success, and NO message event fires (the
+    /// signature verified before any event — T-4-15).
+    /// </summary>
+    private async Task HandleGroupMessageAsync(
+        BinaryNode node,
+        Jid from,
+        Jid chat,
+        string messageId,
+        byte[] wire,
+        DateTimeOffset timestamp,
+        CredentialRecord row,
+        CancellationToken cancellationToken)
+    {
+        if (!node.Attrs.TryGetValue("participant", out string? participantAttr)
+            || string.IsNullOrEmpty(participantAttr)
+            || !Jid.TryParse(participantAttr, out Jid? participant)
+            || participant is null)
+        {
+            throw new SdkFormatException("Inbound group message nodes must carry a parseable participant attribute.");
+        }
+
+        string senderKeyAddress = SenderKeyRepository.InboundAddress(chat, participant);
+        SenderKey? senderKey = _senderKeys.TryLoad(senderKeyAddress);
+        if (senderKey is null)
+        {
+            await TryEmitRetryReceiptAsync(row, participant, chat, messageId, timestamp, hasSession: false, cancellationToken).ConfigureAwait(false);
+            return; // no sender key yet (SKDM pending): retry receipt, no ack, no event
+        }
+
+        if (senderKey.Decrypt(wire) is not SenderKeyDecryptOutcome.Decrypted decrypted)
+        {
+            await TryEmitRetryReceiptAsync(row, participant, chat, messageId, timestamp, hasSession: true, cancellationToken).ConfigureAwait(false);
+            return; // tampered or undecryptable skmsg: typed failure, no ack, no event
+        }
+
+        Message message;
+        try
+        {
+            message = Message.Parser.ParseFrom(decrypted.Plaintext);
+        }
+        catch (InvalidProtocolBufferException ex)
+        {
+            throw new SdkFormatException("Inbound group message plaintext failed protobuf validation.", ex);
+        }
+
+        // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4) — the
+        // sender-key chain advanced during the decrypt and must be durable first.
+        _senderKeys.Save(senderKeyAddress, senderKey);
+
+        await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);
+
+        string? text = message.Conversation.Length == 0 ? null : message.Conversation;
+        var key = new MessageKeyRecord(chat, FromMe: false, messageId, participant.ToString());
+        _owner.RaiseMessageReceived(
+            new MessageReceivedEventArgs(key, chat, participant, IsFromMe: false, timestamp, text, messageId));
+
+        // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort.
+        if (_owner.IsDeliveryReceiptsEnabled(chat))
+        {
+            try
+            {
+                await _owner.Receipts.SendDeliveryReceiptAsync(
+                    chat, messageId, _owner.Clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Log-and-continue: the receipt is best-effort by contract.
+            }
+        }
+
+        try
+        {
+            StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+            await stores.RecentMessages.PutAsync(
+                new RecentMessageEntry(
+                    messageId,
+                    chat.ToString(),
+                    timestamp,
+                    text,
+                    participant.ToString(),
+                    decrypted.Plaintext),
+                cancellationToken).ConfigureAwait(false);
+            await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // D-20 log-and-continue: the store may throw; the event and ack are already done.
+        }
+    }
+
+    /// <summary>
+    /// Stores one SKDM from a decrypted 1:1 message (04-05, MSG-02): a malformed
+    /// wrapper or unparsable group id is discarded fail-closed — the message is
+    /// still acked (it decrypted authentically), and nothing is stored under a
+    /// forged identity (T-4-15).
+    /// </summary>
+    private void StoreSenderKeyDistribution(Messaging.SenderKeyDistributionMessage wrapper, Jid from)
+    {
+        if (string.IsNullOrEmpty(wrapper.GroupId)
+            || !Jid.TryParse(wrapper.GroupId, out Jid? group)
+            || group is null)
+        {
+            return; // unparsable group id: discard fail-closed, never store
+        }
+
+        if (!SenderKey.TryParseDistribution(wrapper.AxolotlSenderKeyDistributionMessage.Span, out SenderKeyDistribution? distribution)
+            || distribution is null)
+        {
+            return; // malformed SKDM: discard fail-closed, never store
+        }
+
+        _senderKeys.PutDistribution(SenderKeyRepository.InboundAddress(group, from), distribution);
+    }
+
+    /// <summary>
     /// Emits the Pattern-5 retry receipt for a failed decrypt, best-effort (MSG-06):
     /// the typed event is raised inside the handler before any wire work, so a
     /// retry-receipt fault never breaks the receive path (the caller holds the
@@ -241,16 +384,21 @@ internal sealed class MessageDispatcher
         }
     }
 
-    private async Task SendAckAsync(string messageId, Jid from, CancellationToken cancellationToken)
+    private async Task SendAckAsync(string messageId, Jid from, CancellationToken cancellationToken, Jid? participant = null)
     {
-        BinaryNode ack = BinaryNode.Create(
-            "ack",
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["class"] = "message",
-                ["id"] = messageId,
-                ["to"] = from.ToString(),
-            });
+        var attrs = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["class"] = "message",
+            ["id"] = messageId,
+            ["to"] = from.ToString(),
+        };
+        if (participant is not null)
+        {
+            // Pattern 7: group messages carry the participant attribute on the ack.
+            attrs["participant"] = participant.ToString();
+        }
+
+        BinaryNode ack = BinaryNode.Create("ack", attrs);
         await _owner.Connection.SendNodeAsync(ack, cancellationToken).ConfigureAwait(false);
     }
 
