@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
@@ -33,6 +35,15 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// </remarks>
 public sealed class Messenger : IAsyncDisposable
 {
+    /// <summary>
+    /// The bounded event-stream capacity (04-05, MSG-07 — T-4-17): when
+    /// <see cref="ReadEventsAsync"/> consumers fall behind, the channel accepts up to
+    /// this many events before the SDK's receive path blocks on the next write. The
+    /// pump is SLOWED, never dropped — the backpressure fact asserts the delivered
+    /// count equals the scripted count with the channel observed AT this capacity.
+    /// </summary>
+    public const int EventChannelCapacity = 128;
+
     private readonly WaConnection _connection;
     private readonly DeviceDirectory _directory;
     private readonly GroupDirectory _groups;
@@ -41,6 +52,13 @@ public sealed class Messenger : IAsyncDisposable
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
     private readonly SemaphoreSlim _prekeyGate = new(1, 1);
+    private readonly Channel<WhatsAppEvent> _events = Channel.CreateBounded<WhatsAppEvent>(
+        new BoundedChannelOptions(EventChannelCapacity)
+        {
+            SingleReader = false,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait,
+        });
     private bool _prekeysEnsured;
     private int _disposed;
 
@@ -88,6 +106,47 @@ public sealed class Messenger : IAsyncDisposable
     /// re-queries USync. The affected send itself still settles its normal outcome.
     /// </summary>
     public event EventHandler<DeviceSetChangedEventArgs>? DeviceSetChanged;
+
+    /// <summary>
+    /// The typed event stream (04-05, MSG-07): one vocabulary, two consumption shapes.
+    /// Every message, receipt, ack, and decryption-failure fact raised through the
+    /// <c>EventHandler</c> events above is ALSO written to a bounded in-box
+    /// <see cref="System.Threading.Channels.Channel{T}"/> of
+    /// <see cref="EventChannelCapacity"/> events, and this method enumerates it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Backpressure contract (T-4-17): the SDK writes with
+    /// <c>WriteAsync</c> — a consumer that falls behind SLOWS the receive pump once
+    /// the channel is full; events are never silently dropped or coalesced. Consuming
+    /// code must not block the drain indefinitely.
+    /// </para>
+    /// <para>
+    /// Cancellation contract: <paramref name="cancellationToken"/> cancels enumeration
+    /// promptly — the pending read aborts and <see cref="OperationCanceledException"/>
+    /// propagates unwrapped (repo cancel-passes-through discipline); no event is
+    /// observed after cancellation. The same token should be passed to the sends and
+    /// queries the host awaits alongside the stream. Disposing the messenger completes
+    /// the stream (enumeration ends, it does not throw).
+    /// </para>
+    /// <para>
+    /// Connection-state and logout are NOT part of the stream: they remain
+    /// <c>EventHandler</c> events on <see cref="Connection.WaConnection"/> (CONN-05
+    /// compatibility). Handler exceptions never cross the SDK boundary — enumeration
+    /// runs on the host's own task.
+    /// </para>
+    /// </remarks>
+    /// <param name="cancellationToken">Cancels enumeration (unwrapped; no event is observed after cancellation).</param>
+    /// <returns>The ordered stream of typed events for this account.</returns>
+    public async IAsyncEnumerable<WhatsAppEvent> ReadEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Async-iterator shape (not a passthrough) so [EnumeratorCancellation] combines
+        // this token with the GetAsyncEnumerator token — either cancels the enumeration.
+        await foreach (WhatsAppEvent evt in _events.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yield return evt;
+        }
+    }
 
     /// <summary>
     /// Sends one E2EE text message to the chat: one logical send = one network send. On
@@ -255,18 +314,82 @@ public sealed class Messenger : IAsyncDisposable
         }
 
         _dispatcher.Dispose();
+        _events.Writer.TryComplete(); // stream ends for consumers; DisposeAsync semantics unchanged
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    internal void RaiseMessageReceived(MessageReceivedEventArgs args) => MessageReceived?.Invoke(this, args);
+    /// <summary>
+    /// The single emit point for one received-message fact (04-05, MSG-07): raises the
+    /// <see cref="MessageReceived"/> EventHandler, then writes the same facts to the
+    /// event stream — one vocabulary, two consumption shapes. The stream write applies
+    /// backpressure (T-4-17): a full channel slows the caller's pump, never drops.
+    /// </summary>
+    internal async ValueTask RaiseMessageReceivedAsync(MessageReceivedEventArgs args, CancellationToken cancellationToken)
+    {
+        MessageReceived?.Invoke(this, args);
+        await PublishAsync(
+            new MessageReceivedEvent(args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Text, args.QuotedMessageId),
+            cancellationToken).ConfigureAwait(false);
+    }
 
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
 
-    internal void RaiseReceiptReceived(ReceiptReceivedEventArgs args) => ReceiptReceived?.Invoke(this, args);
+    /// <summary>The single emit point for one receipt fact: EventHandler twin, then the stream (backpressure, no drop).</summary>
+    internal async ValueTask RaiseReceiptReceivedAsync(ReceiptReceivedEventArgs args, CancellationToken cancellationToken)
+    {
+        ReceiptReceived?.Invoke(this, args);
+        await PublishAsync(
+            new ReceiptReceivedEvent(args.Kind, args.MessageIds, args.Chat, args.Participant, args.Timestamp),
+            cancellationToken).ConfigureAwait(false);
+    }
 
-    internal void RaiseDecryptionFailed(DecryptionFailedEventArgs args) => DecryptionFailed?.Invoke(this, args);
+    /// <summary>The single emit point for one decryption-failure fact: EventHandler twin, then the stream (backpressure, no drop).</summary>
+    internal async ValueTask RaiseDecryptionFailedAsync(DecryptionFailedEventArgs args, CancellationToken cancellationToken)
+    {
+        DecryptionFailed?.Invoke(this, args);
+        await PublishAsync(
+            new DecryptionFailedEvent(args.Chat, args.Sender, args.MessageId, args.RetryCount, args.Timestamp),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The single emit point for one terminal send-ack fact (04-05, MSG-07): the same
+    /// <see cref="SendOutcome"/> the awaited send call settles with also reaches the
+    /// stream as <see cref="MessageAckedEvent"/>. No pending send, no event (a late or
+    /// duplicate ack is a no-op on both surfaces).
+    /// </summary>
+    internal ValueTask RaiseMessageAckedAsync(SendOutcome outcome, Jid chat, CancellationToken cancellationToken) =>
+        PublishAsync(
+            new MessageAckedEvent(
+                outcome.MessageId, chat, outcome.Status, outcome.Error, outcome.T, outcome.ServerId,
+                _connection.Clock.GetUtcNow()),
+            cancellationToken);
+
+    /// <summary>
+    /// Writes one fact to the bounded event channel. <see cref="System.Threading.Channels.ChannelClosedException"/>
+    /// is swallowed: after <see cref="DisposeAsync"/> the stream is complete and a
+    /// post-dispose fact has no consumer (not a silent drop — the host disposed the stream).
+    /// </summary>
+    private async ValueTask PublishAsync(WhatsAppEvent evt, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _events.Writer.WriteAsync(evt, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            // Stream completed by DisposeAsync: nothing can observe this fact anymore.
+        }
+    }
 
     internal ReceiptHandler Receipts => _receipts;
+
+    /// <summary>
+    /// Test-visible buffered-event count (04-05 MSG-07 backpressure fact): proves a
+    /// non-draining consumer fills the bounded channel exactly to
+    /// <see cref="EventChannelCapacity"/> while the pump is slowed, not dropping.
+    /// </summary>
+    internal int BufferedEventCount => _events.Reader.Count;
 
     /// <summary>
     /// Prekey-readiness trigger (04-03 Task 3, 04-RESEARCH Pattern 3): before the first

@@ -201,7 +201,9 @@ internal sealed class ReceiptHandler
             _retryCounts.Clear(); // bounded map: clearing relaxes the cap, never tightens it
         }
 
-        _owner.RaiseDecryptionFailed(new DecryptionFailedEventArgs(chat, sender, messageId, count, originalTimestamp));
+        await _owner.RaiseDecryptionFailedAsync(
+            new DecryptionFailedEventArgs(chat, sender, messageId, count, originalTimestamp),
+            cancellationToken).ConfigureAwait(false);
         if (count > RetryCountCap)
         {
             return; // Pattern-5 cap: receipts stop, the typed event is the host's signal

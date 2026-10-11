@@ -418,16 +418,18 @@ internal sealed class MessageSender
 
     /// <summary>
     /// Correlates one inbound <c>ack</c> for a sent message id: completes the pending
-    /// send exactly once; a late or duplicate ack finds no pending entry and is a no-op.
-    /// An ack <c>phash</c> that no longer matches the fanout set (Pitfall 3) invalidates
-    /// the device cache for the peer and raises the typed warning before the outcome
-    /// completes — the ack itself still settles the send normally.
+    /// send exactly once and returns the terminal fact (outcome + chat) for the
+    /// MSG-07 stream; a late or duplicate ack finds no pending entry and returns null
+    /// (no outcome, no event). An ack <c>phash</c> that no longer matches the fanout
+    /// set (Pitfall 3) invalidates the device cache for the peer and raises the typed
+    /// warning before the outcome completes — the ack itself still settles the send
+    /// normally.
     /// </summary>
-    internal void CompleteFromAck(string messageId, int? error, string? t, string? serverId, string? phash)
+    internal (SendOutcome Outcome, Jid Chat)? CompleteFromAck(string messageId, int? error, string? t, string? serverId, string? phash)
     {
         if (!_pending.TryGetValue(messageId, out PendingSend? pending))
         {
-            return; // late/duplicate ack: no pending entry — a no-op, outcome untouched
+            return null; // late/duplicate ack: no pending entry — a no-op, outcome untouched
         }
 
         if (!string.IsNullOrEmpty(phash)
@@ -449,6 +451,7 @@ internal sealed class MessageSender
             ? new SendOutcome(messageId, SendOutcomeStatus.ServerError, error, t, serverId)
             : new SendOutcome(messageId, SendOutcomeStatus.Sent, error, t, serverId);
         pending.Completion.TrySetResult(outcome);
+        return (outcome, pending.Chat);
     }
 
     /// <summary>True when a pending send waits on this id (ack-correlation seam for the dispatcher).</summary>

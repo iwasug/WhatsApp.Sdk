@@ -95,7 +95,7 @@ internal sealed class MessageDispatcher
                 await HandleMessageAsync(node, cancellationToken).ConfigureAwait(false);
                 break;
             case "ack":
-                HandleAck(node);
+                await HandleAckAsync(node, cancellationToken).ConfigureAwait(false);
                 break;
             case "receipt":
                 await HandleReceipt(node, cancellationToken).ConfigureAwait(false);
@@ -197,7 +197,9 @@ internal sealed class MessageDispatcher
 
             string? text = message.Conversation.Length == 0 ? null : message.Conversation;
             var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
-            _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text, messageId));
+            await _owner.RaiseMessageReceivedAsync(
+                new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text, messageId),
+                cancellationToken).ConfigureAwait(false);
 
             // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort — a
             // receipt failure never breaks the receive path (the message is already acked).
@@ -294,8 +296,9 @@ internal sealed class MessageDispatcher
 
         string? text = message.Conversation.Length == 0 ? null : message.Conversation;
         var key = new MessageKeyRecord(chat, FromMe: false, messageId, participant.ToString());
-        _owner.RaiseMessageReceived(
-            new MessageReceivedEventArgs(key, chat, participant, IsFromMe: false, timestamp, text, messageId));
+        await _owner.RaiseMessageReceivedAsync(
+            new MessageReceivedEventArgs(key, chat, participant, IsFromMe: false, timestamp, text, messageId),
+            cancellationToken).ConfigureAwait(false);
 
         // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort.
         if (_owner.IsDeliveryReceiptsEnabled(chat))
@@ -402,7 +405,7 @@ internal sealed class MessageDispatcher
         await _owner.Connection.SendNodeAsync(ack, cancellationToken).ConfigureAwait(false);
     }
 
-    private void HandleAck(BinaryNode node)
+    private async Task HandleAckAsync(BinaryNode node, CancellationToken cancellationToken)
     {
         if (!node.Attrs.TryGetValue("class", out string? ackClass)
             || !string.Equals(ackClass, "message", StringComparison.Ordinal)
@@ -417,7 +420,13 @@ internal sealed class MessageDispatcher
         node.Attrs.TryGetValue("t", out string? t);
         node.Attrs.TryGetValue("server_id", out string? serverId);
         node.Attrs.TryGetValue("phash", out string? phash);
-        _owner.Sender.CompleteFromAck(messageId, error, t, serverId, phash);
+        (SendOutcome Outcome, Jid Chat)? ack = _owner.Sender.CompleteFromAck(messageId, error, t, serverId, phash);
+        if (ack is not null)
+        {
+            // MSG-07: the terminal ack fact reaches the stream from the SAME emit
+            // point that settles the awaited send — a late/duplicate ack raises nothing.
+            await _owner.RaiseMessageAckedAsync(ack.Value.Outcome, ack.Value.Chat, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -474,7 +483,9 @@ internal sealed class MessageDispatcher
 
         Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
         DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
-        _owner.RaiseReceiptReceived(new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp));
+        await _owner.RaiseReceiptReceivedAsync(
+            new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp),
+            cancellationToken).ConfigureAwait(false);
 
         if (kind is ReceiptKind.Retry)
         {
