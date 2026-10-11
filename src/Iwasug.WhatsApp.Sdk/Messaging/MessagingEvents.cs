@@ -146,3 +146,27 @@ public sealed record ReceiptReceivedEventArgs(
     Domain.Jid Chat,
     Domain.Jid? Participant,
     DateTimeOffset Timestamp);
+
+/// <summary>
+/// Raised when one inbound message failed to decrypt (04-04, MSG-06). Raised on
+/// <b>every</b> failure — uncapped — while the wire-side retry receipt emission stops
+/// after <see cref="ReceiptHandler"/>'s Pattern-5 count cap: past the cap the typed
+/// event is the host's only signal (T-4-13 retry-loop bound).
+/// </summary>
+/// <remarks>
+/// Handler contract (identical to <see cref="MessageReceivedEventArgs"/>): return
+/// quickly, never call <see cref="Connection.WaConnection.DisposeAsync"/> from the
+/// handler, handler exceptions are logged and swallowed. The event names rules only —
+/// no plaintext, ciphertext, or key bytes ever surface (T-4-01 discipline).
+/// </remarks>
+/// <param name="Chat">The chat the failed message belongs to (bare user form for 1:1).</param>
+/// <param name="Sender">The sender's full per-device JID.</param>
+/// <param name="MessageId">The failed message's wire id.</param>
+/// <param name="RetryCount">The 1-based failure count for this (sender, message id) pair.</param>
+/// <param name="Timestamp">The original message timestamp (UTC) from the wire <c>t</c> attribute when present, else discovery time.</param>
+public sealed record DecryptionFailedEventArgs(
+    Domain.Jid Chat,
+    Domain.Jid Sender,
+    string MessageId,
+    int RetryCount,
+    DateTimeOffset Timestamp);

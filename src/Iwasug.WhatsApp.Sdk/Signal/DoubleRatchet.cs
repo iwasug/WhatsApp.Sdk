@@ -1192,6 +1192,21 @@ internal sealed class DoubleRatchet
         {
             ArgumentNullException.ThrowIfNull(address);
             using IDisposable loadLease = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false);
+            return await LoadUnlockedAsync(address, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Loads without acquiring the per-address gate — callers MUST already hold
+        /// <see cref="SignalSessionGate"/> for <paramref name="address"/> (04-04: the
+        /// dispatcher and the retry-resend path hold the gate across their full
+        /// load → mutate → save operation so a decrypt and a retry resend for the
+        /// same address never interleave). Public <see cref="LoadAsync"/> acquires
+        /// the gate itself; never call both for one operation (the gate is not
+        /// reentrant).
+        /// </summary>
+        internal async Task<DoubleRatchet?> LoadUnlockedAsync(string address, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(address);
             SignalSessionRecord? record = await _store.GetAsync(address, cancellationToken).ConfigureAwait(false);
             if (record is null)
             {
@@ -1212,6 +1227,19 @@ internal sealed class DoubleRatchet
             ArgumentNullException.ThrowIfNull(address);
             ArgumentNullException.ThrowIfNull(session);
             using IDisposable saveLease = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false);
+            await SaveUnlockedAsync(address, session, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Persists without acquiring the per-address gate — callers MUST already hold
+        /// <see cref="SignalSessionGate"/> for <paramref name="address"/> (same contract
+        /// as <see cref="LoadUnlockedAsync"/>: full-operation serialization for the
+        /// retry exchange, D-06 unchanged — durability is awaited before returning).
+        /// </summary>
+        internal async Task SaveUnlockedAsync(string address, DoubleRatchet session, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(address);
+            ArgumentNullException.ThrowIfNull(session);
             byte[] state = session.Serialize();
             await _retry.ExecuteAsync<bool>(
                 async ct =>

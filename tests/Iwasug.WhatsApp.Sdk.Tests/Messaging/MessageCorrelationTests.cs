@@ -30,12 +30,14 @@ public sealed class MessageCorrelationTests
     internal sealed class Rig : IAsyncDisposable
     {
         required internal InMemoryStoreFactory Factory { get; init; }
-        required internal WaConnection Connection { get; init; }
-        required internal Messenger Messenger { get; init; }
-        required internal PeerDevice DeviceA { get; init; }
-        required internal Jid Chat { get; init; }
-        required internal IRecentMessageCacheStore RecentMessages { get; init; }
-        required internal IPreKeyStore PreKeys { get; init; }
+        internal required WaConnection Connection { get; init; }
+        internal required Messenger Messenger { get; init; }
+        internal required PeerDevice DeviceA { get; init; }
+        internal required Jid Chat { get; init; }
+        internal required IRecentMessageCacheStore RecentMessages { get; init; }
+        internal required IPreKeyStore PreKeys { get; init; }
+        internal required IIdentityStore Identity { get; init; }
+        internal required ISignalSessionStore Sessions { get; init; }
         required internal DoubleRatchet? PeerAlice { get; init; }
         required internal Task<ScriptedPeer> PeerReady { get; init; }
         required internal Task PeerTask { get; init; }
@@ -123,6 +125,8 @@ public sealed class MessageCorrelationTests
             Chat = Jid.Parse($"{PeerUser}@{PeerServer}"),
             RecentMessages = cache,
             PreKeys = preKeys,
+            Identity = identities,
+            Sessions = sessions,
             PeerAlice = peerAlice,
             PeerReady = peerReady.Task,
             PeerTask = peerTask,

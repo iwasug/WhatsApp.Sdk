@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
@@ -108,6 +109,35 @@ internal sealed class MessageSender
         byte[] plaintext = MessageBuilder.BuildPlainText(text);
         long t = _owner.Clock.GetUtcNow().ToUnixTimeSeconds();
 
+        // MSG-06 resend source (Pitfall 6: the recent cache is the ONLY resend source):
+        // store the marshalled plaintext keyed by this send's id before anything rides
+        // the wire, so a peer retry receipt for this id can always find its material.
+        // D-20 log-and-continue: a cache failure never breaks the send — the retry's
+        // documented outcome is a degrade, not a send failure.
+        try
+        {
+            await stores.RecentMessages.PutAsync(
+                new RecentMessageEntry(
+                    messageId,
+                    chat.ToString(),
+                    DateTimeOffset.FromUnixTimeSeconds(t),
+                    text,
+                    null,
+                    plaintext),
+                cancellationToken).ConfigureAwait(false);
+            await stores.RecentMessages.PurgeExpiredAsync(
+                DateTimeOffset.FromUnixTimeSeconds(t) - MessageDispatcher.RetentionHorizon,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // D-20 log-and-continue: the send proceeds; a later retry degrades instead.
+        }
+
         var ciphertexts = new List<DeviceCiphertext>(devices.Count);
         bool anyPreKey = false;
         foreach (Jid device in devices)
@@ -209,6 +239,308 @@ internal sealed class MessageSender
 
     /// <summary>True when a pending send waits on this id (ack-correlation seam for the dispatcher).</summary>
     internal bool IsPending(string messageId) => _pending.ContainsKey(messageId);
+
+    /// <summary>
+    /// Responds to a peer's Pattern-5 retry receipt for one of OUR outgoing messages
+    /// (04-04, MSG-06): re-encrypts the cached marshalled plaintext for the requester
+    /// and resends it as a new <c>&lt;message&gt;</c> node with the SAME id, type, and
+    /// <c>t</c> (Pattern 5 verbatim; <c>device_fanout="false"</c> for 1:1). A retry
+    /// carrying a <c>&lt;keys&gt;</c> block rebuilds a fresh session from it first —
+    /// pinned-identity enforced (a pinned identity that disagrees with the keys-block
+    /// identity refuses the rebuild; the signature verifies under the pin, or under the
+    /// keys identity on genuine first contact, per <see cref="PreKeyManager"/> TOFU
+    /// semantics).
+    /// </summary>
+    /// <remarks>
+    /// T-4-12 (information disclosure): the resend serves only the message's ORIGINAL
+    /// 1:1 recipient — the requester's bare JID must equal the cache entry's chat
+    /// exactly; anything else refuses with no resend and no throw. Pitfall 6 degrade
+    /// contract: a cache the recent store cannot satisfy (trimmed past the horizon, no
+    /// retained payload, or a throwing store) degrades to a logged no-op — this method
+    /// never throws through the receive path. No log call ever sees plaintext, the
+    /// payload, or key bytes.
+    /// </remarks>
+    /// <param name="requester">The retry requester's full per-device JID (the receipt's <c>from</c>).</param>
+    /// <param name="messageId">The failed message id (the receipt's <c>id</c> — the resend reuses it exactly).</param>
+    /// <param name="peerRegistrationId">The peer's 14-bit registration id from the receipt's <c>registration</c> child, when present.</param>
+    /// <param name="keys">The receipt's <c>&lt;keys&gt;</c> block for a fresh-session rebuild, or null for an existing-session resend.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async Task ResendForRetryReceiptAsync(
+        Jid requester,
+        string messageId,
+        uint? peerRegistrationId,
+        BinaryNode? keys,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+            CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+            if (row?.PairedUser is null)
+            {
+                return; // unpaired account: nothing to resend
+            }
+
+            RecentMessageEntry? entry = await stores.RecentMessages.GetAsync(messageId, cancellationToken).ConfigureAwait(false);
+            if (entry is null || entry.ResendPayload is not { Length: > 0 })
+            {
+                return; // trimmed past the horizon / no retained payload: the documented no-resend outcome (Pitfall 6, D-05)
+            }
+
+            // T-4-12: the resend serves ONLY the message's original 1:1 recipient. The
+            // cache entry's chat names that recipient; the requester's bare form must
+            // match it exactly. Group chats refuse (membership is unknown to the SDK and
+            // no group sends exist yet); the receive path continues unharmed either way.
+            Jid requesterChat = Jid.Parse($"{DeviceDirectory.BaseUser(requester)}@{requester.Server}");
+            if (!string.Equals(entry.ChatJid, requesterChat.ToString(), StringComparison.Ordinal))
+            {
+                return; // wrong requester (T-4-12): no resend, no throw
+            }
+
+            string address = DoubleRatchet.SignalSessionRepository.AddressFor(requester);
+            var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, _retry);
+            using (IDisposable sessionGate = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false))
+            {
+                DoubleRatchet session;
+                if (keys is not null)
+                {
+                    session = await BuildFreshSessionFromKeysAsync(
+                        stores, row, address, keys, peerRegistrationId, repository, cancellationToken).ConfigureAwait(false);
+                    if (session is null)
+                    {
+                        return; // malformed or pin-conflicting keys: refuse and degrade (never re-trust)
+                    }
+                }
+                else
+                {
+                    session = await repository.LoadUnlockedAsync(address, cancellationToken).ConfigureAwait(false);
+                    if (session is null)
+                    {
+                        return; // no keys block and no live session: nothing to re-encrypt under
+                    }
+                }
+
+                SignalEncryptOutcome outcome = session.Encrypt(entry.ResendPayload, cancellationToken);
+                byte[] wire;
+                string encType;
+                if (outcome is SignalEncryptOutcome.PreKeyMessageSent preKey)
+                {
+                    wire = preKey.WireBytes;
+                    encType = MessageBuilder.EncTypePreKey;
+                }
+                else
+                {
+                    wire = ((SignalEncryptOutcome.MessageSent)outcome).WireBytes;
+                    encType = MessageBuilder.EncTypeMessage;
+                }
+
+                // D-06: the ratchet advanced (fresh or live) — persist before the resend rides the wire.
+                await repository.SaveUnlockedAsync(address, session, cancellationToken).ConfigureAwait(false);
+
+                BinaryNode node = BuildResendNode(row, requester, messageId, entry.TimestampUtc, wire, encType);
+                await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // D-20/Pitfall 6 log-and-continue: a resend fault (bad keys, store failure)
+            // never breaks the receive path — the retry goes unanswered, by contract.
+        }
+    }
+
+    /// <summary>
+    /// Builds a fresh Alice session from a retry receipt's <c>&lt;keys&gt;</c> block
+    /// (bounds-checked parse into a <see cref="PeerBundle"/>), enforcing the pinned
+    /// identity before any use: a pin that disagrees with the keys-block identity
+    /// returns null (refuse, never re-trust); an absent pin lands first (TOFU, D-06)
+    /// and the signed-prekey signature then verifies under it. Returns null for any
+    /// malformed block or an invalid signature.
+    /// </summary>
+    private async Task<DoubleRatchet?> BuildFreshSessionFromKeysAsync(
+        StoreSession stores,
+        CredentialRecord row,
+        string address,
+        BinaryNode keys,
+        uint? peerRegistrationId,
+        DoubleRatchet.SignalSessionRepository repository,
+        CancellationToken cancellationToken)
+    {
+        if (!TryParseKeysBlock(keys, peerRegistrationId, out PeerBundle? bundle) || bundle is null)
+        {
+            return null; // malformed keys block: degrade
+        }
+
+        SignalIdentityRecord? pinned = await stores.Identity.GetAsync(address, cancellationToken).ConfigureAwait(false);
+        byte[]? pinnedDjb = pinned?.IdentityKeyDjb;
+        if (pinnedDjb is not null
+            && !pinnedDjb.AsSpan().SequenceEqual(bundle.IdentityKeyDjb))
+        {
+            return null; // identity changed under the pin: refuse the rebuild (T-4-02 lineage)
+        }
+
+        if (pinnedDjb is null)
+        {
+            byte[] pin = (byte[])bundle.IdentityKeyDjb.Clone();
+            await stores.Identity.PutAsync(address, new SignalIdentityRecord(null, pin, true), cancellationToken).ConfigureAwait(false);
+        }
+
+        byte[] verifyKey = pinnedDjb ?? bundle.IdentityKeyDjb;
+        (byte[] ephemeralPrivate, _) = X3dh.GenerateX25519KeyPair();
+        try
+        {
+            AliceSession aliceSession = X3dh.InitializeAlice(row.IdentityKeyPrivate, ephemeralPrivate, bundle, verifyKey);
+            (byte[] sendPrivate, byte[] sendPublic) = X3dh.GenerateX25519KeyPair();
+            DoubleRatchet fresh = DoubleRatchet.InitializeAlice(
+                aliceSession,
+                sendPrivate,
+                sendPublic,
+                bundle,
+                SignalCipher.ToDjbIdentity(X3dh.DeriveX25519Public(row.IdentityKeyPrivate)),
+                bundle.IdentityKeyDjb,
+                (uint)row.RegistrationId);
+            CryptographicOperations.ZeroMemory(sendPrivate);
+            await repository.SaveUnlockedAsync(address, fresh, cancellationToken).ConfigureAwait(false);
+            return fresh;
+        }
+        catch (SdkFormatException)
+        {
+            return null; // invalid signature or missized keys: degrade, never throw
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(ephemeralPrivate);
+        }
+    }
+
+    /// <summary>
+    /// Bounds-checked parse of a retry <c>&lt;keys&gt;</c> block into a
+    /// <see cref="PeerBundle"/>: 1-byte <c>type</c>, 32-byte raw <c>identity</c>,
+    /// <c>key</c> (3-byte big-endian id + 32-byte value), <c>skey</c> (id/value/
+    /// 64-byte signature). The receipt's <c>registration</c> child supplies the
+    /// bundle's 14-bit registration id (an out-of-range value fails validation
+    /// downstream and degrades). Anything missized fails closed.
+    /// </summary>
+    private static bool TryParseKeysBlock(BinaryNode keys, uint? peerRegistrationId, out PeerBundle? bundle)
+    {
+        bundle = null;
+        byte[]? identity = ChildData(keys, "identity");
+        BinaryNode? key = FirstChild(keys, "key");
+        byte[]? keyId = key is null ? null : ChildData(key, "id");
+        byte[]? keyValue = key is null ? null : ChildData(key, "value");
+        BinaryNode? skey = FirstChild(keys, "skey");
+        byte[]? skeyId = skey is null ? null : ChildData(skey, "id");
+        byte[]? skeyValue = skey is null ? null : ChildData(skey, "value");
+        byte[]? skeySignature = skey is null ? null : ChildData(skey, "signature");
+        if (identity is not { Length: X3dh.KeyLength }
+            || keyId is not { Length: PreKeyManager.PreKeyIdWidth }
+            || keyValue is not { Length: X3dh.KeyLength }
+            || skeyId is not { Length: PreKeyManager.PreKeyIdWidth }
+            || skeyValue is not { Length: X3dh.KeyLength }
+            || skeySignature is not { Length: SignalCipher.SignatureLength }
+            || !TryReadBigEndian(skeyId, out uint signedId)
+            || !TryReadBigEndian(keyId, out uint oneTimeId))
+        {
+            return false;
+        }
+
+        bundle = new PeerBundle(
+            SignalCipher.ToDjbIdentity(identity),
+            (byte[])skeyValue.Clone(),
+            (byte[])skeySignature.Clone(),
+            signedId,
+            (byte[])keyValue.Clone(),
+            oneTimeId,
+            peerRegistrationId ?? 0);
+        return true;
+    }
+
+    /// <summary>
+    /// Pattern-5 verbatim resend node: same id, type, and original <c>t</c>, to the
+    /// requesting device only, with <c>device_fanout="false"</c> (1:1) and the
+    /// <c>device-identity</c> child when the enc is a prekey message.
+    /// </summary>
+    private static BinaryNode BuildResendNode(
+        CredentialRecord row,
+        Jid requester,
+        string messageId,
+        DateTimeOffset originalTimestamp,
+        byte[] wire,
+        string encType)
+    {
+        var children = new List<BinaryNode>
+        {
+            BinaryNode.FromChildren(
+                "to",
+                [BinaryNode.FromBytes(
+                    "enc",
+                    wire,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["v"] = MessageBuilder.EncVersion,
+                        ["type"] = encType,
+                    })],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["jid"] = requester.ToString(),
+                }),
+        };
+        if (string.Equals(encType, MessageBuilder.EncTypePreKey, StringComparison.Ordinal))
+        {
+            // Pattern 2 precedent: the device-identity child rides when the enc is pkmsg.
+            children.Add(BinaryNode.FromBytes(
+                "device-identity",
+                SignalCipher.ToDjbIdentity(X3dh.DeriveX25519Public(row.IdentityKeyPrivate)),
+                null));
+        }
+
+        return BinaryNode.FromChildren(
+            "message",
+            children,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["id"] = messageId, // SAME id — the Pattern-5 resend contract
+                ["to"] = requester.ToString(),
+                ["type"] = "text",
+                ["t"] = originalTimestamp.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+                ["device_fanout"] = "false",
+            });
+    }
+
+    private static BinaryNode? FirstChild(BinaryNode parent, string tag)
+    {
+        IReadOnlyList<BinaryNode>? children = parent.Children;
+        if (children is null)
+        {
+            return null;
+        }
+
+        foreach (BinaryNode child in children)
+        {
+            if (string.Equals(child.Tag, tag, StringComparison.Ordinal))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
+    private static byte[]? ChildData(BinaryNode parent, string tag) => FirstChild(parent, tag)?.Data;
+
+    private static bool TryReadBigEndian(byte[] bytes, out uint value)
+    {
+        value = 0;
+        foreach (byte b in bytes)
+        {
+            value = (value << 8) | b;
+        }
+
+        return true;
+    }
 
     private async Task<DoubleRatchet> EnsureSessionAsync(StoreSession stores, CredentialRecord row, Jid device, CancellationToken cancellationToken)
     {

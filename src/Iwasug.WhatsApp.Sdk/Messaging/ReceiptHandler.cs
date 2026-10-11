@@ -1,16 +1,20 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Signal;
+using Iwasug.WhatsApp.Sdk.Stores;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
 /// <summary>
-/// Receipt node construction and emission (04-04, MSG-04): Pattern-4 verbatim node
+/// Receipt node construction and emission (04-04, MSG-04/MSG-06): Pattern-4 verbatim node
 /// shapes over the connection's <c>SendNodeAsync</c> seam (pairing-frame precedent).
-/// Outbound: the per-chat opt-in delivery receipt and <c>MarkRead</c> read receipts
-/// with per-message keys (one receipt per sender — the same-sender-only rule).
+/// Outbound: the per-chat opt-in delivery receipt, <c>MarkRead</c> read receipts
+/// with per-message keys (one receipt per sender — the same-sender-only rule), and the
+/// Pattern-5 decryption-failure retry receipt with its per-(sender, id) count cap.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,8 +33,29 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// </remarks>
 internal sealed class ReceiptHandler
 {
+    /// <summary>
+    /// Pattern-5 retry cap (whatsmeow <c>retry.go</c> behavioral reference, 04-RESEARCH
+    /// Pattern 5): retry receipts for one (sender, message id) pair stop once the count
+    /// exceeds this value; every later failure raises the typed
+    /// <see cref="Messenger.DecryptionFailed"/> event only. The cap bounds the
+    /// retry-receipt loop (T-4-13) and the one-time-prekey spend it drives.
+    /// </summary>
+    internal const int RetryCountCap = 5;
+
+    /// <summary>
+    /// Bound on the per-(sender, id) counter map (T-4-13 hygiene): a hostile peer
+    /// could flood distinct failing ids and grow the map without bound, so the map
+    /// is cleared wholesale once it exceeds this size. Clearing only RELAXES the
+    /// cap (counts restart from one) — it never over-sends for any single id beyond
+    /// <see cref="RetryCountCap"/> in a contiguous run, and the wire cost per id
+    /// stays capped regardless.
+    /// </summary>
+    internal const int MaxRetryCountKeys = 4096;
+
     private readonly Messenger _owner;
     private readonly ConcurrentDictionary<string, bool> _deliveryReceiptChats = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, int> _retryCounts = new(StringComparer.Ordinal);
+    private int _oneTimeCursor;
 
     internal ReceiptHandler(Messenger owner)
     {
@@ -147,5 +172,191 @@ internal sealed class ReceiptHandler
         }
 
         return BinaryNode.FromChildren("receipt", [BinaryNode.FromChildren("list", items)], attrs);
+    }
+
+    /// <summary>
+    /// Pattern-5 decrypt-failure path (04-04, MSG-06): raises the typed
+    /// <see cref="Messenger.DecryptionFailed"/> event (every failure, uncapped), then
+    /// sends <c>&lt;receipt type="retry"&gt;</c> for this (sender, message id) while the
+    /// count stays within <see cref="RetryCountCap"/>. The <c>&lt;keys&gt;</c> block
+    /// rides from retry #2 or whenever the sender has no session with us (sender key
+    /// material unavailable). Emitted retries are best-effort: callers wrap and swallow
+    /// non-cancellation faults so the pump never dies (the event is already raised).
+    /// </summary>
+    internal async Task EmitRetryReceiptAsync(
+        CredentialRecord row,
+        Jid sender,
+        Jid chat,
+        string messageId,
+        DateTimeOffset originalTimestamp,
+        bool hasSession,
+        CancellationToken cancellationToken)
+    {
+        int count = _retryCounts.AddOrUpdate(
+            string.Create(CultureInfo.InvariantCulture, $"{sender}:{messageId}"),
+            1,
+            static (_, existing) => existing + 1);
+        if (_retryCounts.Count > MaxRetryCountKeys)
+        {
+            _retryCounts.Clear(); // bounded map: clearing relaxes the cap, never tightens it
+        }
+
+        _owner.RaiseDecryptionFailed(new DecryptionFailedEventArgs(chat, sender, messageId, count, originalTimestamp));
+        if (count > RetryCountCap)
+        {
+            return; // Pattern-5 cap: receipts stop, the typed event is the host's signal
+        }
+
+        StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        BinaryNode? keys = null;
+        int consumedPreKeyId = -1;
+        if (count >= 2 || !hasSession)
+        {
+            (keys, consumedPreKeyId) = await BuildKeysBlockAsync(stores.PreKeys, row, cancellationToken).ConfigureAwait(false);
+        }
+
+        BinaryNode node = BuildRetryReceiptNode(sender, messageId, originalTimestamp, count, row.RegistrationId, keys);
+        if (consumedPreKeyId >= 0)
+        {
+            // D-06 ordering: the store reflects reality (the prekey is spent) before the
+            // wire claims it. A failed removal aborts the send — the key was never claimed.
+            await stores.PreKeys.RemovePreKeyAsync(consumedPreKeyId, cancellationToken).ConfigureAwait(false);
+        }
+
+        await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Pattern-5 verbatim retry receipt: <c>&lt;receipt id type="retry" to="{sender device jid}"
+    /// t="{orig-t}"&gt;</c> with the <c>&lt;retry count id t v="1"/&gt;</c> and
+    /// <c>&lt;registration&gt;</c> (4-byte big-endian own registration id) children, plus
+    /// the <c>&lt;keys&gt;</c> block when fresh-session material rides along.
+    /// </summary>
+    private static BinaryNode BuildRetryReceiptNode(
+        Jid sender,
+        string messageId,
+        DateTimeOffset originalTimestamp,
+        int count,
+        int registrationId,
+        BinaryNode? keys)
+    {
+        string t = originalTimestamp.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+        var children = new List<BinaryNode>
+        {
+            BinaryNode.Create("retry", new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["count"] = count.ToString(CultureInfo.InvariantCulture),
+                ["id"] = messageId,
+                ["t"] = t,
+                ["v"] = "1",
+            }),
+            BinaryNode.FromBytes("registration", BigEndianBytes((uint)registrationId, PreKeyManager.RegistrationIdWidth), null),
+        };
+        if (keys is not null)
+        {
+            children.Add(keys);
+        }
+
+        return BinaryNode.FromChildren(
+            "receipt",
+            children,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["id"] = messageId,
+                ["type"] = "retry",
+                ["to"] = sender.ToString(),
+                ["t"] = t,
+            });
+    }
+
+    /// <summary>
+    /// Builds the retry receipt's <c>&lt;keys&gt;</c> block from our own prekey material:
+    /// identity (32-byte raw X25519 public), a fresh one-time prekey (3-byte BE id +
+    /// 32-byte value) taken from the store, the signed prekey (<c>skey</c>: id/value/
+    /// signature from the own-upload checkpoint bundle), and the <c>device-identity</c>
+    /// child. Returns <c>(null, -1)</c> when the own bundle checkpoint is missing — a
+    /// keys block without an <c>skey</c> is unusable, so the receipt degrades to a
+    /// keys-less form.
+    /// </summary>
+    private async Task<(BinaryNode? Keys, int ConsumedPreKeyId)> BuildKeysBlockAsync(
+        IPreKeyStore preKeys,
+        CredentialRecord row,
+        CancellationToken cancellationToken)
+    {
+        byte[] identityRaw = X3dh.DeriveX25519Public(row.IdentityKeyPrivate);
+        string ownAddress = string.Create(
+            CultureInfo.InvariantCulture, $"{row.PairedUser}:{row.Device}@{DeviceDirectory.UsyncServer}");
+        PreKeyBundle? bundle = await preKeys.GetBundleAsync(ownAddress, cancellationToken).ConfigureAwait(false);
+        if (bundle?.SignedPreKeyPublic is null || bundle.SignedPreKeySignature is null)
+        {
+            return (null, -1);
+        }
+
+        (byte[] oneTimePublic, uint oneTimeId, int consumedId) =
+            await TakeOneTimePreKeyAsync(preKeys, bundle, cancellationToken).ConfigureAwait(false);
+
+        // ponytail: device-identity pins the own identity DJB form — upgrade to a
+        // marshalled Account proto when the adv schema lands (plan 04-05/UAT).
+        var keys = BinaryNode.FromChildren(
+            "keys",
+            [
+                BinaryNode.FromBytes("type", [PreKeyManager.KeyBundleType], null),
+                BinaryNode.FromBytes("identity", identityRaw, null),
+                BinaryNode.FromChildren(
+                    "key",
+                    [
+                        BinaryNode.FromBytes("id", BigEndianBytes(oneTimeId, PreKeyManager.PreKeyIdWidth), null),
+                        BinaryNode.FromBytes("value", oneTimePublic, null),
+                    ],
+                    null),
+                BinaryNode.FromChildren(
+                    "skey",
+                    [
+                        BinaryNode.FromBytes("id", BigEndianBytes((uint)bundle.SignedPreKeyId, PreKeyManager.PreKeyIdWidth), null),
+                        BinaryNode.FromBytes("value", bundle.SignedPreKeyPublic, null),
+                        BinaryNode.FromBytes("signature", bundle.SignedPreKeySignature, null),
+                    ],
+                    null),
+                BinaryNode.FromBytes("device-identity", SignalCipher.ToDjbIdentity(identityRaw), null),
+            ],
+            null);
+        return (keys, consumedId);
+    }
+
+    /// <summary>
+    /// Takes the next one-time prekey for a retry keys block: probes the store at the
+    /// own bundle checkpoint's first-unserved id plus a per-process cursor. A stored key
+    /// is returned with its id (the caller removes it before the wire — D-06); an empty
+    /// slot falls back to a freshly minted pair (nothing persisted claims it, so nothing
+    /// needs consuming).
+    /// </summary>
+    private async Task<(byte[] Public, uint Id, int ConsumedPreKeyId)> TakeOneTimePreKeyAsync(
+        IPreKeyStore preKeys,
+        PreKeyBundle bundle,
+        CancellationToken cancellationToken)
+    {
+        int slot = Interlocked.Increment(ref _oneTimeCursor) - 1;
+        int candidateId = bundle.OneTimePreKeyId + slot;
+        PreKeyRecordEntry? entry = await preKeys.GetPreKeyAsync(candidateId, cancellationToken).ConfigureAwait(false);
+        if (entry?.PublicKey is { Length: X3dh.KeyLength })
+        {
+            return (entry.PublicKey, (uint)candidateId, candidateId);
+        }
+
+        (byte[] mintedPrivate, byte[] mintedPublic) = X3dh.GenerateX25519KeyPair();
+        CryptographicOperations.ZeroMemory(mintedPrivate);
+        return (mintedPublic, (uint)candidateId, -1);
+    }
+
+    private static byte[] BigEndianBytes(uint value, int width)
+    {
+        var bytes = new byte[width];
+        for (int i = width - 1; i >= 0; i--)
+        {
+            bytes[i] = (byte)(value & 0xFF);
+            value >>= 8;
+        }
+
+        return bytes;
     }
 }

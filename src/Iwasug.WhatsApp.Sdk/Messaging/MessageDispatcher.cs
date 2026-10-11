@@ -15,7 +15,10 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// <c>message</c> nodes run the decrypt → persist → ack → event → cache ordering
 /// contract; <c>ack</c> nodes correlate pending sends; <c>receipt</c> nodes parse
 /// bounds-checked into typed <see cref="ReceiptReceivedEventArgs"/> events (04-04,
-/// MSG-04) and the opt-in delivery receipt rides out after the message's ack + event.
+/// MSG-04), the opt-in delivery receipt rides out after the message's ack + event, and
+/// <c>retry</c> receipts drive the MSG-06 exchange in both directions: a failed decrypt
+/// emits the Pattern-5 retry receipt (capped), and a peer retry for our message answers
+/// with the same-id cache resend (T-4-12 requester check).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,10 +29,13 @@ namespace Iwasug.WhatsApp.Sdk.Messaging;
 /// log-and-continue). Ack only after durable writes complete.
 /// </para>
 /// <para>
-/// Decryption failure is a typed outcome, not an event: no ack claims success, no event
-/// fires, the pump keeps running (plan 04-04 owns the retry receipt). A cache-write
-/// failure never breaks the path (D-20): the event is already raised and the ack already
-/// sent, so the failure is swallowed after the fact.
+/// Decryption failure is a typed outcome, not an event through the pump: no ack claims
+/// success, no message event fires, the pump keeps running, and the Pattern-5 retry
+/// receipt goes out best-effort (a retry-receipt fault never breaks the receive path;
+/// the typed <see cref="DecryptionFailedEventArgs"/> event is raised before the wire
+/// work, so the host learns of the failure either way). A cache-write failure never
+/// breaks the path (D-20): the event is already raised and the ack already sent, so the
+/// failure is swallowed after the fact.
 /// </para>
 /// <para>
 /// Handler shape (PairingCoordinator precedent): <see cref="OnStanzaReceived"/> returns
@@ -90,7 +96,7 @@ internal sealed class MessageDispatcher
                 HandleAck(node);
                 break;
             case "receipt":
-                HandleReceipt(node);
+                await HandleReceipt(node, cancellationToken).ConfigureAwait(false);
                 break;
         }
     }
@@ -125,73 +131,113 @@ internal sealed class MessageDispatcher
         bool isPreKey = string.Equals(encType, MessageBuilder.EncTypePreKey, StringComparison.Ordinal);
         byte[] wire = enc.Data ?? throw new SdkFormatException("Inbound enc children must carry byte content.");
 
-        string address = DoubleRatchet.SignalSessionRepository.AddressFor(from);
-        var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, new DurableWriteRetryPolicy());
-        DoubleRatchet? session = await repository.LoadAsync(address, cancellationToken).ConfigureAwait(false);
-        if (session is null)
-        {
-            return; // no session for this sender device: typed no-op (04-04 owns the retry receipt)
-        }
-
-        SignalDecryptOutcome outcome = session.Decrypt(wire, isPreKey, cancellationToken);
-        if (outcome is not SignalDecryptOutcome.Decrypted decrypted)
-        {
-            return; // decryption failure: no ack, no event, pump continues
-        }
-
-        Message message;
-        try
-        {
-            message = Message.Parser.ParseFrom(decrypted.Plaintext);
-        }
-        catch (InvalidProtocolBufferException ex)
-        {
-            throw new SdkFormatException("Inbound message plaintext failed protobuf validation.", ex);
-        }
-
-        // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4).
-        await repository.SaveAsync(address, session, cancellationToken).ConfigureAwait(false);
-
         Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
         bool isFromMe = string.Equals(DeviceDirectory.BaseUser(from), row.PairedUser, StringComparison.Ordinal);
         DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
-        await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
 
-        string? text = message.Conversation.Length == 0 ? null : message.Conversation;
-        var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
-        _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text));
-
-        // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort — a
-        // receipt failure never breaks the receive path (the message is already acked).
-        if (_owner.IsDeliveryReceiptsEnabled(chat))
+        // CONCURRENCY CONTRACT (04-04 MSG-06): the full load → decrypt → persist
+        // operation holds the per-address session gate, and a retry receipt for the
+        // same sender rides the same gate — two ratchet mutations for one address
+        // never interleave. The repository's locked variants are used under the held
+        // gate (the gate is not reentrant).
+        string address = DoubleRatchet.SignalSessionRepository.AddressFor(from);
+        var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, new DurableWriteRetryPolicy());
+        using (IDisposable sessionGate = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false))
         {
+            DoubleRatchet? session = await repository.LoadUnlockedAsync(address, cancellationToken).ConfigureAwait(false);
+            if (session is null)
+            {
+                await TryEmitRetryReceiptAsync(row, from, chat, messageId, timestamp, hasSession: false, cancellationToken).ConfigureAwait(false);
+                return; // no session for this sender device: Pattern-5 retry receipt (keys block), no ack, no event
+            }
+
+            SignalDecryptOutcome outcome = session.Decrypt(wire, isPreKey, cancellationToken);
+            if (outcome is not SignalDecryptOutcome.Decrypted decrypted)
+            {
+                await TryEmitRetryReceiptAsync(row, from, chat, messageId, timestamp, hasSession: true, cancellationToken).ConfigureAwait(false);
+                return; // decryption failure: no ack, no event, Pattern-5 retry receipt (capped), pump continues
+            }
+
+            Message message;
             try
             {
-                await _owner.Receipts.SendDeliveryReceiptAsync(
-                    chat, messageId, _owner.Clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+                message = Message.Parser.ParseFrom(decrypted.Plaintext);
+            }
+            catch (InvalidProtocolBufferException ex)
+            {
+                throw new SdkFormatException("Inbound message plaintext failed protobuf validation.", ex);
+            }
+
+            // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4).
+            await repository.SaveUnlockedAsync(address, session, cancellationToken).ConfigureAwait(false);
+
+            await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+
+            string? text = message.Conversation.Length == 0 ? null : message.Conversation;
+            var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
+            _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text));
+
+            // Opt-in delivery receipt (MSG-04): after the ack + event, best-effort — a
+            // receipt failure never breaks the receive path (the message is already acked).
+            if (_owner.IsDeliveryReceiptsEnabled(chat))
+            {
+                try
+                {
+                    await _owner.Receipts.SendDeliveryReceiptAsync(
+                        chat, messageId, _owner.Clock.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Log-and-continue: the receipt is best-effort by contract.
+                }
+            }
+
+            try
+            {
+                await stores.RecentMessages.PutAsync(
+                    new RecentMessageEntry(
+                        messageId,
+                        chat.ToString(),
+                        timestamp,
+                        text,
+                        from.ToString(),
+                        decrypted.Plaintext),
+                    cancellationToken).ConfigureAwait(false);
+                await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
-                // Log-and-continue: the receipt is best-effort by contract.
+                // D-20 log-and-continue: the store may throw; the event and ack are already done.
             }
         }
+    }
 
+    /// <summary>
+    /// Emits the Pattern-5 retry receipt for a failed decrypt, best-effort (MSG-06):
+    /// the typed event is raised inside the handler before any wire work, so a
+    /// retry-receipt fault never breaks the receive path (the caller holds the
+    /// per-address session gate; emission itself never throws through the pump).
+    /// </summary>
+    private async Task TryEmitRetryReceiptAsync(
+        CredentialRecord row,
+        Jid from,
+        Jid chat,
+        string messageId,
+        DateTimeOffset timestamp,
+        bool hasSession,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            await stores.RecentMessages.PutAsync(
-                new RecentMessageEntry(
-                    messageId,
-                    chat.ToString(),
-                    timestamp,
-                    text,
-                    from.ToString(),
-                    decrypted.Plaintext),
-                cancellationToken).ConfigureAwait(false);
-            await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
+            await _owner.Receipts.EmitRetryReceiptAsync(row, from, chat, messageId, timestamp, hasSession, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
-            // D-20 log-and-continue: the store may throw; the event and ack are already done.
+            // Log-and-continue: the DecryptionFailed event already fired; the pump survives.
         }
     }
 
@@ -232,9 +278,11 @@ internal sealed class MessageDispatcher
     /// the parsed values surface as the typed <see cref="ReceiptReceivedEventArgs"/>
     /// event. Malformed or unknown-kind receipts are silently ignored (T-4-14:
     /// informational events that gate no SDK behavior). Receipt nodes are not acked in
-    /// 04-04 scope; the <c>retry</c> kind's response path lands with Task 2's exchange.
+    /// 04-04 scope; the <c>retry</c> kind additionally dispatches the MSG-06 respond
+    /// path (the same-id cache resend), best-effort — a respond fault never breaks
+    /// the receive path.
     /// </summary>
-    private void HandleReceipt(BinaryNode node)
+    private async Task HandleReceipt(BinaryNode node, CancellationToken cancellationToken)
     {
         string typeAttr = node.Attrs.TryGetValue("type", out string? type) && !string.IsNullOrEmpty(type)
             ? type
@@ -279,6 +327,61 @@ internal sealed class MessageDispatcher
         Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
         DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
         _owner.RaiseReceiptReceived(new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp));
+
+        if (kind is ReceiptKind.Retry)
+        {
+            // MSG-06 respond path: parse the Pattern-5 children bounds-checked, then
+            // answer with the same-id cache resend, best-effort (never throws through
+            // the pump). The typed receipt event above already fired either way.
+            uint? registrationId = ParseRegistrationId(FirstChild(node, "registration"));
+            BinaryNode? keys = FirstChild(node, "keys");
+            await TryResendForRetryReceiptAsync(from, idAttr, registrationId, keys, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Dispatches the MSG-06 respond to one peer retry receipt, best-effort: the
+    /// sender's resend path degrades (Pitfall 6) rather than throws, and any residual
+    /// fault is swallowed here so the receive pump keeps running (OperationCanceled
+    /// propagates as the only legitimate stop).
+    /// </summary>
+    private async Task TryResendForRetryReceiptAsync(
+        Jid requester,
+        string messageId,
+        uint? registrationId,
+        BinaryNode? keys,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _owner.Sender.ResendForRetryReceiptAsync(requester, messageId, registrationId, keys, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Log-and-continue: the resend is best-effort by contract.
+        }
+    }
+
+    /// <summary>Parses the 4-byte big-endian <c>&lt;registration&gt;</c> payload; anything missized or unparsable is null.</summary>
+    private static uint? ParseRegistrationId(BinaryNode? registration)
+    {
+        byte[]? data = registration?.Data;
+        if (data is not { Length: PreKeyManager.RegistrationIdWidth })
+        {
+            return null;
+        }
+
+        uint value = 0;
+        foreach (byte b in data)
+        {
+            value = (value << 8) | b;
+        }
+
+        return value;
     }
 
     private static bool TryParseReceiptKind(string type, out ReceiptKind kind)

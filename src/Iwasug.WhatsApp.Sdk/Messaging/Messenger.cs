@@ -69,6 +69,15 @@ public sealed class Messenger : IAsyncDisposable
     public event EventHandler<ReceiptReceivedEventArgs>? ReceiptReceived;
 
     /// <summary>
+    /// Raised (on the dispatcher's async path) when an inbound message fails to decrypt
+    /// (04-04, MSG-06): on every failure, with the 1-based per-(sender, message id)
+    /// retry count. While the count stays within the Pattern-5 cap the SDK also sends
+    /// the wire retry receipt; past the cap this event is the host's only signal.
+    /// Informational and rule-only — no plaintext, ciphertext, or key bytes surface.
+    /// </summary>
+    public event EventHandler<DecryptionFailedEventArgs>? DecryptionFailed;
+
+    /// <summary>
     /// Raised when a server ack carries a <c>phash</c> that no longer matches the device
     /// set this SDK fanned the message out to (Pitfall 3): the peer's device set moved.
     /// The device-list cache for the chat is invalidated before the event; the next send
@@ -163,6 +172,8 @@ public sealed class Messenger : IAsyncDisposable
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
 
     internal void RaiseReceiptReceived(ReceiptReceivedEventArgs args) => ReceiptReceived?.Invoke(this, args);
+
+    internal void RaiseDecryptionFailed(DecryptionFailedEventArgs args) => DecryptionFailed?.Invoke(this, args);
 
     internal ReceiptHandler Receipts => _receipts;
 
