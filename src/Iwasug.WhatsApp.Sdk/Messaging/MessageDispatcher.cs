@@ -156,6 +156,22 @@ internal sealed class MessageDispatcher
         using (IDisposable sessionGate = await SignalSessionGate.AcquireAsync(address, cancellationToken).ConfigureAwait(false))
         {
             DoubleRatchet? session = await repository.LoadUnlockedAsync(address, cancellationToken).ConfigureAwait(false);
+            int? spentOneTimePreKeyId = null;
+            if (session is null && isPreKey)
+            {
+                // First-contact inbound pkmsg (plan 04-03): the peer fetched OUR
+                // prekey bundle, ran X3DH, and sent a prekey message — build the Bob
+                // session here and fall through to the normal decrypt flow. Any
+                // failure degrades exactly like "no session": retry receipt, no ack.
+                (DoubleRatchet Bob, int? OneTimeId)? initialized =
+                    await TryInitializeBobSessionAsync(row, stores, address, wire, cancellationToken).ConfigureAwait(false);
+                if (initialized is not null)
+                {
+                    session = initialized.Value.Bob;
+                    spentOneTimePreKeyId = initialized.Value.OneTimeId;
+                }
+            }
+
             if (session is null)
             {
                 await TryEmitRetryReceiptAsync(row, from, chat, messageId, timestamp, hasSession: false, cancellationToken).ConfigureAwait(false);
@@ -165,6 +181,8 @@ internal sealed class MessageDispatcher
             SignalDecryptOutcome outcome = session.Decrypt(wire, isPreKey, cancellationToken);
             if (outcome is not SignalDecryptOutcome.Decrypted decrypted)
             {
+                // A just-initialized Bob session is discarded unpersisted, so nothing
+                // durable changed: the sender's retry rebuilds it and decrypts cleanly.
                 await TryEmitRetryReceiptAsync(row, from, chat, messageId, timestamp, hasSession: true, cancellationToken).ConfigureAwait(false);
                 return; // decryption failure: no ack, no event, Pattern-5 retry receipt (capped), pump continues
             }
@@ -180,6 +198,13 @@ internal sealed class MessageDispatcher
             }
 
             // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4).
+            if (spentOneTimePreKeyId is int spentOneTimeId)
+            {
+                // The one-time prekey that fed this first-contact session is spent
+                // before the wire claims the message (D-06): single-use by contract.
+                await stores.PreKeys.RemovePreKeyAsync(spentOneTimeId, cancellationToken).ConfigureAwait(false);
+            }
+
             await repository.SaveUnlockedAsync(address, session, cancellationToken).ConfigureAwait(false);
 
             if (message.SenderKeyDistributionMessage is not null)
@@ -234,6 +259,93 @@ internal sealed class MessageDispatcher
                 // D-20 log-and-continue: the store may throw; the event and ack are already done.
             }
         }
+    }
+
+    /// <summary>
+    /// First-contact inbound <c>pkmsg</c> handling (plan 04-03, "pkmsg → X3DH
+    /// session init"): parses the prekey envelope fail-closed, pins the sender
+    /// identity TOFU-style (a changed pinned identity is refused), loads our
+    /// signed-prekey private from the own-address bundle checkpoint matching the
+    /// id the envelope names, and requires the named one-time prekey to be ours.
+    /// Returns the initialized (unpersisted) Bob session with the one-time prekey
+    /// id the caller must spend before the wire (D-06), or null on any rule
+    /// violation — the message then degrades to the Pattern-5 retry path exactly
+    /// like "no session". The session is not persisted here: the normal
+    /// decrypt → persist → ack flow owns the D-06 ordering, so an undecryptable
+    /// envelope changes nothing durable and the sender's retry can rebuild.
+    /// </summary>
+    private async Task<(DoubleRatchet Session, int? OneTimePreKeyId)?> TryInitializeBobSessionAsync(
+        CredentialRecord row,
+        StoreSession stores,
+        string address,
+        byte[] wire,
+        CancellationToken cancellationToken)
+    {
+        if (SignalCipher.DecryptPreKeyEnvelope(wire) is not PreKeyEnvelopeOutcome.Parsed parsed)
+        {
+            return null; // unparseable prekey envelope: typed, rule-only
+        }
+
+        PreKeyWireContent content = parsed.Content;
+        if (content.RegistrationId > X3dh.MaxRegistrationId)
+        {
+            return null; // out-of-range remote registration id (untrusted wire input)
+        }
+
+        // TOFU: a pinned sender identity must match; an absent pin lands here
+        // before any use of the identity (EnsureSessionAsync precedent).
+        SignalIdentityRecord? pinned = await stores.Identity.GetAsync(address, cancellationToken).ConfigureAwait(false);
+        if (pinned?.IdentityKeyDjb is not null
+            && !pinned.IdentityKeyDjb.AsSpan().SequenceEqual(content.IdentityKeyDjb))
+        {
+            return null; // sender identity changed under an existing pin: refuse the session
+        }
+
+        string ownAddress = string.Create(
+            CultureInfo.InvariantCulture, $"{row.PairedUser}:{row.Device}@{DeviceDirectory.UsyncServer}");
+        PreKeyBundle? ownBundle = await stores.PreKeys.GetBundleAsync(ownAddress, cancellationToken).ConfigureAwait(false);
+        if (ownBundle?.SignedPreKeyPrivate is not { Length: X3dh.KeyLength }
+            || ownBundle.SignedPreKeyId != (int)content.SignedPreKeyId)
+        {
+            return null; // no own signed-prekey for the id this envelope names
+        }
+
+        byte[]? oneTimePrivate = null;
+        if (content.PreKeyId is uint oneTimeId)
+        {
+            PreKeyRecordEntry? entry = await stores.PreKeys.GetPreKeyAsync((int)oneTimeId, cancellationToken).ConfigureAwait(false);
+            if (entry?.PrivateKey is not { Length: X3dh.KeyLength })
+            {
+                return null; // the named one-time prekey is not ours to decrypt with
+            }
+
+            oneTimePrivate = entry.PrivateKey;
+        }
+
+        if (pinned is null)
+        {
+            byte[] pin = (byte[])content.IdentityKeyDjb.Clone();
+            await stores.Identity.PutAsync(
+                address, new SignalIdentityRecord(null, pin, true), cancellationToken).ConfigureAwait(false);
+        }
+
+        BobSession bobSession = X3dh.InitializeBob(
+            row.IdentityKeyPrivate,
+            ownBundle.SignedPreKeyPrivate,
+            oneTimePrivate,
+            content.PreKeyId is not null,
+            content.IdentityKeyDjb,
+            content.BaseKey);
+        byte[] ownIdentityDjb = SignalCipher.ToDjbIdentity(X3dh.DeriveX25519Public(row.IdentityKeyPrivate));
+        DoubleRatchet session = DoubleRatchet.InitializeBob(
+            bobSession,
+            ownBundle.SignedPreKeyPrivate,
+            ownIdentityDjb,
+            content.IdentityKeyDjb,
+            content.BaseKey,
+            (uint)row.RegistrationId,
+            content.RegistrationId);
+        return (session, content.PreKeyId is uint spent ? (int)spent : null);
     }
 
     /// <summary>

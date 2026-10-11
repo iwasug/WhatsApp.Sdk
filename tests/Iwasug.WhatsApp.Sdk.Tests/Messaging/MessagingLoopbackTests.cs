@@ -867,6 +867,115 @@ public sealed class MessagingLoopbackTests
         await peerTask;
     }
 
+    [Fact]
+    public async Task first_contact_pkmsg_initializes_the_bob_session_spends_the_prekey_and_decrypts()
+    {
+        using var testCts = new CancellationTokenSource(WaitTimeout);
+        CancellationToken token = testCts.Token;
+        AccountId account = NewAccount("firstcontact");
+        OwnKeys own = CreateOwnKeys(780);
+        var peers = new ConcurrentQueue<LoopbackFrameTransport>();
+
+        await using var factory = new InMemoryStoreFactory();
+        ISignalSessionStore sessions = await factory.CreateAsync(account, token);
+        IIdentityStore identities = await ((IIdentityStoreFactory)factory).CreateAsync(account, token);
+        IPreKeyStore preKeys = await ((IPreKeyStoreFactory)factory).CreateAsync(account, token);
+        IRecentMessageCacheStore cache = await ((IRecentMessageCacheStoreFactory)factory).CreateAsync(account, token);
+        ISafetyStateStore safety = await ((ISafetyStateStoreFactory)factory).CreateAsync(account, token);
+        ICredentialStore credentials = await ((ICredentialStoreFactory)factory).CreateAsync(account, token);
+        HandshakePayloadProvider payloads = await CreateSeededPayloadsAsync(account, credentials, own, token);
+
+        // The SDK owns the prekeys a first-contact peer X3DHs against: the
+        // own-address bundle checkpoint (SPK id 22) plus one stored one-time
+        // prekey (id 1101) — the dispatcher loads exactly these on the Bob path.
+        (byte[] ownSpkPriv, byte[] ownSpkPub) = X3dh.GenerateX25519KeyPair();
+        (byte[] ownEdPriv, byte[] ownEdPubDjb) = X3dh.GenerateIdentityKeyPair();
+        byte[] ownSpkSig = X3dh.SignWithIdentity(ownEdPriv, SignalCipher.ToDjbIdentity(ownSpkPub));
+        (byte[] ownOtPriv, byte[] ownOtPub) = X3dh.GenerateX25519KeyPair();
+        await preKeys.PutPreKeyAsync(1101, new PreKeyRecordEntry(1101, ownOtPub, ownOtPriv), token);
+        await preKeys.PutBundleAsync(
+            $"{OwnUser}:{OwnDevice}@{PeerServer}",
+            new PreKeyBundle(22, 1101, null, ownSpkPub, ownSpkSig, ownSpkPriv, null, (int)own.RegistrationId),
+            token);
+
+        // The scripted peer holds Alice, X3DH'd against exactly that bundle; no
+        // SDK-side session exists for the peer device (the CR-02 receive path).
+        PeerDevice peerDevice = CreatePeerDevice(DeviceJid(PeerUser, 52), 22, 1101, 1234);
+        var sdkBundle = new PeerBundle(
+            own.IdentityDjb, ownSpkPub, ownSpkSig, 22u, ownOtPub, 1101u, own.RegistrationId);
+        (byte[] aliceEph, _) = X3dh.GenerateX25519KeyPair();
+        AliceSession peerAliceSession = X3dh.InitializeAlice(peerDevice.XIdentityPrivate, aliceEph, sdkBundle, ownEdPubDjb);
+        (byte[] peerSendPriv, byte[] peerSendPub) = X3dh.GenerateX25519KeyPair();
+        DoubleRatchet peerAlice = DoubleRatchet.InitializeAlice(
+            peerAliceSession, peerSendPriv, peerSendPub, sdkBundle,
+            peerDevice.XIdentityDjb, own.IdentityDjb, peerDevice.RegistrationId);
+
+        var fixedStores = new FixedStores
+        {
+            Sessions = sessions, Identity = identities, PreKeys = preKeys,
+            RecentMessages = cache, Safety = safety, Credentials = credentials,
+        };
+        var registryOptions = new StoreRegistryOptions
+        {
+            SignalSessionFactory = fixedStores,
+            IdentityFactory = fixedStores,
+            PreKeyFactory = fixedStores,
+            RecentMessageCacheFactory = fixedStores,
+            SafetyStateFactory = fixedStores,
+            CredentialFactory = fixedStores,
+        };
+        await using var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions());
+        connection.StoreRegistry = new StoreRegistry(registryOptions);
+
+        ScriptedPeer? peer = null;
+        var peerTask = Task.Run(async () =>
+        {
+            peer = await CompletePeerHandshakeAsync(peers, token);
+            await peer!.RunAsync(testCts.Token);
+        }, token);
+
+        await connection.ConnectAsync(token);
+        Messenger messenger = connection.Messaging;
+        var events = new ConcurrentQueue<MessageReceivedEventArgs>();
+        messenger.MessageReceived += (_, e) => events.Enqueue(e);
+
+        (await sessions.GetAsync(peerDevice.Jid, token)).Should().BeNull(
+            "the peer device has no stored session before the first-contact pkmsg");
+
+        SignalEncryptOutcome first = peerAlice.Encrypt(MessageBuilder.BuildPlainText("first contact"), token);
+        byte[] wire = ((SignalEncryptOutcome.PreKeyMessageSent)first).WireBytes;
+        await peer!.SendStanzaAsync(BuildInboundMessageNode("pkmsg-1", peerDevice.Jid, wire, "pkmsg"));
+        await WaitForAsync(peer.Log, entry => entry == "ack:pkmsg-1", "the first-contact pkmsg is acked");
+        await WaitForCountAsync(events, 1, "the first-contact message event");
+
+        events.Should().HaveCount(1, "the decrypted first-contact message raises exactly one event");
+        MessageReceivedEventArgs received = events.Single();
+        received.Text.Should().Be("first contact");
+        received.Sender.ToString().Should().Be(peerDevice.Jid);
+        received.Key.Id.Should().Be("pkmsg-1");
+
+        (await sessions.GetAsync(peerDevice.Jid, token)).Should().NotBeNull(
+            "the inbound pkmsg persisted the new Bob session (D-06: persist precedes the ack)");
+        (await preKeys.GetPreKeyAsync(1101, token)).Should().BeNull(
+            "the one-time prekey the peer X3DH'd against is spent");
+        SignalIdentityRecord? pin = await identities.GetAsync(peerDevice.Jid, token);
+        pin.Should().NotBeNull("first contact pins the sender identity (TOFU)");
+        pin!.IdentityKeyDjb.Should().Equal(peerDevice.XIdentityDjb);
+
+        // The established session keeps working: the peer's next message rides the
+        // persisted ratchet as a regular (non-prekey) message.
+        SignalEncryptOutcome second = peerAlice.Encrypt(MessageBuilder.BuildPlainText("second"), token);
+        byte[] wire2 = second is SignalEncryptOutcome.PreKeyMessageSent pk2 ? pk2.WireBytes : ((SignalEncryptOutcome.MessageSent)second).WireBytes;
+        string type2 = second is SignalEncryptOutcome.PreKeyMessageSent ? "pkmsg" : "msg";
+        await peer.SendStanzaAsync(BuildInboundMessageNode("pkmsg-2", peerDevice.Jid, wire2, type2));
+        await WaitForAsync(peer.Log, entry => entry == "ack:pkmsg-2", "the follow-up message flows");
+        await WaitForCountAsync(events, 2, "the follow-up message event");
+        events.Last().Text.Should().Be("second");
+
+        await connection.DisposeAsync();
+        await peerTask;
+    }
+
     internal static BinaryNode BuildInboundMessageNode(string messageId, string fromDeviceJid, byte[] wire, string encType)
     {
         return BinaryNode.FromChildren(
