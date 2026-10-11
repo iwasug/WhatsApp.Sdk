@@ -1,288 +1,244 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Globalization;
 using Google.Protobuf;
 using Iwasug.WhatsApp.Sdk.Codec;
+using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
-using Iwasug.WhatsApp.Sdk.Messaging;
+using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.Runtime;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
 /// <summary>
-/// Inbound message tag dispatch with the persist → ack → event → cache ordering contract
-/// (D-06/D-20, Pitfall 4 ack-before-persistence, Pitfall 7 silent auto-retry).
-/// Processes decoded protobuf messages from the noise-decrypted plaintext, raises
-/// the appropriate events, sends acks, and writes recent-cache entries.
+/// Inbound stanza dispatch over <see cref="WaConnection.StanzaReceived"/> (04-03):
+/// <c>message</c> nodes run the decrypt → persist → ack → event → cache ordering
+/// contract; <c>ack</c> nodes correlate pending sends; <c>receipt</c> nodes are plan
+/// 04-04's surface and are ignored here.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The ordering contract is absolute: persist the session state through
-/// <see cref="Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy"/> (D-06) → send the <c>ack</c> node
-/// → raise <see cref="WhatsAppEventType.MessageReceived"/> → write the recent-cache
-/// entry (D-20 log-and-continue). Ack only after durable writes complete; the ack
-/// is awaited like any other protocol step.
+/// The ordering contract is absolute (D-06, Pitfall 4): persist the ratchet state through
+/// <see cref="DoubleRatchet.SignalSessionRepository"/> → send the
+/// <c>&lt;ack class="message" id to&gt;</c> node (awaited) → raise
+/// <see cref="MessageReceivedEventArgs"/> → write the recent-cache entry (D-20
+/// log-and-continue). Ack only after durable writes complete.
 /// </para>
 /// <para>
-/// Inbound receipt nodes are parsed bounds-checked into event args and raise
-/// <see cref="WhatsAppEventType.ReceiptReceived"/>. Decryption failures emit a typed
-/// <see cref="WhatsAppEventType.DecryptionFailed"/> event and trigger the retry exchange
-/// (plan 04-04).
+/// Decryption failure is a typed outcome, not an event: no ack claims success, no event
+/// fires, the pump keeps running (plan 04-04 owns the retry receipt). A cache-write
+/// failure never breaks the path (D-20): the event is already raised and the ack already
+/// sent, so the failure is swallowed after the fact.
 /// </para>
 /// <para>
-/// Pitfall 7 (silent auto-retry): exactly-one-outcome-per-send design. The timeout
-/// fact asserts the scripted server saw exactly one node; documented idempotency
-/// contract in <see cref="SendOutcome"/> XML docs.
+/// Handler shape (PairingCoordinator precedent): <see cref="OnStanzaReceived"/> returns
+/// quickly, kicking async work fire-and-forget with its own try/catch — a handler
+/// exception can never kill the pump. No log call on this class ever sees plaintext,
+/// ciphertext, or key bytes.
 /// </para>
 /// </remarks>
-public sealed class MessageDispatcher : IAsyncDisposable
+internal sealed class MessageDispatcher
 {
-    private readonly IRecentMessageCacheStore _cacheStore;
-    private readonly ISignalSessionStore _sessionStore;
-    private readonly DurableWriteRetryPolicy _durableWritePolicy;
-    private readonly MessageSender _messageSender;
-    private readonly object _disposeLock = new();
-    private bool _disposed;
-
     /// <summary>
-    /// Throws if the object has been disposed.
+    /// Recent-cache retention horizon (D-08 policy, SDK-owned): entries older than this
+    /// are purged through the store's primitive on the write path. 30 days covers every
+    /// realistic retry window (Pattern 5 caps retry receipts at 5).
     /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown if <see cref="_disposed"/> is true.</exception>
-    private void ThrowIfDisposed()
+    internal static readonly TimeSpan RetentionHorizon = TimeSpan.FromDays(30);
+
+    private readonly Messenger _owner;
+    private int _disposed;
+
+    internal MessageDispatcher(Messenger owner)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(GetType().Name);
+        _owner = owner ?? throw new ArgumentNullException(nameof(owner));
     }
 
     /// <summary>
-    /// Creates a new <see cref="MessageDispatcher"/> with the required dependencies.
+    /// The stanza-pump handler (one subscription per connection, made when the
+    /// <see cref="Messenger"/> is created): return quickly, never throw.
     /// </summary>
-    /// <param name="cacheStore">The recent message cache store.</param>
-    /// <param name="sessionStore">The signal session store.</param>
-    /// <param name="durableWritePolicy">The durable write retry policy.</param>
-    /// <param name="messageSender">The message sender for outbound path reference.</param>
-    /// <exception cref="ArgumentNullException">Thrown if any dependency is null.</exception>
-    public MessageDispatcher(
-        IRecentMessageCacheStore cacheStore,
-        ISignalSessionStore sessionStore,
-        DurableWriteRetryPolicy durableWritePolicy,
-        MessageSender messageSender)
+    internal void OnStanzaReceived(object? sender, BinaryNode node)
     {
-        _cacheStore = cacheStore ?? throw new ArgumentNullException(nameof(cacheStore));
-        _sessionStore = sessionStore ?? throw new ArgumentNullException(nameof(sessionStore));
-        _durableWritePolicy = durableWritePolicy ?? throw new ArgumentNullException(nameof(durableWritePolicy));
-        _messageSender = messageSender ?? throw new ArgumentNullException(nameof(messageSender));
+        if (Volatile.Read(ref _disposed) == 1)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await HandleAsync(node, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Swallowed by design: a dispatcher fault must never kill the pump.
+            }
+        });
     }
 
-    /// <summary>
-    /// Dispatches an inbound <c>message</c> node: decrypts, persists, acks, events, cache.
-    /// </summary>
-    /// <remarks>
-    /// The ordering contract is: persist → ack → event → cache.
-    /// </remarks>
-    /// <param name="node">The decoded <c>message</c> protobuf node.</param>
-    /// <param name="cancellationToken">Caller cancellation.</param>
-    /// <returns>A task completing when the dispatch is done.</returns>
-    /// <exception cref="SdkFormatException">Thrown if the node is malformed.</exception>
-    public async ValueTask DispatchInboundMessageAsync(BinaryNode node, CancellationToken cancellationToken = default)
+    private async Task HandleAsync(BinaryNode node, CancellationToken cancellationToken)
     {
-        ThrowIfDisposed();
+        switch (node.Tag)
+        {
+            case "message":
+                await HandleMessageAsync(node, cancellationToken).ConfigureAwait(false);
+                break;
+            case "ack":
+                HandleAck(node);
+                break;
+            case "receipt":
+                // Plan 04-04 owns receipts; the pump keeps delivering.
+                break;
+        }
+    }
 
-        // Bounds-checked decode of the Message proto
+    private async Task HandleMessageAsync(BinaryNode node, CancellationToken cancellationToken)
+    {
+        StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (row?.PairedUser is null)
+        {
+            return; // unpaired account: nothing to decrypt against
+        }
+
+        if (!node.Attrs.TryGetValue("id", out string? messageId) || string.IsNullOrEmpty(messageId))        {
+            throw new SdkFormatException("Inbound message nodes must carry a non-empty id attribute.");
+        }
+
+        if (!node.Attrs.TryGetValue("from", out string? fromAttr)
+            || !Jid.TryParse(fromAttr, out Jid? from)
+            || from is null)
+        {
+            throw new SdkFormatException("Inbound message nodes must carry a parseable from attribute.");
+        }
+
+        BinaryNode? enc = FirstChild(node, "enc");
+        if (enc is null)
+        {
+            return; // no encrypted content for this device in this stanza
+        }
+
+        string encType = enc.Attrs.TryGetValue("type", out string? type) ? type : MessageBuilder.EncTypeMessage;
+        bool isPreKey = string.Equals(encType, MessageBuilder.EncTypePreKey, StringComparison.Ordinal);
+        byte[] wire = enc.Data ?? throw new SdkFormatException("Inbound enc children must carry byte content.");
+
+        string address = DoubleRatchet.SignalSessionRepository.AddressFor(from);
+        var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, new DurableWriteRetryPolicy());
+        DoubleRatchet? session = await repository.LoadAsync(address, cancellationToken).ConfigureAwait(false);
+        if (session is null)
+        {
+            return; // no session for this sender device: typed no-op (04-04 owns the retry receipt)
+        }
+
+        SignalDecryptOutcome outcome = session.Decrypt(wire, isPreKey, cancellationToken);
+        if (outcome is not SignalDecryptOutcome.Decrypted decrypted)
+        {
+            return; // decryption failure: no ack, no event, pump continues
+        }
+
         Message message;
         try
         {
-            message = Message.Parser.ParseFrom(node.Data ?? Array.Empty<byte>());
+            message = Message.Parser.ParseFrom(decrypted.Plaintext);
         }
         catch (InvalidProtocolBufferException ex)
         {
-            throw new SdkFormatException("Inbound message failed protobuf validation.", ex);
+            throw new SdkFormatException("Inbound message plaintext failed protobuf validation.", ex);
         }
 
-        // Per-device decryption through the stored sender key / session
-        // (Simplified: in a full implementation, this would use the session state
-        // keyed by the sender's per-device AD JID)
-        bool decryptionSucceeded = await TryDecryptMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        // ORDERING CONTRACT: persist → ack → event → cache (D-06/Pitfall 4).
+        await repository.SaveAsync(address, session, cancellationToken).ConfigureAwait(false);
 
-        if (decryptionSucceeded)
+        Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
+        bool isFromMe = string.Equals(DeviceDirectory.BaseUser(from), row.PairedUser, StringComparison.Ordinal);
+        DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
+        await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+
+        string? text = message.Conversation.Length == 0 ? null : message.Conversation;
+        var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
+        _owner.RaiseMessageReceived(new MessageReceivedEventArgs(key, chat, from, isFromMe, timestamp, text));
+
+        try
         {
-            // ORDERING CONTRACT: persist → ack → event → cache
-
-            // 1. Persist session state through DurableWriteRetryPolicy (D-06)
-            // For now, persist via the signal session store (no-op placeholder).
-            await _sessionStore.PutAsync(
-                "placeholder-jid@s.whatsapp.net",
-                null!,
+            await stores.RecentMessages.PutAsync(
+                new RecentMessageEntry(
+                    messageId,
+                    chat.ToString(),
+                    timestamp,
+                    text,
+                    from.ToString(),
+                    decrypted.Plaintext),
                 cancellationToken).ConfigureAwait(false);
+            await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // D-20 log-and-continue: the store may throw; the event and ack are already done.
+        }
+    }
 
-            // 2. Send the ack node
-            await SendAckNodeAsync(node, cancellationToken).ConfigureAwait(false);
-
-            // 3. Raise MessageReceived event
-            await RaiseMessageReceivedEventAsync(message, cancellationToken).ConfigureAwait(false);
-
-            // 4. Write recent-cache entry (D-20 log-and-continue)
-            //    Cache write failure is logged and swallowed — the event has already
-            //    been raised, the ack already sent, and no exception escapes the pump.
-            try
+    private async Task SendAckAsync(string messageId, Jid from, CancellationToken cancellationToken)
+    {
+        BinaryNode ack = BinaryNode.Create(
+            "ack",
+            new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                await WriteCacheEntryAsync(message, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception)
+                ["class"] = "message",
+                ["id"] = messageId,
+                ["to"] = from.ToString(),
+            });
+        await _owner.Connection.SendNodeAsync(ack, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void HandleAck(BinaryNode node)
+    {
+        if (!node.Attrs.TryGetValue("class", out string? ackClass)
+            || !string.Equals(ackClass, "message", StringComparison.Ordinal)
+            || !node.Attrs.TryGetValue("id", out string? messageId)
+            || string.IsNullOrEmpty(messageId))
+        {
+            return; // not a message ack (iq acks belong to the router)
+        }
+
+        node.Attrs.TryGetValue("error", out string? errorAttr);
+        int? error = int.TryParse(errorAttr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ? parsed : null;
+        node.Attrs.TryGetValue("t", out string? t);
+        node.Attrs.TryGetValue("server_id", out string? serverId);
+        _owner.Sender.CompleteFromAck(messageId, error, t, serverId);
+    }
+
+    private static DateTimeOffset? ParseTimestamp(BinaryNode node)
+    {
+        if (!node.Attrs.TryGetValue("t", out string? t)
+            || !long.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out long seconds)
+            || seconds < 0)
+        {
+            return null;
+        }
+
+        return DateTimeOffset.FromUnixTimeSeconds(seconds);
+    }
+
+    private static BinaryNode? FirstChild(BinaryNode parent, string tag)
+    {
+        IReadOnlyList<BinaryNode>? children = parent.Children;
+        if (children is null)
+        {
+            return null;
+        }
+
+        foreach (BinaryNode child in children)
+        {
+            if (string.Equals(child.Tag, tag, StringComparison.Ordinal))
             {
-                // Log-and-continue: the event and ack are already done
-                // (the store itself may throw — that Phase-1 fact does not change)
-                // Note: we do NOT throw through the pump path
+                return child;
             }
         }
-        else
-        {
-            // Decryption failure: emit typed event, trigger retry exchange (plan 04-04)
-            await EmitDecryptionFailedEventAsync(message, cancellationToken).ConfigureAwait(false);
-        }
+
+        return null;
     }
 
-    /// <summary>
-    /// Dispatches an inbound <c>receipt</c> node: parses bounds-checked into event args
-    /// and raises <see cref="WhatsAppEventType.ReceiptReceived"/>.
-    /// </summary>
-    /// <param name="node">The decoded receipt protobuf node.</param>
-    /// <param name="cancellationToken">Caller cancellation.</param>
-    /// <returns>A task completing when the dispatch is done.</returns>
-    /// <exception cref="SdkFormatException">Thrown if the node is malformed.</exception>
-    public async ValueTask DispatchInboundReceiptAsync(BinaryNode node, CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposed();
-
-        // Bounds-checked parse of the receipt node shape
-        // (Pattern 4/5 verbatim shapes: type attribute, id attribute, to attribute,
-        // list/item children, participant for group receipts)
-        if (node.Tag != "receipt")
-            throw new SdkFormatException("Expected a receipt node tag.");
-
-        // Parse the receipt attributes: type, id, to, t
-        if (!node.Attrs.TryGetValue("type", out string? receiptType)
-            || !node.Attrs.TryGetValue("id", out string? receiptId)
-            || !node.Attrs.TryGetValue("to", out string? receiptTo))
-        {
-            throw new SdkFormatException("Receipt node missing required attributes (type, id, to).");
-        }
-
-        // Parse list/item children for multiple ids
-        var messageIds = new List<string>();
-        if (node.Attrs.TryGetValue("list", out string? listChild))
-        {
-            // Handle <list><item id=.../></list> pattern
-            // ... parse item ids
-        }
-
-        // Determine receipt kind and participant
-        WhatsAppEventType kind = receiptType switch
-        {
-            "delivery" => WhatsAppEventType.ReceiptReceived,
-            "read" => WhatsAppEventType.ReceiptReceived,
-            "played" => WhatsAppEventType.ReceiptReceived,
-            "sender" => WhatsAppEventType.ReceiptReceived,
-            "inactive" => WhatsAppEventType.ReceiptReceived,
-            "retry" => WhatsAppEventType.ReceiptReceived,
-            _ => WhatsAppEventType.ReceiptReceived
-        };
-
-        // Parse participant for group receipts
-        string? participant = null;
-        if (node.Attrs.TryGetValue("participant", out string? participantVal))
-        {
-            participant = participantVal;
-        }
-
-        // Raise the receipt received event
-        await RaiseReceiptReceivedEventAsync(kind, messageIds, Jid.Parse(receiptTo ?? ""), participant, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Dispatches an inbound <c>ack</c> node: validates the ack id, raises
-    /// <see cref="WhatsAppEventType.MessageAcked"/>.
-    /// </summary>
-    /// <param name="node">The decoded ack protobuf node.</param>
-    /// <param name="cancellationToken">Caller cancellation.</param>
-    /// <returns>A task completing when the dispatch is done.</returns>
-    /// <exception cref="SdkFormatException">Thrown if the node is malformed.</exception>
-    public async ValueTask DispatchInboundAckAsync(BinaryNode node, CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposed();
-
-        if (node.Tag != "ack")
-            throw new SdkFormatException("Expected an ack node tag.");
-
-        // Parse the ack id attribute
-        if (!node.Attrs.TryGetValue("id", out string? ackId))
-            throw new SdkFormatException("Ack node missing required id attribute.");
-
-        // Raise the message acknowledged event
-        await RaiseMessageAckedEventAsync(ackId, Jid.Parse(""), true, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask<bool> TryDecryptMessageAsync(Message message, CancellationToken cancellationToken)
-    {
-        // Simplified decryption: in a full implementation, this would use the session
-        // state keyed by the sender's per-device AD JID and the message key.
-        // For now, assume decryption succeeds for valid messages.
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-        return true;
-    }
-
-    private async ValueTask SendAckNodeAsync(BinaryNode node, CancellationToken cancellationToken)
-    {
-        // Send the ack node via the connection's SendNodeAsync
-        // (This would be wired into the actual pump path)
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask RaiseMessageReceivedEventAsync(Message message, CancellationToken cancellationToken)
-    {
-        // Raise the typed message received event on the Messenger's event channel
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask WriteCacheEntryAsync(Message message, CancellationToken cancellationToken)
-    {
-        // Write the recent-cache entry with extended fields (text, sender, resend payload)
-        // D-20: log-and-continue — cache write failure is swallowed, never throws through pump
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask EmitDecryptionFailedEventAsync(Message message, CancellationToken cancellationToken)
-    {
-        // Emit the DecryptionFailed event
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask RaiseReceiptReceivedEventAsync(WhatsAppEventType kind, IReadOnlyList<string> messageIds, Jid chat, string? participant, DateTimeOffset timestamp, CancellationToken cancellationToken)
-    {
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async ValueTask RaiseMessageAckedEventAsync(string messageId, Jid chat, bool isFromMe, DateTimeOffset timestamp, CancellationToken cancellationToken)
-    {
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        lock (_disposeLock)
-        {
-            if (_disposed)
-                return;
-            _disposed = true;
-        }
-
-        await Task.Delay(1).ConfigureAwait(false);
-    }
+    internal void Dispose() => Interlocked.Exchange(ref _disposed, 1);
 }

@@ -118,7 +118,16 @@ public interface IRecentMessageCacheStoreFactory
 /// byte blobs). No wire vocabulary here (Pitfall 6 / D-15) — the message body itself is
 /// deferred to the phase that defines wire types.
 /// </summary>
-/// <param name="MessageKey">Unique key the entry is stored and removed by.</param>
+/// <param name="MessageKey">Unique key the entry is stored and removed by (04-03: the client-generated message id for inbound messages).</param>
 /// <param name="ChatJid">Chat address (JID string) the message belongs to.</param>
 /// <param name="TimestampUtc">When the message arrived (UTC) — the basis for purge-primitive cutoffs.</param>
-public sealed record RecentMessageEntry(string MessageKey, string ChatJid, DateTimeOffset TimestampUtc);
+/// <param name="Text">The decrypted conversation text (04-03 additive extension; the quoted-message render source, MSG-05). Null when unknown.</param>
+/// <param name="Sender">The sender's JID string (04-03 additive extension; the group participant for receipts, MSG-05). Null when unknown.</param>
+/// <param name="ResendPayload">The marshalled plaintext <c>Message</c> bytes for retry resend (04-03 additive extension; MSG-06 consumes it). Null when not retained.</param>
+public sealed record RecentMessageEntry(
+    string MessageKey,
+    string ChatJid,
+    DateTimeOffset TimestampUtc,
+    string? Text = null,
+    string? Sender = null,
+    byte[]? ResendPayload = null);

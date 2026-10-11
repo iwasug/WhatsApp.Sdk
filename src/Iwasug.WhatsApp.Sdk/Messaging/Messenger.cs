@@ -1,236 +1,102 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
-using Iwasug.WhatsApp.Sdk.Messaging;
-using Iwasug.WhatsApp.Sdk.Noise;
+using Iwasug.WhatsApp.Sdk.Stores;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
 /// <summary>
-/// Public messaging facade (04-03 CONN-05 / MSG-01/03/07).
-/// Provides <c>SendMessageAsync</c> and <c>ReadEventsAsync</c> with a per-account
-/// send gate, typed events, and a bounded-channel event stream.
+/// Public messaging facade (04-03 CONN-05 / MSG-01/03): <c>SendMessageAsync</c> with the
+/// documented idempotency contract and the typed <see cref="MessageReceived"/> event.
+/// One instance per account, exposed as <see cref="WaConnection.Messaging"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The send gate (<c>SemaphoreSlim(1,1)</c>) serializes sends per account so that
-/// concurrent <c>SendMessageAsync</c> calls queue instead of interleaving ratchet
-/// mutations. A cancelled queued send releases the gate and a subsequent send
-/// succeeds.
+/// Created lazily under a lock on first <see cref="WaConnection.Messaging"/> access (the
+/// <c>Pairing</c> precedent); the dispatcher subscribes to the connection's internal
+/// stanza event exactly once at construction.
 /// </para>
 /// <para>
-/// The event stream (<c>ReadEventsAsync</c>) is backed by a bounded <c>Channel</c>
-/// (<see cref="System.Threading.Channels.Channel{T}"/>) that applies backpressure
-/// to the pump — events are never silently dropped; a full channel slows the pump
-/// rather than losing a message. The <c>CancellationToken</c> passed to
-/// <c>ReadEventsAsync</c> cancels enumeration promptly (<c>OperationCanceledException</c>
-/// propagates unwrapped per the repo's cancel-passes-through discipline), no event
-/// is observed after cancellation, and the same token flows into in-flight sends/queries
-/// that the host awaits alongside the stream.
+/// Handler contract for <see cref="MessageReceived"/>: return quickly (copy to your own
+/// queue — Channels precedent), never call <see cref="WaConnection.DisposeAsync"/> from
+/// the handler, handler exceptions are logged and swallowed.
 /// </para>
 /// <para>
-/// Connection-state and logout events stay on <see cref="WaConnection.StateChanged"/>
-/// for CONN-05 compatibility; they are not duplicated into the stream. The event
-/// hierarchy and <see cref="ReadEventsAsync"/> are the sole consumption surface for
-/// host-driven event processing in Phase 4 and later.
+/// The per-account send gate lives in <see cref="MessageSender"/>; every send settles
+/// exactly one <see cref="SendOutcome"/> — the SDK never re-sends on its own.
 /// </para>
 /// </remarks>
 public sealed class Messenger : IAsyncDisposable
 {
-    private readonly AccountId _accountId;
     private readonly WaConnection _connection;
+    private readonly DeviceDirectory _directory;
+    private readonly MessageSender _sender;
+    private readonly MessageDispatcher _dispatcher;
+    private int _disposed;
 
-    /// <summary>
-    /// Throws if the object has been disposed.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown if <see cref="_disposed"/> is true.</exception>
-    private bool _disposed;
-
-    /// <summary>
-    /// The underlying connection, for sending nodes and accessing connection state.
-    /// </summary>
-    internal WaConnection Connection => _connection;
-    private readonly SemaphoreSlim _sendGate;
-    private readonly Channel<WhatsAppEvent> _eventChannel;
-    private readonly CancellationTokenSource _cts;
-    private readonly object _disposeLock = new();
-    /// <summary>
-    /// Throws if the object has been disposed.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown if <see cref="_disposed"/> is true.</exception>
-    private void ThrowIfDisposed()
+    internal Messenger(AccountId accountId, WaConnection connection)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(GetType().Name);
-    }
-
-    /// <summary>
-    /// Creates a new <see cref="Messenger"/> for the given account and connection.
-    /// </summary>
-    /// <param name="accountId">The account identifier.</param>
-    /// <param name="connection">The <see cref="WaConnection"/> instance.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="accountId"/> or
-    /// <paramref name="connection"/> is null.</exception>
-    public Messenger(AccountId accountId, WaConnection connection)
-    {
-        _accountId = accountId;
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _sendGate = new SemaphoreSlim(1, 1);
-        _eventChannel = CreateEventChannel();
-        _cts = new CancellationTokenSource();
+        _directory = new DeviceDirectory(
+            RouterProvider,
+            connection.Clock);
+        _sender = new MessageSender(this, _directory);
+        _dispatcher = new MessageDispatcher(this);
     }
 
     /// <summary>
-    /// Sends one E2EE text message to the specified chat.
+    /// Raised (on the dispatcher's async path) once per successfully decrypted inbound
+    /// message, after the durable session write and the ack have completed (D-06).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// One logical send = one network send. The SDK never re-sends a message on its
-    /// own; a host re-call is a new send with a new id.
-    /// </para>
-    /// <para>
-    /// The per-account send gate ensures concurrent calls serialize. A cancelled queued
-    /// send releases the gate and a subsequent send succeeds.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="SdkFormatException">Thrown if the chat JID is invalid or the text is null/empty.</exception>
-    /// <exception cref="SdkConnectionException">Thrown if the connection is not open.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the caller cancelled.</exception>
+    public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
+
+    /// <summary>
+    /// Sends one E2EE text message to the chat: one logical send = one network send. On
+    /// timeout the SDK returns the <see cref="SendOutcomeStatus.TimedOut"/> outcome with
+    /// the id and drops — the host may re-call, which is a NEW send with a NEW id; the
+    /// SDK never re-sends a message on its own.
+    /// </summary>
+    /// <param name="chat">The destination chat JID.</param>
+    /// <param name="text">The message text (non-empty; UTF-8 inside the protobuf payload).</param>
+    /// <param name="cancellationToken">Caller cancellation (unwrapped; a cancelled send never touches the wire).</param>
+    /// <returns>The terminal <see cref="SendOutcome"/> for the generated message id.</returns>
+    /// <exception cref="SdkFormatException">The chat JID is malformed or the text is null/empty.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
     public async Task<SendOutcome> SendMessageAsync(Jid chat, string text, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ThrowIfDisposed();
-
-        // Acquire the send gate — concurrent sends serialize.
-        await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return await SendMessageCoreAsync(chat, text, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _sendGate.Release();
-        }
-    }
-
-    /// <summary>
-    /// Returns an <see cref="IAsyncEnumerable{T}"/> of <see cref="WhatsAppEvent"/> that
-    /// the host can consume to observe typed events (message, receipt, ack, decrypt
-    /// failure) in proven order with cancellation support.
-    /// </summary>
-    /// <param name="cancellationToken">The token cancels enumeration promptly; no event
-    /// is observed after cancellation; the same token flows into in-flight sends/queries.</param>
-    /// <returns>An asynchronous enumerable of WhatsAppEvent.</returns>
-    /// <exception cref="OperationCanceledException">Thrown if the token is cancelled before
-    /// enumeration starts or during enumeration.</exception>
-    public async IAsyncEnumerable<WhatsAppEvent> ReadEventsAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await foreach (var ev in _eventChannel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
-        {
-            yield return ev;
-        }
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        return await _sender.SendAsync(chat, text, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        lock (_disposeLock)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
-            if (_disposed)
-                return;
-            _disposed = true;
+            return;
         }
 
-        _cts.Cancel();
-        _sendGate.Dispose();
-        _eventChannel.Writer.Complete();
+        _dispatcher.Dispose();
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    private Channel<WhatsAppEvent> CreateEventChannel()
-    {
-        // Bounded channel with backpressure: WriteAsync slows the pump when full,
-        // events are never silently dropped.
-        var channel = Channel.CreateBounded<WhatsAppEvent>(new BoundedChannelOptions(100)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-        });
-        return channel;
-    }
+    internal void RaiseMessageReceived(MessageReceivedEventArgs args) => MessageReceived?.Invoke(this, args);
 
-    private async Task<SendOutcome> SendMessageCoreAsync(Jid chat, string text, CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
+    internal ValueTask<StoreSession> ResolveStoresAsync(CancellationToken cancellationToken) =>
+        _connection.ResolveStoreSessionAsync(cancellationToken);
 
-        if (string.IsNullOrEmpty(text))
-            throw new SdkFormatException("Message text must not be null or empty.");
+    internal Func<QueryRouter?> RouterProvider => () => _connection.CurrentRouter;
 
-        if (chat is null)
-            throw new SdkFormatException("Chat JID must not be null.");
+    internal TimeProvider Clock => _connection.Clock;
 
-        // Generate client message id: 3EB0 + 18 CSPRNG bytes uppercase hex (40 chars)
-        string messageId = GenerateMessageId();
+    internal MessageSender Sender => _sender;
 
-        // Build the plaintext protobuf
-        byte[] plaintext = BuildPlainText(text);
+    internal WaConnection Connection => _connection;
 
-        // Assemble the message node (ciphertext will be added by MessageSender per device)
-        // ... (device fanout, encryption, send via SendNodeAsync, outcome mapping)
-
-        // For now, raise the message received event after the send path completes
-        // The actual send path (device fanout, encryption, SendNodeAsync) is in MessageSender
-        // This stub raises a placeholder event; full integration will wire through MessageSender
-        await RaiseMessageReceivedAsync(chat, messageId, text, isFromMe: true, cancellationToken).ConfigureAwait(false);
-
-        // Return sent outcome with the generated id
-        return new SendOutcome(messageId, SendOutcomeStatus.Sent);
-    }
-
-    private static string GenerateMessageId()
-    {
-        // 3EB0 prefix + 18 CSPRNG bytes uppercase hex = 40 chars
-        var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        var bytes = new byte[18];
-        rng.GetBytes(bytes);
-        return $"3EB0{Convert.ToHexString(bytes).ToUpperInvariant()}";
-    }
-
-    internal static byte[] BuildPlainText(string text)
-    {
-        // Use the MessageBuilder from the same namespace/assembly
-        return Iwasug.WhatsApp.Sdk.Messaging.MessageBuilder.BuildPlainText(text);
-    }
-
-    private async ValueTask RaiseMessageReceivedAsync(Jid chat, string messageId, string text, bool isFromMe, CancellationToken cancellationToken)
-    {
-        var key = new MessageKeyRecord(chat, isFromMe, messageId, string.Empty);
-        var args = new MessageReceivedEventArgs(key, chat, Jid.Parse(""), isFromMe, DateTimeOffset.UtcNow, text);
-
-        // Emit to the event channel (feeds both EventHandler twin and the stream)
-        if (!_disposed)
-        {
-            try
-            {
-                await _eventChannel.Writer.WriteAsync(args, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // Channel might be completed during disposal; ignore write failures
-            }
-        }
-
-        // Also raise the EventHandler-typed event for CONN-05 compatibility
-        // (this would be WaConnection.StanzaReceived / pairing coordinator pattern)
-        // The actual raise is handled by the dispatcher/connection pump
-    }
+    /// <summary>The pump seam: the connection invokes this once per inbound stanza.</summary>
+    internal void OnStanzaReceived(object? sender, BinaryNode node) => _dispatcher.OnStanzaReceived(sender, node);
 }

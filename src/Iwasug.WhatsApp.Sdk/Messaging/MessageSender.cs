@@ -1,117 +1,83 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Google.Protobuf;
+using System.Collections.Concurrent;
+using System.Globalization;
 using Iwasug.WhatsApp.Sdk.Codec;
+using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
-using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Signal;
-using Iwasug.WhatsApp.Sdk;
+using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.Runtime;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
 /// <summary>
-/// Single send path: hold the per-account send gate, generate the client message id,
-/// resolve the peer's device set via DeviceDirectory, ensure a session per device
-/// (fetch bundle via PreKeyManager when genuinely absent, then X3DH init),
-/// encrypt per device through DoubleRatchet (pkmsg for a fresh prekey session, msg after),
-/// assemble the node through MessageBuilder's node seam with the Pattern-2 attrs and
-/// per-device to jid/enc v="2" type children (append device-identity when any child is pkmsg),
-/// send via the injected WaConnection.SendNodeAsync, register the message id in a pending
-/// map, and await the correlated reply (below) before returning the SendOutcome.
+/// The single send path (04-03, MSG-01/MSG-03): hold the per-account send gate,
+/// generate the client message id (<c>3EB0</c> + 18 CSPRNG bytes uppercase hex, 40 chars —
+/// Baileys <c>generateMessageID</c> behavioral reference), resolve the peer's device set
+/// via <see cref="DeviceDirectory"/>, ensure a session per device (fetch the bundle via
+/// <see cref="PreKeyManager"/> when genuinely absent, then X3DH init), encrypt per device
+/// through <see cref="DoubleRatchet"/> (<c>pkmsg</c> for a fresh prekey session, <c>msg</c>
+/// after), assemble the node through <see cref="MessageBuilder"/>'s node seam, send via
+/// the connection's <c>SendNodeAsync</c>, and await the correlated reply before returning
+/// the <see cref="SendOutcome"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The per-account gate (SemaphoreSlim(1,1)) wraps the full send (resolve → encrypt → send → await ack),
-/// so two concurrent Messenger.SendMessageAsync calls queue instead of interleaving ratchet mutations;
-/// a cancelled queued send releases the gate and a subsequent send succeeds.
+/// The per-account gate (<c>SemaphoreSlim(1,1)</c> — the whatsmeow <c>messageSendLock</c>
+/// behavioral equivalent, NOT the RateLimiter, which is Phase 5 scope) wraps the full send
+/// (resolve → encrypt → send → await ack): two concurrent
+/// <see cref="Messenger.SendMessageAsync"/> calls queue instead of interleaving ratchet
+/// mutations; a cancelled queued send releases the gate and a subsequent send succeeds.
 /// </para>
 /// <para>
-/// Idempotency contract (verbatim from SendOutcome XML docs):
-/// one logical send = one network send; on timeout the SDK returns the timed-out id and drops;
-/// the host may re-call, which is a NEW send with a NEW id; the SDK never re-sends a message on its own;
+/// Idempotency contract (carried verbatim on <see cref="SendOutcome"/>): one logical send
+/// = one network send; on timeout the SDK returns the timed-out id and drops; the host may
+/// re-call, which is a NEW send with a NEW id; the SDK never re-sends a message on its own;
 /// a peer retry receipt triggers resend only in plan 04-04 and only with the same id.
 /// </para>
+/// <para>
+/// Discipline: every ratchet advance persists through
+/// <see cref="DoubleRatchet.SignalSessionRepository"/> (D-06) before the message node
+/// leaves; message ids are compared ordinally; ciphertext rides <c>enc</c> <c>Data</c>
+/// (Pitfall 8); no log call on this class ever sees plaintext, ciphertext, or key bytes.
+/// </para>
 /// </remarks>
-/// <exception cref="SdkFormatException">Thrown if inputs are invalid.</exception>
-/// <exception cref="SdkConnectionException">Thrown if the connection is not open or send fails.</exception>
-/// <exception cref="OperationCanceledException">Thrown if the cancellation token is cancelled.</exception>
-public sealed class MessageSender : IAsyncDisposable
+internal sealed class MessageSender
 {
-    private readonly Messenger _messenger;
-    private readonly DeviceDirectory _deviceDirectory;
-    private readonly PreKeyManager _preKeyManager;
-    private readonly DoubleRatchet _doubleRatchet;
-    private readonly SemaphoreSlim _sendGate;
-    private readonly Dictionary<string, Task<SendOutcome>> _pendingMap = new();
-    private readonly object _pendingMapLock = new();
-    private bool _disposed;
+    private readonly Messenger _owner;
+    private readonly DeviceDirectory _directory;
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
+    private readonly DurableWriteRetryPolicy _retry = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<SendOutcome>> _pending = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Throws if the object has been disposed.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown if <see cref="_disposed"/> is true.</exception>
-    private void ThrowIfDisposed()
+    internal MessageSender(Messenger owner, DeviceDirectory directory)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(GetType().Name);
+        _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+        _directory = directory ?? throw new ArgumentNullException(nameof(directory));
     }
 
     /// <summary>
-    /// Creates a new MessageSender with the required dependencies.
+    /// Sends one E2EE text message: exactly one network send, exactly one terminal
+    /// outcome (reply, timeout, or a typed exception — cancellation unwrapped).
     /// </summary>
-    /// <param name="messenger">The Messenger instance.</param>
-    /// <param name="deviceDirectory">The DeviceDirectory for peer device resolution.</param>
-    /// <param name="preKeyManager">The PreKeyManager for prekey handling.</param>
-    /// <param name="doubleRatchet">The DoubleRatchet for session encryption.</param>
-    /// <param name="sendGate">The per-account send gate.</param>
-    /// <exception cref="ArgumentNullException">Thrown if any dependency is null.</exception>
-    internal MessageSender(Messenger messenger, DeviceDirectory deviceDirectory, PreKeyManager preKeyManager, DoubleRatchet doubleRatchet, SemaphoreSlim sendGate)
+    /// <exception cref="SdkFormatException">Text is null/empty or the destination is malformed or resolves no devices.</exception>
+    /// <exception cref="SdkConnectionException">The connection is not open or the send raced a teardown.</exception>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    internal async Task<SendOutcome> SendAsync(Jid chat, string text, CancellationToken cancellationToken)
     {
-        _messenger = messenger ?? throw new ArgumentNullException(nameof(messenger));
-        _deviceDirectory = deviceDirectory ?? throw new ArgumentNullException(nameof(deviceDirectory));
-        _preKeyManager = preKeyManager ?? throw new ArgumentNullException(nameof(preKeyManager));
-        _doubleRatchet = doubleRatchet ?? throw new ArgumentNullException(nameof(doubleRatchet));
-        _sendGate = sendGate ?? throw new ArgumentNullException(nameof(sendGate));
-    }
+        ArgumentNullException.ThrowIfNull(chat);
+        if (string.IsNullOrEmpty(text))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
 
-    /// <summary>
-    /// Sends one E2EE text message to the specified recipient JID.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The per-account gate (SemaphoreSlim(1,1)) serializes sends per account so that
-    /// concurrent Messenger.SendMessageAsync calls queue instead of interleaving ratchet mutations;
-    /// a cancelled queued send releases the gate and a subsequent send succeeds.
-    /// </para>
-    /// <para>
-    /// Idempotency contract (verbatim from SendOutcome XML docs):
-    /// one logical send = one network send; on timeout the SDK returns the timed-out id and drops;
-    /// the host may re-call, which is a NEW send with a NEW id; the SDK never re-sends a message on its own;
-    /// a peer retry receipt triggers resend only in plan 04-04 and only with the same id.
-    /// </para>
-    /// </remarks>
-    /// <exception cref="SdkFormatException">Thrown if inputs are invalid.</exception>
-    /// <exception cref="SdkConnectionException">Thrown if the connection is not open or send fails.</exception>
-    /// <exception cref="OperationCanceledException">Thrown if the cancellation token is cancelled.</exception>
-    public async Task<SendOutcome> SendAsync(Jid recipient, string text, CancellationToken cancellationToken = default)
-    {
         cancellationToken.ThrowIfCancellationRequested();
-        ThrowIfDisposed();
 
-        // Generate client message id: 3EB0 + 18 CSPRNG bytes uppercase hex (40 chars)
         string messageId = GenerateMessageId();
-
-        // Acquire the send gate — serialize concurrent sends
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await SendCoreAsync(recipient, messageId, text, cancellationToken).ConfigureAwait(false);
+            return await SendCoreAsync(chat, messageId, text, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -119,125 +85,184 @@ public sealed class MessageSender : IAsyncDisposable
         }
     }
 
-    private async Task<SendOutcome> SendCoreAsync(Jid recipient, string messageId, string text, CancellationToken cancellationToken)
+    private async Task<SendOutcome> SendCoreAsync(Jid chat, string messageId, string text, CancellationToken cancellationToken)
     {
-        ThrowIfDisposed();
+        StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (row?.PairedUser is null)
+        {
+            throw new SdkConnectionException("The account is not paired: the message was not sent.");
+        }
 
-        if (string.IsNullOrEmpty(text))
-            throw new SdkFormatException("Message text must not be null or empty.");
-
-        if (recipient is null)
-            throw new SdkFormatException("Recipient JID must not be null.");
-
-        // Resolve the peer's device set
-        var devices = await _deviceDirectory.ResolveAsync(recipient, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Jid> devices = await _directory.ResolveAsync(chat, row.PairedUser, cancellationToken).ConfigureAwait(false);
         if (devices.Count == 0)
-            throw new SdkFormatException($"No devices resolved for recipient {recipient.ToString()}. Cannot send message.");
-
-        // Build the plaintext protobuf
-        byte[] plaintext = Messenger.BuildPlainText(text);
-
-        // Per-device encryption and node assembly
-        var deviceCiphertexts = new List<DeviceCiphertext>();
-        foreach (var device in devices)
         {
-            // Encrypt per device through DoubleRatchet
-            bool isFreshPreKeySession = true;
-            string encType = isFreshPreKeySession ? "pkmsg" : "msg";
-            // Placeholder ciphertext - full implementation would encrypt actual plaintext per device
-            byte[] ciphertext = Array.Empty<byte>();
-            deviceCiphertexts.Add(new DeviceCiphertext(device, encType, ciphertext));
+            throw new SdkFormatException($"No devices resolved for the recipient: the message was not sent.");
         }
 
-        // Assemble the message node through MessageBuilder's node seam
-        var node = MessageBuilder.AssembleMessageNode(
-            recipient,
-            messageId,
-            "msg", // message type token
-            GetCurrentTimestamp(),
-            deviceCiphertexts);
+        byte[] plaintext = MessageBuilder.BuildPlainText(text);
+        long t = _owner.Clock.GetUtcNow().ToUnixTimeSeconds();
 
-        // Send via the injected SendNodeAsync
-        await _messenger.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
-
-        // Register the message id in the pending map with a timeout task
-        var outcomeTask = TrackOutcomeAsync(messageId, cancellationToken);
-        lock (_pendingMapLock)
+        var ciphertexts = new List<DeviceCiphertext>(devices.Count);
+        bool anyPreKey = false;
+        foreach (Jid device in devices)
         {
-            _pendingMap[messageId] = outcomeTask;
+            DoubleRatchet ratchet = await EnsureSessionAsync(stores, row, device, cancellationToken).ConfigureAwait(false);
+            SignalEncryptOutcome outcome = ratchet.Encrypt(plaintext, cancellationToken);
+            byte[] wire;
+            string encType;
+            if (outcome is SignalEncryptOutcome.PreKeyMessageSent preKey)
+            {
+                wire = preKey.WireBytes;
+                encType = MessageBuilder.EncTypePreKey;
+                anyPreKey = true;
+            }
+            else
+            {
+                wire = ((SignalEncryptOutcome.MessageSent)outcome).WireBytes;
+                encType = MessageBuilder.EncTypeMessage;
+            }
+
+            // D-06: the ratchet advanced — persist the new state before anything rides the wire.
+            await PersistSessionAsync(stores, device, ratchet, cancellationToken).ConfigureAwait(false);
+            ciphertexts.Add(new DeviceCiphertext(device, encType, wire));
         }
 
-        // Return sent outcome with the generated id (the actual outcome will be updated
-        // when the correlated ack/receipt is received below)
-        return new SendOutcome(messageId, SendOutcomeStatus.Sent);
-    }
+        List<BinaryNode> children = [.. BuildRecipientChildren(ciphertexts)];
+        if (anyPreKey)
+        {
+            // Pattern 2: the device-identity child rides the node when any child is pkmsg.
+            // ponytail: content pins the own identity DJB form — upgrade to a marshalled
+            // Account proto when the adv schema lands (plan 04-04/UAT).
+            children.Add(BinaryNode.FromBytes(
+                "device-identity",
+                SignalCipher.ToDjbIdentity(X3dh.DeriveX25519Public(row.IdentityKeyPrivate)),
+                null));
+        }
 
-    private async ValueTask EnsureSessionAsync(Jid deviceJid, CancellationToken cancellationToken)
-    {
-        // Ensure a session per device: fetch bundle via PreKeyManager when genuinely absent,
-        // then X3DH init. This is a simplified version; the full implementation would
-        // follow the plan 04-01/04-02 seams.
-        await Task.Delay(1, cancellationToken);
-    }
+        BinaryNode node = BinaryNode.FromChildren(
+            "message",
+            children,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["id"] = messageId,
+                ["to"] = chat.ToString(),
+                ["type"] = "text",
+                ["t"] = t.ToString(CultureInfo.InvariantCulture),
+            });
 
-    private async Task<SendOutcome> TrackOutcomeAsync(string messageId, CancellationToken cancellationToken)
-    {
-        // Wait for the ack or timeout
+        var completion = new TaskCompletionSource<SendOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[messageId] = completion;
         try
         {
-            // Wait for the ack node or timeout
-            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
-            return new SendOutcome(messageId, SendOutcomeStatus.Sent);
+            await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+
+            TimeSpan ackWindow = TimeSpan.FromMilliseconds(_owner.Connection.SendAckTimeoutMs);
+            Task timeout = Task.Delay(ackWindow, _owner.Clock, cancellationToken);
+            Task winner = await Task.WhenAny(completion.Task, timeout).ConfigureAwait(false);
+            if (!ReferenceEquals(winner, completion.Task))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new SendOutcome(messageId, SendOutcomeStatus.TimedOut);
+            }
+
+            return await completion.Task.ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        finally
         {
-            return new SendOutcome(messageId, SendOutcomeStatus.TimedOut);
+            _pending.TryRemove(messageId, out _);
         }
-    }
-
-    private static string GenerateMessageId()
-    {
-        // 3EB0 prefix + 18 CSPRNG bytes uppercase hex = 40 chars
-        var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        var bytes = new byte[18];
-        rng.GetBytes(bytes);
-        return $"3EB0{Convert.ToHexString(bytes).ToUpperInvariant()}";
-    }
-
-    private static long GetCurrentTimestamp()
-    {
-        return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 
     /// <summary>
-    /// Records a correlated outcome (ack, error, timeout) for a sent message id.
-    /// Called by the message dispatcher when the protocol outcome is determined.
+    /// Correlates one inbound <c>ack</c> for a sent message id: completes the pending
+    /// send exactly once; a late or duplicate ack finds no pending entry and is a no-op.
     /// </summary>
-    /// <param name="messageId">The client-generated message id.</param>
-    /// <param name="outcome">The correlated send outcome.</param>
-    internal void RecordOutcome(string messageId, SendOutcome outcome)
+    internal void CompleteFromAck(string messageId, int? error, string? t, string? serverId)
     {
-        lock (_pendingMapLock)
+        if (!_pending.TryGetValue(messageId, out TaskCompletionSource<SendOutcome>? completion))
         {
-            if (_pendingMap.TryGetValue(messageId, out var task) && !task.IsCompleted)
-            {
-                // In a full implementation, set the result on the task so the sender
-                // gets the final outcome. Use a TaskCompletionSource in the complete flow.
-            }
+            return; // late/duplicate ack — logged by the dispatcher, outcome untouched
+        }
+
+        SendOutcome outcome = error is > 0
+            ? new SendOutcome(messageId, SendOutcomeStatus.ServerError, error, t, serverId)
+            : new SendOutcome(messageId, SendOutcomeStatus.Sent, error, t, serverId);
+        completion.TrySetResult(outcome);
+    }
+
+    /// <summary>True when a pending send waits on this id (ack-correlation seam for the dispatcher).</summary>
+    internal bool IsPending(string messageId) => _pending.ContainsKey(messageId);
+
+    private async Task<DoubleRatchet> EnsureSessionAsync(StoreSession stores, CredentialRecord row, Jid device, CancellationToken cancellationToken)
+    {
+        string address = DoubleRatchet.SignalSessionRepository.AddressFor(device);
+        var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, _retry);
+        DoubleRatchet? existing = await repository.LoadAsync(address, cancellationToken).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        // First contact has no pinned identity yet: PreKeyManager verifies under the
+        // fetched bundle's own identity (TOFU seam, pinned before any use) and hardens
+        // every later contact against the pin.
+        SignalIdentityRecord? pinned = await stores.Identity.GetAsync(address, cancellationToken).ConfigureAwait(false);
+        var manager = new PreKeyManager(
+            _owner.RouterProvider() ?? throw new SdkConnectionException("The connection is not open: the prekey bundle was not fetched."),
+            _retry);
+        EnsureSessionOutcome outcome = await manager.EnsureSessionAsync(
+            address,
+            device,
+            row.IdentityKeyPrivate,
+            (uint)row.RegistrationId,
+            pinned?.IdentityKeyDjb,
+            repository,
+            stores.Identity,
+            stores.PreKeys,
+            cancellationToken).ConfigureAwait(false);
+
+        return outcome switch
+        {
+            EnsureSessionOutcome.Created created => created.Session,
+            EnsureSessionOutcome.Existing => await repository.LoadAsync(address, cancellationToken).ConfigureAwait(false)
+                ?? throw new SdkStoreException("The session store lost a session between ensure and load."),
+            EnsureSessionOutcome.IdentityChanged => throw new SdkStoreException("The peer identity changed: refusing to send under the pinned session key."),
+            EnsureSessionOutcome.FetchFailed => throw new SdkConnectionException("The peer prekey bundle could not be fetched: the message was not sent."),
+            _ => throw new SdkStoreException("The session-ensure outcome was unrecognized."),
+        };
+    }
+
+    private async Task PersistSessionAsync(StoreSession stores, Jid device, DoubleRatchet ratchet, CancellationToken cancellationToken)
+    {
+        var repository = new DoubleRatchet.SignalSessionRepository(stores.SignalSessions, _retry);
+        await repository.SaveAsync(DoubleRatchet.SignalSessionRepository.AddressFor(device), ratchet, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IEnumerable<BinaryNode> BuildRecipientChildren(IReadOnlyList<DeviceCiphertext> ciphertexts)
+    {
+        foreach (DeviceCiphertext device in ciphertexts)
+        {
+            yield return BinaryNode.FromChildren(
+                "to",
+                [BinaryNode.FromBytes(
+                    "enc",
+                    device.Ciphertext,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["v"] = MessageBuilder.EncVersion,
+                        ["type"] = device.EncType,
+                    })],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["jid"] = device.Device.ToString(),
+                });
         }
     }
 
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
+    /// <summary>3EB0 + 18 CSPRNG bytes uppercase hex = 40 chars (Baileys generateMessageID behavioral reference).</summary>
+    internal static string GenerateMessageId()
     {
-        lock (new object())
-        {
-            if (_disposed)
-                return;
-            _disposed = true;
-        }
-
-        _sendGate.Dispose();
-        await Task.Delay(1).ConfigureAwait(false);
+        return string.Create(CultureInfo.InvariantCulture, $"3EB0{Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(18))}");
     }
 }

@@ -4,8 +4,10 @@ using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Transport;
 using Microsoft.Extensions.Logging;
 
@@ -171,6 +173,9 @@ public sealed class WaConnection : IAsyncDisposable
     private volatile Channel? _channel;
     private PairingCoordinator? _pairing;
     private readonly object _pairingGate = new();
+    private Messenger? _messaging;
+    private readonly object _messagingGate = new();
+    private StoreRegistry? _storeRegistry;
     private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
@@ -288,6 +293,66 @@ public sealed class WaConnection : IAsyncDisposable
             }
         }
     }
+
+    /// <summary>
+    /// The messaging entry point (04-03, CONN-05/MSG-01): one <see cref="Messenger"/>
+    /// per connection, created lazily under a lock (the <see cref="Pairing"/> precedent)
+    /// and wired to the internal stanza-received event exactly once at construction.
+    /// Hosts send with <c>SendMessageAsync</c> and observe inbound messages on the
+    /// messenger's typed event.
+    /// </summary>
+    public Messenger Messaging
+    {
+        get
+        {
+            lock (_messagingGate)
+            {
+                if (_messaging is null)
+                {
+                    var messenger = new Messenger(_accountId, this);
+                    StanzaReceived += messenger.OnStanzaReceived;
+                    _messaging = messenger;
+                }
+
+                return _messaging;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Store-registry seam (04-03): the account-scoped store registry the messaging
+    /// layer resolves sessions from. Set before first <see cref="Messaging"/> use;
+    /// when unset, the messaging path falls back to a process-local in-memory registry
+    /// (D-03: hosts own persistence, the fallback is not durable).
+    /// </summary>
+    internal StoreRegistry? StoreRegistry
+    {
+        get => Volatile.Read(ref _storeRegistry);
+        set => Volatile.Write(ref _storeRegistry, value);
+    }
+
+    /// <summary>Resolves the account's store session (host registry first, in-memory fallback per D-03).</summary>
+    internal ValueTask<StoreSession> ResolveStoreSessionAsync(CancellationToken cancellationToken)
+    {
+        StoreRegistry? registry = Volatile.Read(ref _storeRegistry);
+        if (registry is null)
+        {
+            StoreRegistry created = new(new StoreRegistryOptions());
+            Interlocked.CompareExchange(ref _storeRegistry, created, null);
+            registry = Volatile.Read(ref _storeRegistry)!;
+        }
+
+        return registry.CreateSessionAsync(_accountId, cancellationToken);
+    }
+
+    /// <summary>The current attempt's query router (null when no channel is installed); routers are per-attempt.</summary>
+    internal QueryRouter? CurrentRouter => _channel?.Router;
+
+    /// <summary>The connection's injected clock (messaging timestamps and timeout waits ride it).</summary>
+    internal TimeProvider Clock => _timeProvider;
+
+    /// <summary>The send-ack correlation window: the correlated reply must arrive inside the query timeout band.</summary>
+    internal int SendAckTimeoutMs => _options.QueryTimeoutMs;
 
     /// <summary>
     /// Version resolver for the handshake payload (03-02 wiring): when set, each

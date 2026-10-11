@@ -14,12 +14,12 @@ namespace Iwasug.WhatsApp.Sdk.Domain;
 /// - id: the client-generated message id (3EB0 + 18 CSPRNG bytes, 40-char uppercase hex)
 /// - participant: the group participant JID (empty for 1:1 chats)
 /// </remarks>
-/// <param name="remoteJid">The recipient's canonical JID.</param>
-/// <param name="fromMe"><c>true</c> if the message was sent by the local account.</param>
-/// <param name="id">The client-generated message id.</param>
-/// <param name="participant">The group participant JID; empty string for 1:1 chats.</param>
+/// <param name="RemoteJid">The recipient's canonical JID.</param>
+/// <param name="FromMe"><c>true</c> if the message was sent by the local account.</param>
+/// <param name="Id">The client-generated message id.</param>
+/// <param name="Participant">The group participant JID; empty string for 1:1 chats.</param>
 public sealed record MessageKeyRecord(
-    Jid remoteJid,
-    bool fromMe,
-    string id,
-    string participant);
+    Jid RemoteJid,
+    bool FromMe,
+    string Id,
+    string Participant);

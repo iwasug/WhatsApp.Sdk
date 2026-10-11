@@ -470,9 +470,10 @@ internal sealed class PreKeyManager
     /// <param name="ownRegistrationId">Our 14-bit registration id.</param>
     /// <param name="bundleSigningPublicDjb">
     /// The DJB public the bundle signature verifies under. Production passes
-    /// the bundle identity (the XEdDSA-seam approximation documented on
-    /// <see cref="X3dh.InitializeAlice"/>); tests pass the synthetic
-    /// peer's distinct signing public.
+    /// the pinned peer identity or, on a genuine first contact, null — the
+    /// fetched bundle's own identity verifies then (TOFU seam: the pin lands
+    /// before any use, so every later contact verifies against it). Tests pass
+    /// the synthetic peer's distinct signing public.
     /// </param>
     /// <param name="sessions">Session repository (persisted on creation).</param>
     /// <param name="identities">Identity store (pinned on first use).</param>
@@ -483,7 +484,7 @@ internal sealed class PreKeyManager
         Jid peer,
         byte[] ownIdentityPrivate,
         uint ownRegistrationId,
-        byte[] bundleSigningPublicDjb,
+        byte[]? bundleSigningPublicDjb,
         DoubleRatchet.SignalSessionRepository sessions,
         IIdentityStore identities,
         IPreKeyStore preKeys,
@@ -492,7 +493,6 @@ internal sealed class PreKeyManager
         ArgumentNullException.ThrowIfNull(address);
         ArgumentNullException.ThrowIfNull(peer);
         ArgumentNullException.ThrowIfNull(ownIdentityPrivate);
-        ArgumentNullException.ThrowIfNull(bundleSigningPublicDjb);
         ArgumentNullException.ThrowIfNull(sessions);
         ArgumentNullException.ThrowIfNull(identities);
         ArgumentNullException.ThrowIfNull(preKeys);
@@ -519,6 +519,12 @@ internal sealed class PreKeyManager
         }
 
         PeerBundle bundle = ((PeerBundleFetchOutcome.Fetched)fetched).Bundle;
+
+        // TOFU seam (see the parameter doc): a caller without a pinned identity
+        // verifies under the bundle's own identity — self-consistent on first
+        // contact, hardened by the pin check on every later contact.
+        byte[] verifyKey = bundleSigningPublicDjb ?? bundle.IdentityKeyDjb;
+
         SignalIdentityRecord? pinned = await identities.GetAsync(address, cancellationToken).ConfigureAwait(false);
         if (pinned?.IdentityKeyDjb is not null
             && !pinned.IdentityKeyDjb.AsSpan().SequenceEqual(bundle.IdentityKeyDjb))
@@ -561,7 +567,7 @@ internal sealed class PreKeyManager
         try
         {
             AliceSession aliceSession = X3dh.InitializeAlice(
-                ownIdentityPrivate, ephemeralPrivate, bundle, bundleSigningPublicDjb);
+                ownIdentityPrivate, ephemeralPrivate, bundle, verifyKey);
             (byte[] sendPrivate, byte[] sendPublic) = X3dh.GenerateX25519KeyPair();
             DoubleRatchet ratchet = DoubleRatchet.InitializeAlice(
                 aliceSession,
