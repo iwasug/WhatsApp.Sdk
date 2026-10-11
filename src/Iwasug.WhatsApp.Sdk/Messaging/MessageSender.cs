@@ -506,8 +506,11 @@ internal sealed class MessageSender
 
             // T-4-12: the resend serves ONLY the message's original 1:1 recipient. The
             // cache entry's chat names that recipient; the requester's bare form must
-            // match it exactly. Group chats refuse (membership is unknown to the SDK and
-            // no group sends exist yet); the receive path continues unharmed either way.
+            // match it exactly. Group resends are refused because answering one safely
+            // requires verifying the requester is a CURRENT member via GroupDirectory
+            // (not wired here) — a live gap since 04-05 added sender-key group sends:
+            // a member who failed to decrypt an skmsg is silently ignored (scoped
+            // follow-up, group retry-resend). The receive path continues unharmed.
             Jid requesterChat = Jid.Parse($"{DeviceDirectory.BaseUser(requester)}@{requester.Server}");
             if (!string.Equals(entry.ChatJid, requesterChat.ToString(), StringComparison.Ordinal))
             {
