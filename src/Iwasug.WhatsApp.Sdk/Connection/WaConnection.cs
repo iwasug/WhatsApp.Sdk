@@ -735,6 +735,58 @@ public sealed class WaConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Sends one opaque stanza node on the open connection. This is the general‑purpose
+    /// send seam used by the messaging layer (04-03 CONN-05/MSG-01/03/07) and the
+    /// pairing coordinator (03-03). The node is encrypted per the channel's Noise state
+    /// and framed with the WA header + length prefix.
+    /// </summary>
+    /// <param name="node">The <c>message</c>, <c>receipt</c>, or <c>ack</c> stanza node to send.</param>
+    /// <param name="cancellationToken">Caller cancellation (unwrapped).</param>
+    /// <exception cref="OperationCanceledException">The caller cancelled.</exception>
+    /// <exception cref="SdkConnectionException">No channel is installed or the send raced a teardown.</exception>
+    internal async ValueTask SendNodeAsync(BinaryNode node, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+        Channel? channel = _channel
+            ?? throw new SdkConnectionException("The connection has no open channel: the stanza was not sent.");
+
+        byte[] encrypted;
+        try
+        {
+            encrypted = channel.Noise.Encrypt(BinaryNodeCodec.Encode(node));
+        }
+        catch (ObjectDisposedException ex)
+        {
+            throw new SdkConnectionException("The connection has no open channel: the stanza was not sent.", ex);
+        }
+
+        try
+        {
+            byte[] flagged = new byte[encrypted.Length + 1];
+            encrypted.CopyTo(flagged.AsSpan(1));
+            await channel.Transport.SendAsync(WaFrame.Frame(flagged), cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (SdkConnectionException)
+        {
+            throw;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            throw new SdkConnectionException("The connection has no open channel: the stanza was not sent.", ex);
+        }
+        catch (Exception ex)
+        {
+            throw new SdkTransportException("Stanza send failed.", ex);
+        }
+    }
+
     private void RaiseChannelReady()
     {
         EventHandler? handlers = ChannelReady;
@@ -1157,6 +1209,23 @@ public sealed class WaConnection : IAsyncDisposable
                             break;
                         case "failure":
                             return MapFailureCode(node);
+                        case "message":
+                            // Inbound message stanza — handled by the messaging dispatcher
+                            // subscribed to the StanzaReceived event. The pump routes to the
+                            // event handler; the MessageDispatcher processes the ordering
+                            // contract (persist → ack → event → cache, D-06/D-20).
+                            RaiseStanzaReceived(node);
+                            break;
+                        case "receipt":
+                            // Inbound receipt stanza — raised via StanzaReceived event for
+                            // the MessageDispatcher (or host) to process receipt logic.
+                            RaiseStanzaReceived(node);
+                            break;
+                        case "ack":
+                            // Inbound ack stanza — raised via StanzaReceived event for
+                            // the MessageDispatcher (or host) to process ack logic.
+                            RaiseStanzaReceived(node);
+                            break;
                         case "iq":
                         case "notification":
                             RaiseStanzaReceived(node);
