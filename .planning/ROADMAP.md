@@ -14,7 +14,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
 - [x] **Phase 1: Foundation & Store Seam** - Core types, granular pluggable store interfaces, in-memory reference store, repo bootstrap (completed 2026-10-08)
 - [x] **Phase 2: Wire Protocol & Connection Resilience** - Transport, Noise XX handshake, node codec/router, classified auto-reconnect (completed 2026-10-10)
 - [x] **Phase 3: Pairing & Session Durability** - QR + pairing-code login, typed lifecycle events, restart-without-re-pair (completed 2026-10-10)
-- [ ] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface
+- [x] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface (completed 2026-10-14)
 - [ ] **Phase 5: Ban-Safety Layer** - Mandatory send gate, rate limits, warm-up, cold-outreach budget, circuit breaker, safe-by-default
 - [ ] **Phase 6: Media Pipeline** - Send/receive image, document, voice note with expiry and media-retry handling
 - [ ] **Phase 7: Multi-Account Orchestration** - SessionManager, hard isolation with CI isolation suite, idiomatic .NET surface
@@ -127,7 +127,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Host sends and receives delivery/read receipts, marks messages read by per-message key, and replies quoting a specific message via the per-account recent-message cache.
   5. Inbound decryption failures recover via retry receipts with no lost messages, and the host receives typed events (message, receipt, connection, logout) with `CancellationToken` honored end-to-end.
 
-**Plans**: 5/5 plans executed
+**Plans**: 5/5 plans complete
 
 **Wave 1** *(depends on Phase 3)*
 - [x] 04-01-PLAN.md — Signal protocol core: byte-layout spike fixtures, X3DH, Double Ratchet, prekey management (tracer)
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Foundation & Store Seam | 5/5 | Complete    | 2026-10-08 |
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
-| 4. Signal E2EE & Messaging | 5/5 | In Progress|  |
+| 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
 | 5. Ban-Safety Layer | 0/TBD | Not started | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
