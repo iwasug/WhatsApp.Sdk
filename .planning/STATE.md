@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Ban-Safety Layer
-current_plan: 03
+current_plan: 4
 status: executing
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-10-14T03:42:55.327Z"
-state_head: fa361ef18ce73665c61339c473a0feece24b86a0
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-10-14T04:06:07.060Z"
+state_head: 610285557cb1b759eb7903b41b00b79948e1d566
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 30
-  completed_plans: 27
+  completed_plans: 28
   percent: 44
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,9 +30,9 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 5 — Ban-Safety Layer
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 5
-Status: In progress
+Status: Ready to execute
 
 Progress: [████░░░░░░] 44%
 
@@ -70,6 +70,7 @@ Progress: [████░░░░░░] 44%
 | Phase 04 P04 | 2h46m | 3 tasks | 15 files |
 | Phase 04 P04-05 | 3h46m | 3 tasks | 17 files |
 | Phase 05 P02 | 1 | 3 tasks | 10 files |
+| Phase 05-ban-safety-layer P03 | 1 execution pass | 3 tasks | 17 files |
 
 ## Per-Plan Metrics:
 
@@ -142,6 +143,8 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-05: group send = SKDM pairwise fanout (own devices excluded) + one signed skmsg with deterministic phash; sender-key bounds 2000/2000/5; wire 0x33|proto|Ed25519 sig64
 - [Phase 04]: 04-05: ReadEventsAsync = bounded channel (capacity 128, FullMode=Wait) over exactly 4 WhatsAppEvent subtypes sharing emit sites with EventHandler twins; connection state stays on WaConnection.StateChanged
 - [Phase 04]: 04-05: GroupDirectory participants-for-fanout only (GRPM-01 read-side deferred, named in README risk ledger); sample messaging mode reuses the stored account with --account for multi-account dirs
+- [Phase 05]: [Phase 05-03]: Reply-mark semantics follow must_have truth 4 (replies never mark) over Task 2's stray contradicting sentence; exemption covers cap AND mark
+- [Phase 05]: [Phase 05-03]: Recipient-contact contract bindings live in tests/.../StoreContract/ per repo convention (InMemory + Scratch); ComplianceTestBase floor raised to seven
 
 ### Pending Todos
 
@@ -155,6 +158,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T03:42:54.997Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-10-14T04:06:06.817Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None

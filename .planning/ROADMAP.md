@@ -157,17 +157,17 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Human-like pacing runs before sends — typing/recording presence within an active-hours window.
   5. Defaults are safe; exceeding them requires explicit `AllowUnsafeThroughput` opt-in, and docs ship an honest risk ledger stating what the layer does and does not prevent.
 
-**Plans**: 5 plans (TBD → see below)
+**Plans**: 3/5 plans executed (TBD → see below)
 
 Plans:
 **Wave 1**
-- [ ] 05-01-PLAN.md — Mandatory gate seam on all three public send paths + SafetyOptions + safety event vocabulary + send-path audit (tracer)
+- [x] 05-01-PLAN.md — Mandatory gate seam on all three public send paths + SafetyOptions + safety event vocabulary + send-path audit (tracer)
 
 **Wave 2** *(depends on 05-01)*
-- [ ] 05-02-PLAN.md — Token buckets (minute/hour/day) + jitter + persisted warm-up ramp
+- [x] 05-02-PLAN.md — Token buckets (minute/hour/day) + jitter + persisted warm-up ramp
 
 **Wave 3** *(depends on 05-02)*
-- [ ] 05-03-PLAN.md — Cold-outreach budget + additive IRecipientContactStore seam + contract kit
+- [x] 05-03-PLAN.md — Cold-outreach budget + additive IRecipientContactStore seam + contract kit
 
 **Wave 4** *(depends on 05-03)*
 - [ ] 05-04-PLAN.md — Circuit breaker + exponential backoff + active-hours/pacing
@@ -240,7 +240,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
-| 5. Ban-Safety Layer | 0/5 | Planned | - |
+| 5. Ban-Safety Layer | 3/5 | In Progress | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |

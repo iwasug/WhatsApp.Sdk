@@ -38,9 +38,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Ban-Safety
 
 - [ ] **SAF-01**: Every send passes through a mandatory safety gate — no bypass path exists in the public API
-- [ ] **SAF-02**: Per-account token-bucket rate limits (minute/hour/day) with randomized inter-send jitter
-- [ ] **SAF-03**: Warm-up ramp for new accounts with account-age state persisted in the store
-- [ ] **SAF-04**: Separate cold-outreach budget for never-messaged recipients, hard-enforced
+- [x] **SAF-02**: Per-account token-bucket rate limits (minute/hour/day) with randomized inter-send jitter
+- [x] **SAF-03**: Warm-up ramp for new accounts with account-age state persisted in the store
+- [x] **SAF-04**: Separate cold-outreach budget for never-messaged recipients, hard-enforced
 - [ ] **SAF-05**: Circuit breaker + exponential backoff on throttle signals, emitting typed safety events
 - [ ] **SAF-06**: Human-like pacing hooks (typing/recording presence before send, active-hours window)
 - [ ] **SAF-07**: Safe-by-default configuration with explicit `AllowUnsafeThroughput` opt-in and honest risk-ledger docs
@@ -128,9 +128,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MED-01 | Phase 6 | Pending |
 | MED-02 | Phase 6 | Pending |
 | SAF-01 | Phase 5 | Pending |
-| SAF-02 | Phase 5 | Pending |
-| SAF-03 | Phase 5 | Pending |
-| SAF-04 | Phase 5 | Pending |
+| SAF-02 | Phase 5 | Complete |
+| SAF-03 | Phase 5 | Complete |
+| SAF-04 | Phase 5 | Complete |
 | SAF-05 | Phase 5 | Pending |
 | SAF-06 | Phase 5 | Pending |
 | SAF-07 | Phase 5 | Pending |
