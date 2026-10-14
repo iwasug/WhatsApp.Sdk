@@ -157,7 +157,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Human-like pacing runs before sends — typing/recording presence within an active-hours window.
   5. Defaults are safe; exceeding them requires explicit `AllowUnsafeThroughput` opt-in, and docs ship an honest risk ledger stating what the layer does and does not prevent.
 
-**Plans**: 5/5 plans executed + 1 gap-closure plan executed (see 05-VERIFICATION.md; SC2b closed by 05-06)
+**Plans**: 6/6 plans complete + 1 gap-closure plan executed (see 05-VERIFICATION.md; SC2b closed by 05-06)
 
 Plans:
 **Wave 1**
@@ -243,7 +243,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
-| 5. Ban-Safety Layer | 5/5 | Complete | 2026-10-14 |
+| 5. Ban-Safety Layer | 6/6 | Complete    | 2026-10-14 |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |
