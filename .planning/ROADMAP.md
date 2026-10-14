@@ -189,7 +189,12 @@ Plans:
   2. Host receives and downloads inbound media; an expired download URL is detected and recovered through the media-retry flow without host intervention.
   3. Media encrypt/decrypt round-trips match golden hash/MAC fixtures in CI, so byte-level media crypto cannot silently regress.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Tracer: media crypto core + golden fixtures + schema branches + one gated image round-trip (wave 1)
+- [ ] 06-02-PLAN.md — Media send surface: media-conn + uploader hardening + document/voice-note/group sends + caps + audit extension (wave 2, depends on 06-01)
+- [ ] 06-03-PLAN.md — Media receive + retry: streaming download + media-retry loop + safety regression + phase close (wave 3, depends on 06-02)
 
 ### Phase 7: Multi-Account Orchestration
 
