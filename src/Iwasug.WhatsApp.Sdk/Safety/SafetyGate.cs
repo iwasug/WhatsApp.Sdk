@@ -16,6 +16,7 @@ internal sealed class SafetyGate : ISafetyGate
     private readonly Func<WhatsAppEvent, CancellationToken, ValueTask> _publish;
     private readonly TokenBucketRateLimiterSet _rateLimits;
     private readonly WarmupLadder _warmup;
+    private readonly ColdOutreachBudget _coldOutreach;
 
     /// <summary>Budget exhausted event.</summary>
     public event EventHandler<BudgetExhaustedEventArgs>? BudgetExhausted;
@@ -40,6 +41,7 @@ internal sealed class SafetyGate : ISafetyGate
         _publish = publish ?? throw new ArgumentNullException(nameof(publish));
         _rateLimits = new TokenBucketRateLimiterSet(_clock, _options);
         _warmup = new WarmupLadder(_clock);
+        _coldOutreach = new ColdOutreachBudget(_clock, _options);
     }
 
     public async Task<SendOutcome> ExecuteSendAsync(
@@ -62,7 +64,7 @@ internal sealed class SafetyGate : ISafetyGate
             ApplyPacing(context);
 
             SendOutcome outcome = await innerSend(cancellationToken).ConfigureAwait(false);
-            RecordOutcome(context, outcome);
+            await RecordOutcomeAsync(context, outcome, cancellationToken).ConfigureAwait(false);
             return outcome;
         }
         catch (SafetyRuleViolationException ex)
@@ -146,7 +148,11 @@ internal sealed class SafetyGate : ISafetyGate
         _ = stage;
     }
 
-    private Task CheckColdOutreach(SendContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+    private async Task CheckColdOutreach(SendContext context, CancellationToken cancellationToken)
+    {
+        StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+        await _coldOutreach.CheckAsync(context, stores.Recipients, cancellationToken).ConfigureAwait(false);
+    }
     public Task ApplyJitter(SendContext context, CancellationToken cancellationToken)
     {
         TimeSpan delay = _rateLimits.ApplyJitter();
@@ -156,5 +162,33 @@ internal sealed class SafetyGate : ISafetyGate
     public Task ApplyJitterAsync(SendContext context, CancellationToken cancellationToken) => ApplyJitter(context, cancellationToken);
 
     private void ApplyPacing(SendContext context) { }
-    private void RecordOutcome(SendContext context, SendOutcome outcome) { }
+
+    private async Task RecordOutcomeAsync(SendContext context, SendOutcome outcome, CancellationToken cancellationToken)
+    {
+        // Mark only after a send that actually left the process (Sent or TimedOut), and
+        // only for normal (non-reply) sends (must_have: marked only for normal sends).
+        if (outcome.Status != SendOutcomeStatus.Sent && outcome.Status != SendOutcomeStatus.TimedOut)
+        {
+            return;
+        }
+
+        if (context.IsReply)
+        {
+            return;
+        }
+
+        try
+        {
+            StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+            await stores.Recipients.MarkContactedAsync(ColdOutreachBudget.RecipientKey(context.Chat), cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Recipient-contact mark failed; continuing (D-20).");
+        }
+    }
 }
