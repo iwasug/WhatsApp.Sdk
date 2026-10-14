@@ -105,4 +105,62 @@ public sealed class WarmupLadderTests
         var row2 = await session.SafetyState.GetAsync(default);
         Assert.Equal(row1!.CreatedAt, row2!.CreatedAt);
     }
+
+    [Fact]
+    public async Task day_zero_ceiling_refuses_21st_send()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero));
+        var session = await CreateStoresAsync(clock, paired: true);
+        var ladder = new WarmupLadder(clock);
+        int stage = await ladder.GetCurrentStageAsync(session);
+        Assert.Equal(0, stage);
+        Assert.Equal(20, ladder.CurrentStageCeiling(stage));
+
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.True(await ladder.AdmitAsync(stage));
+            await ladder.RecordSendAsync(session);
+        }
+
+        Assert.False(await ladder.AdmitAsync(stage));
+    }
+
+    [Fact]
+    public async Task counter_resets_at_utc_midnight()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero));
+        var session = await CreateStoresAsync(clock, paired: true);
+        var ladder = new WarmupLadder(clock);
+        int stage = await ladder.GetCurrentStageAsync(session);
+
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.True(await ladder.AdmitAsync(stage));
+            await ladder.RecordSendAsync(session);
+        }
+        Assert.False(await ladder.AdmitAsync(stage));
+
+        clock.Advance(TimeSpan.FromHours(13));
+        Assert.True(await ladder.AdmitAsync(stage));
+    }
+
+    [Fact]
+    public async Task restart_preserves_stage_derived_ceiling()
+    {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero));
+        var session = await CreateStoresAsync(clock, paired: true);
+        var ladder1 = new WarmupLadder(clock);
+        int stage = await ladder1.GetCurrentStageAsync(session);
+
+        var ladder2 = new WarmupLadder(clock);
+        int restarted = await ladder2.GetCurrentStageAsync(session);
+        Assert.Equal(stage, restarted);
+
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.True(await ladder2.AdmitAsync(restarted));
+            await ladder2.RecordSendAsync(session);
+        }
+        Assert.False(await ladder2.AdmitAsync(restarted));
+    }
 }
