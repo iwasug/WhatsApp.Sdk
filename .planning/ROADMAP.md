@@ -157,7 +157,23 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Human-like pacing runs before sends — typing/recording presence within an active-hours window.
   5. Defaults are safe; exceeding them requires explicit `AllowUnsafeThroughput` opt-in, and docs ship an honest risk ledger stating what the layer does and does not prevent.
 
-**Plans**: TBD
+**Plans**: 5 plans (TBD → see below)
+
+Plans:
+**Wave 1**
+- [ ] 05-01-PLAN.md — Mandatory gate seam on all three public send paths + SafetyOptions + safety event vocabulary + send-path audit (tracer)
+
+**Wave 2** *(depends on 05-01)*
+- [ ] 05-02-PLAN.md — Token buckets (minute/hour/day) + jitter + persisted warm-up ramp
+
+**Wave 3** *(depends on 05-02)*
+- [ ] 05-03-PLAN.md — Cold-outreach budget + additive IRecipientContactStore seam + contract kit
+
+**Wave 4** *(depends on 05-03)*
+- [ ] 05-04-PLAN.md — Circuit breaker + exponential backoff + active-hours/pacing
+
+**Wave 5** *(depends on 05-04)*
+- [ ] 05-05-PLAN.md — Safe defaults hardening, risk ledger, provenance audit, phase close
 
 ### Phase 6: Media Pipeline
 
