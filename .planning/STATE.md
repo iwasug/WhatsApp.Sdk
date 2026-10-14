@@ -4,9 +4,9 @@ current_phase: 5
 current_phase_name: Ban-Safety Layer
 current_plan: 5
 status: executing
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-10-14T05:30:00.000Z"
-state_head: 0f5359051876900c02ccec5026b11a49a19106c6
+stopped_at: Completed 05-05-PLAN.md
+last_updated: "2026-10-14T06:00:00.000Z"
+state_head: e6ffa9d84979590f9ddb263ef6cd93456606ac27
 progress:
   total_phases: 9
   completed_phases: 4
@@ -72,6 +72,7 @@ Progress: [████░░░░░░] 44%
 | Phase 05 P02 | 1 | 3 tasks | 10 files |
 | Phase 05-ban-safety-layer P03 | 1 execution pass | 3 tasks | 17 files |
 | Phase 05-ban-safety-layer P04 | 1 execution pass | 3 tasks | 19 files |
+| Phase 05-ban-safety-layer P05 | 1 execution pass | 3 tasks | 11 files |
 
 ## Per-Plan Metrics:
 
@@ -149,6 +150,9 @@ Recent decisions affecting current work:
 - [Phase 05]: [Phase 05-04]: Circuit breaker is time-based gating (fail-fast CircuitOpen refusals, NextProbeAtUtc) — not a waited delay; CircuitOpen refusals emit nothing (transition owns the single AccountRestricted)
 - [Phase 05]: [Phase 05-04]: Inverted pacing bounds clamp (Max := Min) in SafetyOptions.Validate; pacing inversion never throws unlike jitter ratios
 - [Phase 05]: [Phase 05-04]: Internal WaConnection.SafetyPolicy seam (StoreRegistry set-before-first-use precedent) + NoSafetyDelays loopback pins; public host configuration story stays with 05-05 (SAF-07); FakeTimeProvider never moves backwards (midnight/order proofs walk forward)
+- [Phase 05]: [Phase 05-05]: Day safe-threshold stays at 1000 (not the plan's literal 300) so SafeDefaults remain valid per the 05-01 precedent; hour adopts the plan's 600
+- [Phase 05]: [Phase 05-05]: Unsafe opt-in requires non-empty DeclaredUnsafeAcknowledgment; existing unsafe test helpers pinned with explicit acknowledgments
+- [Phase 05]: [Phase 05-05]: Phase gate closes with the 4 documented pre-existing PairingLifecycleTests environment failures; no new failures, no new packages
 
 ### Pending Todos
 
@@ -162,6 +166,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T05:30:00.000Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-10-14T06:00:00.000Z
+Stopped at: Completed 05-05-PLAN.md
 Resume file: None

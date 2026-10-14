@@ -15,7 +15,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
 - [x] **Phase 2: Wire Protocol & Connection Resilience** - Transport, Noise XX handshake, node codec/router, classified auto-reconnect (completed 2026-10-10)
 - [x] **Phase 3: Pairing & Session Durability** - QR + pairing-code login, typed lifecycle events, restart-without-re-pair (completed 2026-10-10)
 - [x] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface (completed 2026-10-14)
-- [ ] **Phase 5: Ban-Safety Layer** - Mandatory send gate, rate limits, warm-up, cold-outreach budget, circuit breaker, safe-by-default
+- [x] **Phase 5: Ban-Safety Layer** - Mandatory send gate, rate limits, warm-up, cold-outreach budget, circuit breaker, safe-by-default
 - [ ] **Phase 6: Media Pipeline** - Send/receive image, document, voice note with expiry and media-retry handling
 - [ ] **Phase 7: Multi-Account Orchestration** - SessionManager, hard isolation with CI isolation suite, idiomatic .NET surface
 - [ ] **Phase 8: Broadcast & Extended Messaging** - Broadcast fan-out, durable outbox, presence, reactions, edit/delete
@@ -157,7 +157,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Human-like pacing runs before sends — typing/recording presence within an active-hours window.
   5. Defaults are safe; exceeding them requires explicit `AllowUnsafeThroughput` opt-in, and docs ship an honest risk ledger stating what the layer does and does not prevent.
 
-**Plans**: 3/5 plans executed (TBD → see below)
+**Plans**: 5/5 plans executed
 
 Plans:
 **Wave 1**
@@ -173,7 +173,7 @@ Plans:
 - [x] 05-04-PLAN.md — Circuit breaker + exponential backoff + active-hours/pacing
 
 **Wave 5** *(depends on 05-04)*
-- [ ] 05-05-PLAN.md — Safe defaults hardening, risk ledger, provenance audit, phase close
+- [x] 05-05-PLAN.md — Safe defaults hardening, risk ledger, provenance audit, phase close
 
 ### Phase 6: Media Pipeline
 
@@ -240,7 +240,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
-| 5. Ban-Safety Layer | 3/5 | In Progress | - |
+| 5. Ban-Safety Layer | 5/5 | Complete | 2026-10-14 |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |
