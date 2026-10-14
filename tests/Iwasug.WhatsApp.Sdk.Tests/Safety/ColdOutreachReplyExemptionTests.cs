@@ -1,3 +1,4 @@
+#pragma warning disable xUnit1051
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Domain;

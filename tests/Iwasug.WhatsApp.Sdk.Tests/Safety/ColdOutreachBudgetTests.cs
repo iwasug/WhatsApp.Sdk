@@ -1,9 +1,12 @@
+#pragma warning disable xUnit1051
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Safety;
 using Iwasug.WhatsApp.Sdk.Stores;
+using Iwasug.WhatsApp.Sdk.Stores.InMemory;
+using Iwasug.WhatsApp.Sdk.Testing.FaultInjection;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
@@ -199,6 +202,42 @@ public sealed class ColdOutreachBudgetTests
         outcome.Status.Should().Be(SendOutcomeStatus.ServerError);
         (await session.Recipients.HasContactedAsync("15550000041@s.whatsapp.net", CancellationToken.None))
             .Should().BeFalse("only sends that left the process (Sent/TimedOut) mark the recipient");
+    }
+
+    [Fact]
+    public async Task mark_store_failure_is_swallowed_and_send_still_succeeds()
+    {
+        var clock = new FakeTimeProvider();
+        var registry = new StoreRegistry(new StoreRegistryOptions());
+        StoreSession baseSession = await registry.CreateSessionAsync(AccountId.Create("cold-mark-fault"));
+
+        // Recipients seam fails every mark (FailWrites); all other seams stay healthy.
+        IRecipientContactStoreFactory inner = new InMemoryStoreFactory();
+        IRecipientContactStoreFactory faulting =
+            new FaultingStoreFactory(recipientContact: inner) { Mode = FaultMode.FailWrites };
+        IRecipientContactStore failingRecipients =
+            await faulting.CreateAsync(AccountId.Create("cold-mark-fault"), CancellationToken.None);
+        var session = new StoreSession(
+            baseSession.SignalSessions,
+            baseSession.Identity,
+            baseSession.PreKeys,
+            baseSession.RecentMessages,
+            baseSession.SafetyState,
+            baseSession.Credentials,
+            failingRecipients,
+            new bool[7]);
+
+        SafetyGate gate = CreateGate(clock, session, NoJitter(coldCap: 30));
+
+        // The D-20 log-and-continue contract: a failing mark must not break the
+        // returned outcome — the Sent send still reports Sent.
+        SendOutcome outcome = await gate.ExecuteSendAsync(
+            new SendContext(Chat("15550000101"), IsReply: false),
+            CancellationToken.None,
+            _ => Task.FromResult(new SendOutcome("sent-fault", SendOutcomeStatus.Sent)));
+
+        outcome.Status.Should().Be(SendOutcomeStatus.Sent);
+        await session.DisposeAsync();
     }
 
     [Fact]
