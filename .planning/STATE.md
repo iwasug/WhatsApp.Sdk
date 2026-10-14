@@ -30,8 +30,8 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 5 — Ban-Safety Layer
-Current Plan: 5
-Total Plans in Phase: 5
+Current Plan: 6 (gap closure for 05-VERIFICATION.md warm-up enforcement gap)
+Total Plans in Phase: 6 (5 executed + 05-06 gap closure planned)
 Status: Ready to execute
 
 Progress: [████░░░░░░] 44%

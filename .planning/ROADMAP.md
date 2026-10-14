@@ -157,7 +157,7 @@ Gap closure (blocked on verification gaps — see 02-VERIFICATION.md):
   4. Human-like pacing runs before sends — typing/recording presence within an active-hours window.
   5. Defaults are safe; exceeding them requires explicit `AllowUnsafeThroughput` opt-in, and docs ship an honest risk ledger stating what the layer does and does not prevent.
 
-**Plans**: 5/5 plans executed
+**Plans**: 5/5 plans executed + 1 gap-closure plan (see 05-VERIFICATION.md)
 
 Plans:
 **Wave 1**
@@ -174,6 +174,9 @@ Plans:
 
 **Wave 5** *(depends on 05-04)*
 - [x] 05-05-PLAN.md — Safe defaults hardening, risk ledger, provenance audit, phase close
+
+**Wave 6** *(gap closure — blocked on verification gap, see 05-VERIFICATION.md)*
+- [ ] 05-06-PLAN.md — Warm-up ceiling enforcement: AdmitAsync stage ceiling, RecordSendAsync counter, BudgetExhausted on over-ceiling (gap_closure)
 
 ### Phase 6: Media Pipeline
 
