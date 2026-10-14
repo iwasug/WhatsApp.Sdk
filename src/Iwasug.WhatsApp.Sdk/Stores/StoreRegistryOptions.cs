@@ -1,9 +1,9 @@
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Host registration surface for the six store factory seams (D-01/D-03). Every property is
+/// Host registration surface for the seven store factory seams (D-01/D-03). Every property is
 /// nullable: <c>null</c> means the host did not register that capability, and the SDK's
-/// in-memory reference store fills the gap (D-03 — all six stores are optional; a host may
+/// in-memory reference store fills the gap (D-03 — all seven stores are optional; a host may
 /// register only a subset).
 /// </summary>
 /// <remarks>
@@ -13,8 +13,8 @@ namespace Iwasug.WhatsApp.Sdk.Stores;
 /// registration *shape* is fixed here so hosts write it once.
 /// </para>
 /// <para>
-/// No aggregate facade over the six stores exists (D-01): registration is per-capability,
-/// six separate factories. Each factory is async (D-22) and produces account-scoped store
+/// No aggregate facade over the seven stores exists (D-01): registration is per-capability,
+/// seven separate factories. Each factory is async (D-22) and produces account-scoped store
 /// instances (D-02); the resolved set for one account is <see cref="StoreSession"/>.
 /// </para>
 /// </remarks>
@@ -55,4 +55,10 @@ public sealed class StoreRegistryOptions
     /// reference store fills this capability (D-03).
     /// </summary>
     public ICredentialStoreFactory? CredentialFactory { get; set; }
+
+    /// <summary>
+    /// Factory for <see cref="IRecipientContactStore"/> instances. <c>null</c> = the
+    /// in-memory reference store fills this capability (D-03).
+    /// </summary>
+    public IRecipientContactStoreFactory? RecipientContactFactory { get; set; }
 }

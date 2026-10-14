@@ -5,7 +5,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 namespace Iwasug.WhatsApp.Sdk.Stores.InMemory;
 
 /// <summary>
-/// In-memory reference implementation filling ALL six factory seams (D-03: one factory
+/// In-memory reference implementation filling ALL seven factory seams (D-03: one factory
 /// fills any gap a host leaves unregistered; STR-02 reference implementation).
 /// </summary>
 /// <remarks>
@@ -38,6 +38,7 @@ public sealed class InMemoryStoreFactory
       IRecentMessageCacheStoreFactory,
       ISafetyStateStoreFactory,
       ICredentialStoreFactory,
+      IRecipientContactStoreFactory,
       IAsyncDisposable
 {
     private const string SignalSessionCapability = "signal-session";
@@ -46,6 +47,7 @@ public sealed class InMemoryStoreFactory
     private const string RecentMessageCacheCapability = "recent-message-cache";
     private const string SafetyStateCapability = "safety-state";
     private const string CredentialCapability = "credential";
+    private const string RecipientContactCapability = "recipient-contact";
 
     private readonly ConcurrentDictionary<(string Capability, AccountId Account), object> _state = new();
 
@@ -67,9 +69,9 @@ public sealed class InMemoryStoreFactory
         return ValueTask.FromResult<ISignalSessionStore>(new InMemorySignalSessionStore(records));
     }
 
-    // The five factories beyond ISignalSessionStoreFactory are explicit interface
+    // The six factories beyond ISignalSessionStoreFactory are explicit interface
     // implementations: C# forbids members that differ only by return type (CS0111), and
-    // all six factory signatures share (AccountId, CancellationToken). Callers reach
+    // all seven factory signatures share (AccountId, CancellationToken). Callers reach
     // them through the interface, which is exactly how the contract kit binds them.
 
     /// <inheritdoc />
@@ -125,6 +127,17 @@ public sealed class InMemoryStoreFactory
         object state = GetOrAdd(accountId, CredentialCapability, () => new CredentialRow());
 
         return ValueTask.FromResult<ICredentialStore>(new InMemoryCredentialStore((CredentialRow)state));
+    }
+
+    /// <inheritdoc />
+    ValueTask<IRecipientContactStore> IRecipientContactStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+
+        object state = GetOrAdd(accountId, RecipientContactCapability, () => new RecipientContactRow());
+
+        return ValueTask.FromResult<IRecipientContactStore>(new InMemoryRecipientContactStore((RecipientContactRow)state));
     }
 
     /// <inheritdoc />
@@ -564,5 +577,35 @@ public sealed class InMemoryStoreFactory
                     SigningKeyPrivate = (byte[])record.SigningKeyPrivate.Clone(),
                     AdvSecret = (byte[])record.AdvSecret.Clone(),
                 };
+    }
+
+    private sealed class RecipientContactRow
+    {
+        internal readonly object Gate = new();
+        internal readonly HashSet<string> Keys = new(StringComparer.Ordinal);
+    }
+
+    private sealed class InMemoryRecipientContactStore(RecipientContactRow row) : IRecipientContactStore
+    {
+        public Task<bool> HasContactedAsync(string recipientKey, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (row.Gate)
+            {
+                return Task.FromResult(row.Keys.Contains(recipientKey));
+            }
+        }
+
+        public Task MarkContactedAsync(string recipientKey, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (row.Gate)
+            {
+                row.Keys.Add(recipientKey);
+            }
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

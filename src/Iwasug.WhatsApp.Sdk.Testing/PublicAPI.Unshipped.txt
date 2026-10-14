@@ -55,6 +55,7 @@ abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.CredentialStoreContractTests.
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory!
 virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetConcreteSubclasses(System.Type! contractBase) -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!
@@ -88,6 +89,11 @@ Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecentMessageCacheStore.Purge
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecentMessageCacheStore.PutAsync(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry! entry, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecentMessageCacheStore.RemoveAsync(string! messageKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecentMessageCacheStore.TrimOldestAsync(int count, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecipientContactStore
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecipientContactStore.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecipientContactStore.FaultingRecipientContactStore(Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory! factory, Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore! inner) -> void
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecipientContactStore.HasContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingRecipientContactStore.MarkContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingSafetyStateStore
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingSafetyStateStore.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingSafetyStateStore.FaultingSafetyStateStore(Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory! factory, Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore! inner) -> void
@@ -103,7 +109,7 @@ Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingSignalSessionStore.RemoveAsyn
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.FaultingStoreFactory(Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory? signalSession = null, Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory? identity = null, Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory? preKey = null, Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory? recentMessageCache = null, Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory? safetyState = null, Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory? credential = null) -> void
+Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.FaultingStoreFactory(Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory? signalSession = null, Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory? identity = null, Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory? preKey = null, Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory? recentMessageCache = null, Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory? safetyState = null, Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory? credential = null, Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory? recipientContact = null) -> void
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.Mode.get -> Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultMode
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultingStoreFactory.Mode.set -> void
 Iwasug.WhatsApp.Sdk.Testing.FaultInjection.FaultMode
@@ -132,6 +138,17 @@ Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.F
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Faulting_factory_Mode_None_absent_key_returns_null() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.FailReads_HasContacted_throws_SdkStoreException_never_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.FailWrites_Mark_throws_SdkStoreException() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Faulting_factory_Mode_None_missing_key_returns_false() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Mark_is_idempotent() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Mark_then_Has_returns_true() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Missing_key_returns_false_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Parallel_interleaved_marks_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.RecipientContactStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Two_accounts_isolated_same_key() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.FailReads_Get_throws_SdkStoreException_never_returns_null() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Faulting_factory_Mode_None_absent_row_returns_null() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!

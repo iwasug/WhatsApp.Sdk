@@ -4,7 +4,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Account-scoped store of peer Signal identities — one of the five granular persistence
+/// Account-scoped store of peer Signal identities — one of the seven granular persistence
 /// seams (D-01: separate interfaces per concern, no aggregate facade).
 /// </summary>
 /// <remarks>

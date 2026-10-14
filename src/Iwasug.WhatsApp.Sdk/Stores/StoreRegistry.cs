@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// SDK-side composition layer over the six store seams: resolves the account-scoped store
+/// SDK-side composition layer over the seven store seams: resolves the account-scoped store
 /// set for one account with host-first + in-memory-fallback semantics (D-03) and caches the
 /// resolved session for the account's lifetime (D-24: long-lived per account — created once
 /// at account add, reused until remove/shutdown).
@@ -23,7 +23,7 @@ namespace Iwasug.WhatsApp.Sdk.Stores;
 /// <para>
 /// Ownership and disposal (D-23): the SDK owns every store instance it creates — fallback
 /// instances AND instances obtained by calling a host factory (the SDK invoked the factory,
-/// so the hand-over is SDK-owned) — and disposes all six when the account's session is
+/// so the hand-over is SDK-owned) — and disposes all seven when the account's session is
 /// disposed or the registry shuts down. Disposal aggregates: every store gets a dispose
 /// attempt even when one throws.
 /// </para>
@@ -58,8 +58,8 @@ public sealed class StoreRegistry : IAsyncDisposable
     private readonly ILogger<StoreRegistry>? _logger;
     private readonly InMemoryStoreFactory _fallback = new();
 
-    // Interface-typed views over the fallback factory: the five non-session factory seams
-    // are explicit interface implementations on InMemoryStoreFactory (all six CreateAsync
+    // Interface-typed views over the fallback factory: the six non-session factory seams
+    // are explicit interface implementations on InMemoryStoreFactory (all seven CreateAsync
     // signatures are identical except for the return type), so they must be dispatched
     // through the interface to reach the right overload.
     private readonly ISignalSessionStoreFactory _fallbackSessions;
@@ -68,6 +68,7 @@ public sealed class StoreRegistry : IAsyncDisposable
     private readonly IRecentMessageCacheStoreFactory _fallbackCache;
     private readonly ISafetyStateStoreFactory _fallbackSafety;
     private readonly ICredentialStoreFactory _fallbackCredential;
+    private readonly IRecipientContactStoreFactory _fallbackRecipients;
 
     // D-24 session cache. Lazy<Task<T>> guarantees creation runs exactly once per account
     // under parallel access (the Lazy memoizes its factory); a faulted creation is evicted
@@ -102,6 +103,7 @@ public sealed class StoreRegistry : IAsyncDisposable
         _fallbackCache = _fallback;
         _fallbackSafety = _fallback;
         _fallbackCredential = _fallback;
+        _fallbackRecipients = _fallback;
     }
 
     /// <summary>
@@ -281,7 +283,7 @@ public sealed class StoreRegistry : IAsyncDisposable
 
         // Rollback list: stores created before a later capability fails are SDK-owned
         // (D-23) and must not leak — they are disposed before the failure propagates.
-        var created = new List<IAsyncDisposable>(6);
+        var created = new List<IAsyncDisposable>(7);
         try
         {
             // Host factories are hoisted into locals: a null-conditional method group
@@ -354,6 +356,17 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(credential.Store);
 
+            IRecipientContactStoreFactory? recipientFactory = _options.RecipientContactFactory;
+            (IRecipientContactStore Store, bool FromHost) recipients = await ResolveStoreAsync(
+                recipientFactory is null
+                    ? null
+                    : (id, token) => recipientFactory.CreateAsync(id, token),
+                _fallbackRecipients.CreateAsync,
+                "recipient-contact",
+                accountId,
+                cancellationToken).ConfigureAwait(false);
+            created.Add(recipients.Store);
+
             var session = new StoreSession(
                 signal.Store,
                 identity.Store,
@@ -361,7 +374,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cache.Store,
                 safety.Store,
                 credential.Store,
-                [signal.FromHost, identity.FromHost, preKeys.FromHost, cache.FromHost, safety.FromHost, credential.FromHost]);
+                recipients.Store,
+                [signal.FromHost, identity.FromHost, preKeys.FromHost, cache.FromHost, safety.FromHost, credential.FromHost, recipients.FromHost]);
             session.AttachEvictionCallback(() => Evict(accountId, self));
             return session;
         }
@@ -482,7 +496,7 @@ public sealed class StoreRegistry : IAsyncDisposable
 }
 
 /// <summary>
-/// The resolved view of one account's six stores (D-02/D-03): host-registered instances
+/// The resolved view of one account's seven stores (D-02/D-03): host-registered instances
 /// where the host registered a factory, in-memory fallback instances where it did not —
 /// every property is non-null. This is a resolution RESULT, not a registration surface
 /// (D-01 forbids a public aggregate): hosts register factories via
@@ -491,9 +505,9 @@ public sealed class StoreRegistry : IAsyncDisposable
 /// </summary>
 /// <remarks>
 /// <para>
-/// The six instances are long-lived per account (D-24) and SDK-owned (D-23: the SDK
+/// The seven instances are long-lived per account (D-24) and SDK-owned (D-23: the SDK
 /// created them, either from the fallback or by invoking the host factory — both paths are
-/// SDK-obtained). <see cref="DisposeAsync"/> disposes all six sequentially and aggregates
+/// SDK-obtained). <see cref="DisposeAsync"/> disposes all seven sequentially and aggregates
 /// dispose failures so every store gets a dispose attempt (T-01-13). Disposing a session
 /// evicts it from its owning registry, so the registry never re-serves a disposed session.
 /// </para>
@@ -535,7 +549,8 @@ public sealed class StoreSession : IAsyncDisposable
     /// <param name="recentMessages">Account-scoped recent-message cache.</param>
     /// <param name="safetyState">Account-scoped ban-safety state row.</param>
     /// <param name="credentials">Account-scoped pairing credential row.</param>
-    /// <param name="fromHost">Index-aligned with the fixed store order (signal, identity, prekey, cache, safety, credential): true when the instance came from a host factory.</param>
+    /// <param name="recipients">Account-scoped recipient-contact ledger.</param>
+    /// <param name="fromHost">Index-aligned with the fixed store order (signal, identity, prekey, cache, safety, credential, recipients): true when the instance came from a host factory.</param>
     internal StoreSession(
         ISignalSessionStore signalSessions,
         IIdentityStore identity,
@@ -543,6 +558,7 @@ public sealed class StoreSession : IAsyncDisposable
         IRecentMessageCacheStore recentMessages,
         ISafetyStateStore safetyState,
         ICredentialStore credentials,
+        IRecipientContactStore recipients,
         bool[] fromHost)
     {
         SignalSessions = signalSessions;
@@ -551,6 +567,7 @@ public sealed class StoreSession : IAsyncDisposable
         RecentMessages = recentMessages;
         SafetyState = safetyState;
         Credentials = credentials;
+        Recipients = recipients;
         _ownedStores =
         [
             (signalSessions, fromHost[0] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
@@ -559,6 +576,7 @@ public sealed class StoreSession : IAsyncDisposable
             (recentMessages, fromHost[3] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
             (safetyState, fromHost[4] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
             (credentials, fromHost[5] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
+            (recipients, fromHost[6] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
         ];
     }
 
@@ -579,6 +597,9 @@ public sealed class StoreSession : IAsyncDisposable
 
     /// <summary>Account-scoped pairing credential row (must-not-lose, D-05).</summary>
     public ICredentialStore Credentials { get; }
+
+    /// <summary>Account-scoped recipient-contact ledger (additive seventh capability).</summary>
+    public IRecipientContactStore Recipients { get; }
 
     internal void AttachEvictionCallback(Action callback) => _evictionCallback = callback;
 

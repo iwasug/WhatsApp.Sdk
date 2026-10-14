@@ -65,10 +65,11 @@ public abstract class ComplianceTestBase
         IReadOnlyCollection<Type> contractBases = GetContractBaseClasses();
 
         // Floor assertion (IN-06): reflection discovery can silently return empty in
-        // a trimmed host — fail loudly instead of passing vacuously. Six contract
+        // a trimmed host — fail loudly instead of passing vacuously. Seven contract
         // classes ship with the kit (identity, pre-key, recent-message-cache,
-        // safety-state, signal-session, credential); raise the floor when a seventh is added.
-        contractBases.Count.Should().BeGreaterThanOrEqualTo(6,
+        // safety-state, signal-session, credential, recipient-contact); raise the
+        // floor when an eighth is added.
+        contractBases.Count.Should().BeGreaterThanOrEqualTo(7,
             "reflection discovery returned fewer contract classes than the kit ships — "
             + "the completeness backstop would otherwise pass vacuously");
 

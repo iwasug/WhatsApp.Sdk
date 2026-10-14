@@ -3,7 +3,7 @@ using Iwasug.WhatsApp.Sdk.Accounts;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Account-scoped store of recently received messages — one of the five granular
+/// Account-scoped store of recently received messages — one of the seven granular
 /// persistence seams (D-01), and the only LOSSY store of the five (D-05: reply/quote
 /// degrades gracefully when the cache is empty).
 /// </summary>

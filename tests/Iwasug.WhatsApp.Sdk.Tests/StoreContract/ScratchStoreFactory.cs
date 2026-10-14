@@ -5,7 +5,7 @@ using Iwasug.WhatsApp.Sdk.Stores;
 namespace Iwasug.WhatsApp.Sdk.Tests.StoreContract;
 
 /// <summary>
-/// Deliberately-different second implementation of all five factory seams: plain
+/// Deliberately-different second implementation of all six factory seams: plain
 /// <c>Dictionary&lt;,&gt;</c> collections guarded by a SINGLE lock per factory instance —
 /// deliberately NOT the reference store's per-account concurrent map design. Proves
 /// success criterion 3 mechanically: the SAME abstract contract classes run green against
@@ -24,7 +24,8 @@ public sealed class ScratchStoreFactory
       IPreKeyStoreFactory,
       IRecentMessageCacheStoreFactory,
       ISafetyStateStoreFactory,
-      ICredentialStoreFactory
+      ICredentialStoreFactory,
+      IRecipientContactStoreFactory
 {
     // One gate for ALL state on this factory instance — the deliberate anti-pattern
     // (vs. per-account concurrent maps) that proves the contract kit is impl-agnostic.
@@ -43,6 +44,8 @@ public sealed class ScratchStoreFactory
 
     private readonly Dictionary<AccountId, CredentialRecord> _credentialRows = new();
 
+    private readonly Dictionary<(AccountId Account, string Key), bool> _recipientContacts = new();
+
     /// <inheritdoc />
     public ValueTask<ISignalSessionStore> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
@@ -50,7 +53,7 @@ public sealed class ScratchStoreFactory
         return ValueTask.FromResult<ISignalSessionStore>(new SignalSessionView(this, accountId));
     }
 
-    // Explicit implementations for the remaining five seams: C# forbids members that
+    // Explicit implementations for the remaining six seams: C# forbids members that
     // differ only by return type (CS0111) — callers reach them through the interface,
     // exactly how the contract-kit bindings bind them.
 
@@ -87,6 +90,13 @@ public sealed class ScratchStoreFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult<ICredentialStore>(new CredentialView(this, accountId));
+    }
+
+    /// <inheritdoc />
+    ValueTask<IRecipientContactStore> IRecipientContactStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<IRecipientContactStore>(new RecipientView(this, accountId));
     }
 
     private sealed class SignalSessionView(ScratchStoreFactory factory, AccountId account) : ISignalSessionStore
@@ -417,5 +427,30 @@ public sealed class ScratchStoreFactory
                 SigningKeyPrivate = (byte[])record.SigningKeyPrivate.Clone(),
                 AdvSecret = (byte[])record.AdvSecret.Clone(),
             };
+    }
+
+    private sealed class RecipientView(ScratchStoreFactory factory, AccountId account) : IRecipientContactStore
+    {
+        public Task<bool> HasContactedAsync(string recipientKey, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                return Task.FromResult(factory._recipientContacts.ContainsKey((account, recipientKey)));
+            }
+        }
+
+        public Task MarkContactedAsync(string recipientKey, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                factory._recipientContacts[(account, recipientKey)] = true;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

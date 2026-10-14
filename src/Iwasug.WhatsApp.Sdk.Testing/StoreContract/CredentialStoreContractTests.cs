@@ -22,7 +22,7 @@ namespace Iwasug.WhatsApp.Sdk.Testing.StoreContract;
 /// (independent second-instance read, D-06), and parallel cross-read enforcement via
 /// the keyless shape of the shared <see cref="StoreContractRules"/> helper (A's row is
 /// written while B's instance reads — B must never observe A's row) — parallel
-/// enforcement is uniform across all six store families (serial-only coverage is not
+/// enforcement is uniform across all seven store families (serial-only coverage is not
 /// acceptable per D-11).
 /// </remarks>
 public abstract class CredentialStoreContractTests

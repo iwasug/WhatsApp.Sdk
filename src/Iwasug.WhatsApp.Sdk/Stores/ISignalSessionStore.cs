@@ -3,7 +3,7 @@ using Iwasug.WhatsApp.Sdk.Accounts;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Account-scoped store of Signal protocol sessions — one of the five granular persistence
+/// Account-scoped store of Signal protocol sessions — one of the seven granular persistence
 /// seams (D-01: separate interfaces per concern, no aggregate facade).
 /// </summary>
 /// <remarks>

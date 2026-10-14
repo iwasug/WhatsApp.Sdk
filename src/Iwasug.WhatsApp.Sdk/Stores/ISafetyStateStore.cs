@@ -4,7 +4,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Account-scoped store of the ban-safety state row — one of the five granular
+/// Account-scoped store of the ban-safety state row — one of the seven granular
 /// persistence seams (D-01).
 /// </summary>
 /// <remarks>

@@ -4,7 +4,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 namespace Iwasug.WhatsApp.Sdk.Stores;
 
 /// <summary>
-/// Account-scoped store of Signal pre-keys — one of the five granular persistence seams
+/// Account-scoped store of Signal pre-keys — one of the seven granular persistence seams
 /// (D-01), split into two sub-stores per account: bundles keyed by peer address, and
 /// single one-time pre-keys keyed by their integer id.
 /// </summary>
