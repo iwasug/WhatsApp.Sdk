@@ -51,6 +51,7 @@ public sealed class MessagingLoopbackTests
     internal static SafetyOptions NoSafetyDelays() => new()
     {
         AllowUnsafeThroughput = true,
+        DeclaredUnsafeAcknowledgment = "Loopback test pins policy timing to zero; production defaults untouched.",
         MaxMessagesPerMinute = 1000,
         MaxMessagesPerHour = 1000,
         MaxMessagesPerDay = 1000,

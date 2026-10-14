@@ -54,6 +54,7 @@ public sealed class ColdOutreachBudgetTests
     private static SafetyOptions NoJitter(int coldCap) => new()
     {
         AllowUnsafeThroughput = true,
+        DeclaredUnsafeAcknowledgment = "Cold-outreach test with zero jitter and pacing.",
         MaxMessagesPerMinute = 100,
         MaxColdOutreachPerDay = coldCap,
         BaseInterSendJitter = TimeSpan.Zero,

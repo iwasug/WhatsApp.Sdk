@@ -39,7 +39,7 @@ public sealed class SafetyGateTests
         var act = () => SafetyOptions.Validate(new SafetyOptions { MaxMessagesPerMinute = 200, AllowUnsafeThroughput = false });
         act.Should().Throw<ArgumentOutOfRangeException>();
 
-        var allowed = SafetyOptions.Validate(new SafetyOptions { MaxMessagesPerMinute = 200, AllowUnsafeThroughput = true });
+        var allowed = SafetyOptions.Validate(new SafetyOptions { MaxMessagesPerMinute = 200, AllowUnsafeThroughput = true, DeclaredUnsafeAcknowledgment = "Test acknowledges the risk ledger." });
         allowed.MaxMessagesPerMinute.Should().Be(200);
     }
 }

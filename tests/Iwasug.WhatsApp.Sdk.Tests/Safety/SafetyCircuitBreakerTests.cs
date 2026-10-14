@@ -36,6 +36,7 @@ public sealed class SafetyCircuitBreakerTests
         int perMinute = 1000) => new()
     {
         AllowUnsafeThroughput = true,
+        DeclaredUnsafeAcknowledgment = "Circuit-breaker test with zero jitter and pacing.",
         MaxMessagesPerMinute = perMinute,
         MaxMessagesPerHour = 1000,
         MaxMessagesPerDay = 1000,

@@ -43,6 +43,14 @@ public sealed record SafetyOptions
     /// <summary>Whether unsafe throughput is explicitly allowed.</summary>
     public bool AllowUnsafeThroughput { get; init; } = false;
 
+    /// <summary>
+    /// Explicit host acknowledgment required when <see cref="AllowUnsafeThroughput"/>
+    /// is <c>true</c>. The host declares it has read the README Ban-Safety risk
+    /// ledger and accepts the elevated restriction risk. Must be non-empty when
+    /// opting into unsafe throughput; ignored otherwise.
+    /// </summary>
+    public string? DeclaredUnsafeAcknowledgment { get; init; }
+
     /// <summary>Base inter-send jitter.</summary>
     public TimeSpan BaseInterSendJitter { get; init; } = TimeSpan.FromMilliseconds(1000);
 
@@ -67,6 +75,36 @@ public sealed record SafetyOptions
             throw new ArgumentOutOfRangeException(nameof(options), "Jitter ratio bounds are inverted.");
         }
 
+        if (resolved.MaxMessagesPerMinute <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerMinute must be positive.");
+        }
+
+        if (resolved.MaxMessagesPerHour <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerHour must be positive.");
+        }
+
+        if (resolved.MaxMessagesPerDay <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerDay must be positive.");
+        }
+
+        if (resolved.MaxColdOutreachPerDay < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxColdOutreachPerDay must not be negative.");
+        }
+
+        if (resolved.BaseInterSendJitter < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "BaseInterSendJitter must not be negative.");
+        }
+
+        if (resolved.ThrottleNoticeThreshold < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "ThrottleNoticeThreshold must not be negative.");
+        }
+
         if (resolved.PacingPresenceMinMs < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), "Pacing presence minimum must not be negative.");
@@ -88,18 +126,22 @@ public sealed record SafetyOptions
         {
             if (resolved.MaxMessagesPerMinute > 60)
             {
-                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerMinute exceeds the safe threshold.");
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerMinute exceeds the safe threshold of 60 per minute. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
             }
 
-            if (resolved.MaxMessagesPerHour > 300)
+            if (resolved.MaxMessagesPerHour > 600)
             {
-                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerHour exceeds the safe threshold.");
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerHour exceeds the safe threshold of 600 per hour. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
             }
 
             if (resolved.MaxMessagesPerDay > 1000)
             {
-                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerDay exceeds the safe threshold.");
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerDay exceeds the safe threshold of 1000 per day. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
             }
+        }
+        else if (string.IsNullOrWhiteSpace(resolved.DeclaredUnsafeAcknowledgment))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "DeclaredUnsafeAcknowledgment is required when AllowUnsafeThroughput is true. Declare acknowledgment of the Ban-Safety risk ledger.");
         }
 
         return resolved;

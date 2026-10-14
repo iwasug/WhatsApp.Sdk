@@ -822,6 +822,8 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.BaseInterSendJitter.get -> System.TimeSpan
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.BaseInterSendJitter.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.DeclaredUnsafeAcknowledgment.get -> string?
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.DeclaredUnsafeAcknowledgment.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? other) -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.get -> double
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.init -> void

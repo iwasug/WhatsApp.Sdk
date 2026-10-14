@@ -27,6 +27,7 @@ public sealed class ColdOutreachReplyExemptionTests
     private static SafetyOptions NoJitter(int coldCap) => new()
     {
         AllowUnsafeThroughput = true,
+        DeclaredUnsafeAcknowledgment = "Reply-exemption test with zero jitter and pacing.",
         MaxMessagesPerMinute = 100,
         MaxColdOutreachPerDay = coldCap,
         BaseInterSendJitter = TimeSpan.Zero,

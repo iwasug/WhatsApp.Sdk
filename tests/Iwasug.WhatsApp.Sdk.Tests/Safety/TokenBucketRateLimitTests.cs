@@ -27,7 +27,7 @@ public sealed class TokenBucketRateLimitTests
     public async Task hour_cap_rejects_over_budget()
     {
         var clock = new FakeTimeProvider();
-        var options = new SafetyOptions { MaxMessagesPerMinute = 1000, MaxMessagesPerHour = 250, AllowUnsafeThroughput = true };
+        var options = new SafetyOptions { MaxMessagesPerMinute = 1000, MaxMessagesPerHour = 250, AllowUnsafeThroughput = true, DeclaredUnsafeAcknowledgment = "Rate-limit test." };
         var set = new TokenBucketRateLimiterSet(clock, options);
         for (int i = 0; i < 250; i++)
         {
@@ -43,7 +43,7 @@ public sealed class TokenBucketRateLimitTests
     public async Task day_cap_rejects_over_budget()
     {
         var clock = new FakeTimeProvider();
-        var options = new SafetyOptions { MaxMessagesPerMinute = 2000, MaxMessagesPerHour = 2000, MaxMessagesPerDay = 1000, AllowUnsafeThroughput = true };
+        var options = new SafetyOptions { MaxMessagesPerMinute = 2000, MaxMessagesPerHour = 2000, MaxMessagesPerDay = 1000, AllowUnsafeThroughput = true, DeclaredUnsafeAcknowledgment = "Rate-limit test." };
         var set = new TokenBucketRateLimiterSet(clock, options);
         for (int i = 0; i < 1000; i++)
         {
