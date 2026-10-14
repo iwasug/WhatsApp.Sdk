@@ -191,12 +191,11 @@ internal sealed class SafetyGate : ISafetyGate
     {
         StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
         int stage = await _warmup.GetCurrentStageAsync(stores, cancellationToken).ConfigureAwait(false);
-        bool admitted = await _warmup.AdmitAsync(stores, cancellationToken).ConfigureAwait(false);
+        bool admitted = await _warmup.AdmitAsync(stage, cancellationToken).ConfigureAwait(false);
         if (!admitted)
         {
             throw new SafetyRuleViolationException(SafetyRule.RateLimit, "Safety rule violated.");
         }
-        _ = stage;
     }
 
     private async Task CheckColdOutreach(SendContext context, CancellationToken cancellationToken)
