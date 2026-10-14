@@ -9,7 +9,8 @@ internal sealed class WarmupLadder
 
     private readonly TimeProvider _clock;
     private readonly int[] _stages;
-    private readonly Dictionary<int, int> _dailyCounts = new();
+    private readonly object _countLock = new();
+    private int _sentToday;
     private DateOnly _countDay;
 
     public WarmupLadder(TimeProvider? clock = null, int[]? stages = null)
@@ -52,13 +53,20 @@ internal sealed class WarmupLadder
         return index;
     }
 
-    public Task<bool> AdmitAsync(StoreSession stores, CancellationToken cancellationToken = default)
+    public Task<bool> AdmitAsync(int stage, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(stores);
         cancellationToken.ThrowIfCancellationRequested();
-        // Counter logic is best-effort and process-local; never blocks sends by default.
-        _ = stores;
-        return Task.FromResult(true);
+        DateOnly today = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
+        lock (_countLock)
+        {
+            if (_countDay != today)
+            {
+                _countDay = today;
+                _sentToday = 0;
+            }
+
+            return Task.FromResult(_sentToday < CurrentStageCeiling(stage));
+        }
     }
 
     public Task RecordSendAsync(StoreSession stores, CancellationToken cancellationToken = default)
@@ -66,22 +74,17 @@ internal sealed class WarmupLadder
         ArgumentNullException.ThrowIfNull(stores);
         cancellationToken.ThrowIfCancellationRequested();
         DateOnly today = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
-        if (_countDay != today)
+        lock (_countLock)
         {
-            _countDay = today;
-            _dailyCounts.Clear();
+            if (_countDay != today)
+            {
+                _countDay = today;
+                _sentToday = 0;
+            }
+
+            _sentToday++;
         }
 
-        int stage = 0;
-        // Derive stage lazily from persisted state if available; ignored on failure.
-        try
-        {
-            // no await to keep simple; compute synchronously not possible without store call
-        }
-        catch
-        {
-        }
-        _ = stage;
         return Task.CompletedTask;
     }
 
