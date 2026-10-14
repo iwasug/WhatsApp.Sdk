@@ -6,6 +6,7 @@ using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Safety;
 using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.Runtime;
@@ -48,6 +49,7 @@ public sealed class Messenger : IAsyncDisposable
     private readonly DeviceDirectory _directory;
     private readonly GroupDirectory _groups;
     private readonly SenderKeyRepository _senderKeys;
+    private readonly SafetyGate _safety;
     private readonly MessageSender _sender;
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
@@ -73,6 +75,15 @@ public sealed class Messenger : IAsyncDisposable
         _sender = new MessageSender(this, _directory, _groups, _senderKeys);
         _dispatcher = new MessageDispatcher(this, _senderKeys);
         _receipts = new ReceiptHandler(this);
+        _safety = new SafetyGate(
+            connection.Clock,
+            SafetyOptions.Validate(null),
+            logger: null,
+            ct => ResolveStoresAsync(ct),
+            (evt, ct) => PublishAsync(evt, ct));
+        _safety.BudgetExhausted += (_, args) => _ = RaiseBudgetExhaustedAsync(args, CancellationToken.None);
+        _safety.ThrottleEngaged += (_, args) => _ = RaiseThrottleEngagedAsync(args, CancellationToken.None);
+        _safety.AccountRestricted += (_, args) => _ = RaiseAccountRestrictedAsync(args, CancellationToken.None);
     }
 
     /// <summary>
@@ -106,6 +117,15 @@ public sealed class Messenger : IAsyncDisposable
     /// re-queries USync. The affected send itself still settles its normal outcome.
     /// </summary>
     public event EventHandler<DeviceSetChangedEventArgs>? DeviceSetChanged;
+
+    /// <summary>Raised when an account safety budget is exhausted (SafetyEvent vocabulary, 05-01).</summary>
+    public event EventHandler<BudgetExhaustedEventArgs>? BudgetExhausted;
+
+    /// <summary>Raised when throttling is engaged (SafetyEvent vocabulary, 05-01).</summary>
+    public event EventHandler<ThrottleEngagedEventArgs>? ThrottleEngaged;
+
+    /// <summary>Raised when an account is restricted (SafetyEvent vocabulary, 05-01).</summary>
+    public event EventHandler<AccountRestrictedEventArgs>? AccountRestricted;
 
     /// <summary>
     /// The typed event stream (04-05, MSG-07): one vocabulary, two consumption shapes.
@@ -166,7 +186,10 @@ public sealed class Messenger : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
         await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
-        return await _sender.SendAsync(chat, text, cancellationToken).ConfigureAwait(false);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            ct => _sender.SendAsync(chat, text, ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -191,7 +214,10 @@ public sealed class Messenger : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
         await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
-        return await _sender.SendGroupAsync(group, text, cancellationToken).ConfigureAwait(false);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(group, IsReply: false),
+            cancellationToken,
+            ct => _sender.SendGroupAsync(group, text, ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -253,7 +279,10 @@ public sealed class Messenger : IAsyncDisposable
             entry.Text ?? string.Empty,
             entry.ChatJid);
         byte[] payload = MessageBuilder.BuildQuotedText(text, quoted);
-        return await _sender.SendPayloadAsync(chat, text, payload, cancellationToken).ConfigureAwait(false);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: true),
+            cancellationToken,
+            ct => _sender.SendPayloadAsync(chat, text, payload, ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -358,6 +387,33 @@ public sealed class Messenger : IAsyncDisposable
     /// stream as <see cref="MessageAckedEvent"/>. No pending send, no event (a late or
     /// duplicate ack is a no-op on both surfaces).
     /// </summary>
+    /// <summary>The single emit point for BudgetExhausted: EventHandler twin, then stream (backpressure, no drop).</summary>
+    internal async ValueTask RaiseBudgetExhaustedAsync(BudgetExhaustedEventArgs args, CancellationToken cancellationToken)
+    {
+        BudgetExhausted?.Invoke(this, args);
+        await PublishAsync(
+            new BudgetExhaustedEvent(args.AccountKey, args.Trigger, args.NextAllowedUtc, args.SafetyStage, _connection.Clock.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The single emit point for ThrottleEngaged: EventHandler twin, then stream (backpressure, no drop).</summary>
+    internal async ValueTask RaiseThrottleEngagedAsync(ThrottleEngagedEventArgs args, CancellationToken cancellationToken)
+    {
+        ThrottleEngaged?.Invoke(this, args);
+        await PublishAsync(
+            new ThrottleEngagedEvent(args.AccountKey, args.Trigger, args.NextAllowedUtc, args.SafetyStage, _connection.Clock.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The single emit point for AccountRestricted: EventHandler twin, then stream (backpressure, no drop).</summary>
+    internal async ValueTask RaiseAccountRestrictedAsync(AccountRestrictedEventArgs args, CancellationToken cancellationToken)
+    {
+        AccountRestricted?.Invoke(this, args);
+        await PublishAsync(
+            new AccountRestrictedEvent(args.AccountKey, args.Trigger, args.NextAllowedUtc, args.SafetyStage, _connection.Clock.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     internal ValueTask RaiseMessageAckedAsync(SendOutcome outcome, Jid chat, CancellationToken cancellationToken) =>
         PublishAsync(
             new MessageAckedEvent(

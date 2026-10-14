@@ -280,7 +280,7 @@ public sealed class MessagingEventTests
             .Where(t => t.IsClass && !t.IsAbstract && typeof(WhatsAppEvent).IsAssignableFrom(t))
             .ToArray();
         facts.Select(t => t.Name).Should().BeEquivalentTo(
-            new[] { "MessageReceivedEvent", "ReceiptReceivedEvent", "MessageAckedEvent", "DecryptionFailedEvent" },
+            new[] { "MessageReceivedEvent", "ReceiptReceivedEvent", "MessageAckedEvent", "DecryptionFailedEvent", "BudgetExhaustedEvent", "ThrottleEngagedEvent", "AccountRestrictedEvent" },
             "the stream vocabulary is exactly the four fact types");
         string hierarchyNames = string.Join(' ', facts.Select(t => t.FullName ?? t.Name)).ToLowerInvariant();
         hierarchyNames.Should().NotContain(

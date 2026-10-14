@@ -722,3 +722,171 @@ virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.PrintMembers(System.Tex
 virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.EqualityContract.get -> System.Type!
 virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
 virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountRestrictedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountRestrictedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.BudgetExhaustedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.BudgetExhaustedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.AccountRestricted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.BudgetExhausted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.ThrottleEngaged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ThrottleEngagedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ThrottleEngagedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Safety.ISafetyGate
+Iwasug.WhatsApp.Sdk.Safety.ISafetyGate.ExecuteSendAsync(Iwasug.WhatsApp.Sdk.Safety.SendContext! context, System.Threading.CancellationToken cancellationToken, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!>! innerSend) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.<Clone>$() -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursEnd.get -> System.TimeSpan
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursEnd.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.get -> System.TimeSpan
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.get -> bool
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? other) -> bool
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.get -> double
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioEnd.get -> double
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioEnd.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxColdOutreachPerDay.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxColdOutreachPerDay.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerDay.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerDay.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.get -> bool
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafetyOptions() -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRule.CircuitOpen = 3 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRule.ColdOutreach = 2 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRule.InactiveHours = 1 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRule.RateLimit = 0 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRuleViolationException
+Iwasug.WhatsApp.Sdk.Safety.SafetyRuleViolationException.Rule.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
+Iwasug.WhatsApp.Sdk.Safety.SafetyRuleViolationException.SafetyRuleViolationException(Iwasug.WhatsApp.Sdk.Safety.SafetyRule rule, string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Safety.SendContext
+Iwasug.WhatsApp.Sdk.Safety.SendContext.<Clone>$() -> Iwasug.WhatsApp.Sdk.Safety.SendContext!
+Iwasug.WhatsApp.Sdk.Safety.SendContext.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Safety.SendContext.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SendContext.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out bool IsReply) -> void
+Iwasug.WhatsApp.Sdk.Safety.SendContext.Equals(Iwasug.WhatsApp.Sdk.Safety.SendContext? other) -> bool
+Iwasug.WhatsApp.Sdk.Safety.SendContext.IsReply.get -> bool
+Iwasug.WhatsApp.Sdk.Safety.SendContext.IsReply.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SendContext.SendContext(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, bool IsReply) -> void
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.ToString() -> string!
+override sealed Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator !=(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator ==(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
+static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator !=(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator ==(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
