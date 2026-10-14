@@ -41,8 +41,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SAF-02**: Per-account token-bucket rate limits (minute/hour/day) with randomized inter-send jitter
 - [x] **SAF-03**: Warm-up ramp for new accounts with account-age state persisted in the store
 - [x] **SAF-04**: Separate cold-outreach budget for never-messaged recipients, hard-enforced
-- [ ] **SAF-05**: Circuit breaker + exponential backoff on throttle signals, emitting typed safety events
-- [ ] **SAF-06**: Human-like pacing hooks (typing/recording presence before send, active-hours window)
+- [x] **SAF-05**: Circuit breaker + exponential backoff on throttle signals, emitting typed safety events
+- [x] **SAF-06**: Human-like pacing hooks (typing/recording presence before send, active-hours window)
 - [ ] **SAF-07**: Safe-by-default configuration with explicit `AllowUnsafeThroughput` opt-in and honest risk-ledger docs
 
 ### Multi-Account
@@ -131,8 +131,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAF-02 | Phase 5 | Complete |
 | SAF-03 | Phase 5 | Complete |
 | SAF-04 | Phase 5 | Complete |
-| SAF-05 | Phase 5 | Pending |
-| SAF-06 | Phase 5 | Pending |
+| SAF-05 | Phase 5 | Complete |
+| SAF-06 | Phase 5 | Complete |
 | SAF-07 | Phase 5 | Pending |
 | MUL-01 | Phase 7 | Pending |
 | MUL-02 | Phase 7 | Pending |

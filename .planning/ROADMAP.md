@@ -170,7 +170,7 @@ Plans:
 - [x] 05-03-PLAN.md — Cold-outreach budget + additive IRecipientContactStore seam + contract kit
 
 **Wave 4** *(depends on 05-03)*
-- [ ] 05-04-PLAN.md — Circuit breaker + exponential backoff + active-hours/pacing
+- [x] 05-04-PLAN.md — Circuit breaker + exponential backoff + active-hours/pacing
 
 **Wave 5** *(depends on 05-04)*
 - [ ] 05-05-PLAN.md — Safe defaults hardening, risk ledger, provenance audit, phase close

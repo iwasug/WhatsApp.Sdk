@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 current_phase: 5
 current_phase_name: Ban-Safety Layer
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-10-14T04:06:07.060Z"
-state_head: 610285557cb1b759eb7903b41b00b79948e1d566
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-10-14T05:30:00.000Z"
+state_head: 0f5359051876900c02ccec5026b11a49a19106c6
 progress:
   total_phases: 9
   completed_phases: 4
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 ## Current Position
 
 Phase: 5 — Ban-Safety Layer
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 5
 Status: Ready to execute
 
@@ -71,6 +71,7 @@ Progress: [████░░░░░░] 44%
 | Phase 04 P04-05 | 3h46m | 3 tasks | 17 files |
 | Phase 05 P02 | 1 | 3 tasks | 10 files |
 | Phase 05-ban-safety-layer P03 | 1 execution pass | 3 tasks | 17 files |
+| Phase 05-ban-safety-layer P04 | 1 execution pass | 3 tasks | 19 files |
 
 ## Per-Plan Metrics:
 
@@ -145,6 +146,9 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-05: GroupDirectory participants-for-fanout only (GRPM-01 read-side deferred, named in README risk ledger); sample messaging mode reuses the stored account with --account for multi-account dirs
 - [Phase 05]: [Phase 05-03]: Reply-mark semantics follow must_have truth 4 (replies never mark) over Task 2's stray contradicting sentence; exemption covers cap AND mark
 - [Phase 05]: [Phase 05-03]: Recipient-contact contract bindings live in tests/.../StoreContract/ per repo convention (InMemory + Scratch); ComplianceTestBase floor raised to seven
+- [Phase 05]: [Phase 05-04]: Circuit breaker is time-based gating (fail-fast CircuitOpen refusals, NextProbeAtUtc) — not a waited delay; CircuitOpen refusals emit nothing (transition owns the single AccountRestricted)
+- [Phase 05]: [Phase 05-04]: Inverted pacing bounds clamp (Max := Min) in SafetyOptions.Validate; pacing inversion never throws unlike jitter ratios
+- [Phase 05]: [Phase 05-04]: Internal WaConnection.SafetyPolicy seam (StoreRegistry set-before-first-use precedent) + NoSafetyDelays loopback pins; public host configuration story stays with 05-05 (SAF-07); FakeTimeProvider never moves backwards (midnight/order proofs walk forward)
 
 ### Pending Todos
 
@@ -158,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T04:06:06.817Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-10-14T05:30:00.000Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
