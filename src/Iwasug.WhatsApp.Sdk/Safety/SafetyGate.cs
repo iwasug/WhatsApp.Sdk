@@ -18,6 +18,7 @@ internal sealed class SafetyGate : ISafetyGate
     private readonly WarmupLadder _warmup;
     private readonly ColdOutreachBudget _coldOutreach;
     private readonly CircuitBreaker _breaker;
+    private readonly HumanPacing _pacing;
 
     /// <summary>Budget exhausted event.</summary>
     public event EventHandler<BudgetExhaustedEventArgs>? BudgetExhausted;
@@ -44,6 +45,7 @@ internal sealed class SafetyGate : ISafetyGate
         _warmup = new WarmupLadder(_clock);
         _coldOutreach = new ColdOutreachBudget(_clock, _options);
         _breaker = new CircuitBreaker(_clock);
+        _pacing = new HumanPacing(_clock, _options);
     }
 
     public async Task<SendOutcome> ExecuteSendAsync(
@@ -58,12 +60,12 @@ internal sealed class SafetyGate : ISafetyGate
         try
         {
             CheckCircuit(context, cancellationToken);
-            CheckActiveHours(context);
+            CheckActiveHours(context, cancellationToken);
             await AcquireRateLimits(context, cancellationToken).ConfigureAwait(false);
             await CheckWarmupAsync(context, cancellationToken).ConfigureAwait(false);
             await CheckColdOutreach(context, cancellationToken).ConfigureAwait(false);
             await ApplyJitter(context, cancellationToken).ConfigureAwait(false);
-            ApplyPacing(context);
+            await ApplyPresencePauseAsync(cancellationToken).ConfigureAwait(false);
 
             SendOutcome outcome = await innerSend(cancellationToken).ConfigureAwait(false);
             await RecordOutcomeAsync(context, outcome, cancellationToken).ConfigureAwait(false);
@@ -153,7 +155,11 @@ internal sealed class SafetyGate : ISafetyGate
         AccountRestricted?.Invoke(this, args);
     }
 
-    private void CheckActiveHours(SendContext context) { }
+    private void CheckActiveHours(SendContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        _pacing.AssertInsideActiveHours(cancellationToken);
+    }
     private async Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken)
     {
         StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
@@ -197,7 +203,8 @@ internal sealed class SafetyGate : ISafetyGate
 
     public Task ApplyJitterAsync(SendContext context, CancellationToken cancellationToken) => ApplyJitter(context, cancellationToken);
 
-    private void ApplyPacing(SendContext context) { }
+    private Task ApplyPresencePauseAsync(CancellationToken cancellationToken) =>
+        _pacing.ApplyPresencePauseAsync(cancellationToken);
 
     private async Task RecordOutcomeAsync(SendContext context, SendOutcome outcome, CancellationToken cancellationToken)
     {

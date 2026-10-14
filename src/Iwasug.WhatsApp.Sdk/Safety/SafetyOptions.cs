@@ -30,6 +30,13 @@ public sealed record SafetyOptions
     /// <summary>Active hours end.</summary>
     public TimeSpan ActiveHoursEnd { get; init; } = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// Time zone interpreting the active-hours window; <c>null</c> means UTC.
+    /// The gate converts the UTC clock into this zone before comparing against
+    /// <see cref="ActiveHoursStart"/>/<see cref="ActiveHoursEnd"/>.
+    /// </summary>
+    public TimeZoneInfo? ActiveHoursTimeZone { get; init; }
+
     /// <summary>Whether to queue sends during inactive hours.</summary>
     public bool QueueDuringInactiveHours { get; init; } = false;
 
@@ -41,6 +48,12 @@ public sealed record SafetyOptions
 
     /// <summary>Throttle notice threshold. Delays at or beyond this surface a throttle notice.</summary>
     public TimeSpan ThrottleNoticeThreshold { get; init; } = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Minimum human-like presence pause in milliseconds (typing/recording before send).</summary>
+    public int PacingPresenceMinMs { get; init; } = 2000;
+
+    /// <summary>Maximum human-like presence pause in milliseconds (typing/recording before send).</summary>
+    public int PacingPresenceMaxMs { get; init; } = 12000;
     /// <summary>Conservative defaults.</summary>
     public static SafetyOptions SafeDefaults => new();
 
@@ -52,6 +65,23 @@ public sealed record SafetyOptions
         if (resolved.JitterRatioBegin > resolved.JitterRatioEnd)
         {
             throw new ArgumentOutOfRangeException(nameof(options), "Jitter ratio bounds are inverted.");
+        }
+
+        if (resolved.PacingPresenceMinMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Pacing presence minimum must not be negative.");
+        }
+
+        if (resolved.PacingPresenceMaxMs < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Pacing presence maximum must not be negative.");
+        }
+
+        if (resolved.PacingPresenceMinMs > resolved.PacingPresenceMaxMs)
+        {
+            // Clamp (do not throw): collapse the inverted range onto the minimum so
+            // pacing stays bounded without rejecting the host configuration.
+            resolved = resolved with { PacingPresenceMaxMs = resolved.PacingPresenceMinMs };
         }
 
         if (!resolved.AllowUnsafeThroughput)

@@ -816,6 +816,8 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursEnd.get -> System.TimeSpan
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursEnd.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.get -> System.TimeSpan
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursTimeZone.get -> System.TimeZoneInfo?
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursTimeZone.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.BaseInterSendJitter.get -> System.TimeSpan
@@ -833,6 +835,10 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ThrottleNoticeThreshold.get -> System.TimeSpan
