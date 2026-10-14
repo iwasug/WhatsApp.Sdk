@@ -17,6 +17,7 @@ internal sealed class SafetyGate : ISafetyGate
     private readonly TokenBucketRateLimiterSet _rateLimits;
     private readonly WarmupLadder _warmup;
     private readonly ColdOutreachBudget _coldOutreach;
+    private readonly CircuitBreaker _breaker;
 
     /// <summary>Budget exhausted event.</summary>
     public event EventHandler<BudgetExhaustedEventArgs>? BudgetExhausted;
@@ -42,6 +43,7 @@ internal sealed class SafetyGate : ISafetyGate
         _rateLimits = new TokenBucketRateLimiterSet(_clock, _options);
         _warmup = new WarmupLadder(_clock);
         _coldOutreach = new ColdOutreachBudget(_clock, _options);
+        _breaker = new CircuitBreaker(_clock);
     }
 
     public async Task<SendOutcome> ExecuteSendAsync(
@@ -55,7 +57,7 @@ internal sealed class SafetyGate : ISafetyGate
 
         try
         {
-            CheckCircuit(context);
+            CheckCircuit(context, cancellationToken);
             CheckActiveHours(context);
             await AcquireRateLimits(context, cancellationToken).ConfigureAwait(false);
             await CheckWarmupAsync(context, cancellationToken).ConfigureAwait(false);
@@ -116,7 +118,41 @@ internal sealed class SafetyGate : ISafetyGate
         }
     }
 
-    private void CheckCircuit(SendContext context) { }
+    private void CheckCircuit(SendContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        _breaker.ThrowIfOpen(cancellationToken);
+    }
+
+    /// <summary>
+    /// Publishes one breaker opening: the <c>AccountRestricted</c> stream twin,
+    /// then the handler twin. Best-effort on the success path — the inner send
+    /// already settled, so a publish failure (or a caller cancellation racing the
+    /// publish) never converts the settled outcome into an exception.
+    /// </summary>
+    private async Task PublishBreakerOpenAsync(SendContext context, CancellationToken cancellationToken)
+    {
+        var args = new AccountRestrictedEventArgs(
+            context.Chat.ToString(), "Error", _breaker.NextProbeAtUtc, (int)SafetyRule.CircuitOpen);
+        WhatsAppEvent evt = new AccountRestrictedEvent(
+            args.AccountKey, args.Trigger, args.NextAllowedUtc, args.SafetyStage, _clock.GetUtcNow());
+
+        try
+        {
+            await _publish(evt, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The send already settled; the outcome still returns below.
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Safety event publish failed; continuing (D-20).");
+        }
+
+        AccountRestricted?.Invoke(this, args);
+    }
+
     private void CheckActiveHours(SendContext context) { }
     private async Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken)
     {
@@ -165,6 +201,18 @@ internal sealed class SafetyGate : ISafetyGate
 
     private async Task RecordOutcomeAsync(SendContext context, SendOutcome outcome, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(outcome);
+
+        // Circuit record (05-04, SAF-05): every settled outcome feeds the breaker,
+        // including ServerError and TimedOut. A fresh Open transition publishes
+        // AccountRestricted exactly once (breaker-owned idempotency: failures
+        // recorded while already Open return false and emit nothing).
+        bool opened = _breaker.RecordOutcome(outcome, cancellationToken);
+        if (opened)
+        {
+            await PublishBreakerOpenAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+
         // Mark only after a send that actually left the process (Sent or TimedOut), and
         // only for normal (non-reply) sends (must_have: marked only for normal sends).
         if (outcome.Status != SendOutcomeStatus.Sent && outcome.Status != SendOutcomeStatus.TimedOut)
