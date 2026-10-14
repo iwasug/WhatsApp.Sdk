@@ -14,6 +14,8 @@ internal sealed class SafetyGate : ISafetyGate
     private readonly ILogger<SafetyGate>? _logger;
     private readonly Func<CancellationToken, ValueTask<StoreSession>> _resolveStores;
     private readonly Func<WhatsAppEvent, CancellationToken, ValueTask> _publish;
+    private readonly TokenBucketRateLimiterSet _rateLimits;
+    private readonly WarmupLadder _warmup;
 
     /// <summary>Budget exhausted event.</summary>
     public event EventHandler<BudgetExhaustedEventArgs>? BudgetExhausted;
@@ -36,6 +38,8 @@ internal sealed class SafetyGate : ISafetyGate
         _logger = logger;
         _resolveStores = resolveStores ?? throw new ArgumentNullException(nameof(resolveStores));
         _publish = publish ?? throw new ArgumentNullException(nameof(publish));
+        _rateLimits = new TokenBucketRateLimiterSet(_clock, _options);
+        _warmup = new WarmupLadder(_clock);
     }
 
     public async Task<SendOutcome> ExecuteSendAsync(
@@ -52,7 +56,7 @@ internal sealed class SafetyGate : ISafetyGate
             CheckCircuit(context);
             CheckActiveHours(context);
             await AcquireRateLimits(context, cancellationToken).ConfigureAwait(false);
-            CheckWarmup(context);
+            await CheckWarmupAsync(context, cancellationToken).ConfigureAwait(false);
             await CheckColdOutreach(context, cancellationToken).ConfigureAwait(false);
             await ApplyJitter(context, cancellationToken).ConfigureAwait(false);
             ApplyPacing(context);
@@ -112,10 +116,45 @@ internal sealed class SafetyGate : ISafetyGate
 
     private void CheckCircuit(SendContext context) { }
     private void CheckActiveHours(SendContext context) { }
-    private Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken) => Task.CompletedTask;
-    private void CheckWarmup(SendContext context) { }
+    private async Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken)
+    {
+        StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+        TokenBucketRateLimiterSet.AcquisitionResult result = await _rateLimits.TryAcquireAsync(cancellationToken).ConfigureAwait(false);
+        if (!result.Acquired)
+        {
+            throw new SafetyRuleViolationException(SafetyRule.RateLimit, "Safety rule violated.");
+        }
+
+        if (result.DelayedBeyondThreshold)
+        {
+            ThrottleEngaged?.Invoke(this, new ThrottleEngagedEventArgs(context.Chat.ToString(), "Window", DateTimeOffset.MaxValue, 0));
+        }
+
+        // Additional jitter on the reported delay.
+        await Task.Delay(_rateLimits.ApplyJitter(), _clock, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CheckWarmupAsync(SendContext context, CancellationToken cancellationToken)
+    {
+        StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+        int stage = await _warmup.GetCurrentStageAsync(stores, cancellationToken).ConfigureAwait(false);
+        bool admitted = await _warmup.AdmitAsync(stores, cancellationToken).ConfigureAwait(false);
+        if (!admitted)
+        {
+            throw new SafetyRuleViolationException(SafetyRule.RateLimit, "Safety rule violated.");
+        }
+        _ = stage;
+    }
+
     private Task CheckColdOutreach(SendContext context, CancellationToken cancellationToken) => Task.CompletedTask;
-    private Task ApplyJitter(SendContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task ApplyJitter(SendContext context, CancellationToken cancellationToken)
+    {
+        TimeSpan delay = _rateLimits.ApplyJitter();
+        return Task.Delay(delay, _clock, cancellationToken);
+    }
+
+    public Task ApplyJitterAsync(SendContext context, CancellationToken cancellationToken) => ApplyJitter(context, cancellationToken);
+
     private void ApplyPacing(SendContext context) { }
     private void RecordOutcome(SendContext context, SendOutcome outcome) { }
 }

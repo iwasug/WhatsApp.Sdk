@@ -36,6 +36,11 @@ public sealed record SafetyOptions
     /// <summary>Whether unsafe throughput is explicitly allowed.</summary>
     public bool AllowUnsafeThroughput { get; init; } = false;
 
+    /// <summary>Base inter-send jitter.</summary>
+    public TimeSpan BaseInterSendJitter { get; init; } = TimeSpan.FromMilliseconds(1000);
+
+    /// <summary>Throttle notice threshold. Delays at or beyond this surface a throttle notice.</summary>
+    public TimeSpan ThrottleNoticeThreshold { get; init; } = TimeSpan.FromMilliseconds(500);
     /// <summary>Conservative defaults.</summary>
     public static SafetyOptions SafeDefaults => new();
 

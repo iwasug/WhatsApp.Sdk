@@ -810,6 +810,8 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.get -> System.TimeSpan
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ActiveHoursStart.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.AllowUnsafeThroughput.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.BaseInterSendJitter.get -> System.TimeSpan
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.BaseInterSendJitter.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? other) -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.get -> double
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.init -> void
@@ -825,6 +827,8 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ThrottleNoticeThreshold.get -> System.TimeSpan
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ThrottleNoticeThreshold.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafetyOptions() -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyRule
 Iwasug.WhatsApp.Sdk.Safety.SafetyRule.CircuitOpen = 3 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule

@@ -13,6 +13,7 @@
   <ItemGroup>
     <!-- Microsoft.Extensions 10.0.x servicing train (runtime 10.0.12) -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="System.Threading.RateLimiting" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
     <!-- Testing package carries its own version line -->
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
