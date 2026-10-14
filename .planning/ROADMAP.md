@@ -240,7 +240,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Wire Protocol & Connection Resilience | 8/8+2 | Complete | |
 | 3. Pairing & Session Durability | 7/7 | Complete    | 2026-10-10 |
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
-| 5. Ban-Safety Layer | 0/TBD | Not started | - |
+| 5. Ban-Safety Layer | 0/5 | Planned | - |
 | 6. Media Pipeline | 0/TBD | Not started | - |
 | 7. Multi-Account Orchestration | 0/TBD | Not started | - |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |
