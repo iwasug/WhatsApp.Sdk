@@ -12,7 +12,7 @@ Reliably send and receive messages through a linked WhatsApp account — across 
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Ban-safety layer: rate limiting, jitter, exponential backoff, circuit breaker, account warm-up, human-like patterns — Phase 5 (5/5 verified; warm-up stage ceiling enforced end-to-end)
 
 ### Active
 
@@ -20,7 +20,6 @@ Reliably send and receive messages through a linked WhatsApp account — across 
 - [ ] Send and receive text messages end-to-end encrypted (full Signal protocol per multi-device spec)
 - [ ] Run many concurrent accounts (tens+) in one process with isolated sessions
 - [ ] Persist session state through a pluggable store interface (no hard DB dependency)
-- [ ] Ban-safety layer: rate limiting, jitter, exponential backoff, circuit breaker, account warm-up, human-like patterns, quality-score monitoring
 - [ ] Send and receive media (images, documents, voice as scoped in requirements)
 - [ ] Ship as a consumable open-source package: NuGet, docs, CI, tests
 
@@ -75,4 +74,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-07 after initialization*
+*Last updated: 2026-10-14 after Phase 5*
