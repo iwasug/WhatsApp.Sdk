@@ -12,8 +12,9 @@ to run many concurrent accounts safely.
 
 ## Status
 
-Phases 1–4 complete: Foundation & Store Seam → Wire Protocol & Connection
-Resilience → Pairing & Session Durability → Signal E2EE & Messaging. The
+Phases 1–5 complete: Foundation & Store Seam → Wire Protocol & Connection
+Resilience → Pairing & Session Durability → Signal E2EE & Messaging →
+Ban-Safety Layer. The
 Phase-1 walking skeleton that started it:
 
 - Root solution with two packable projects: the SDK and a published store
@@ -23,9 +24,10 @@ Phase-1 walking skeleton that started it:
   write/read, proven by an abstract contract suite running against the
   in-memory reference implementation.
 
-Wire protocol, pairing, Signal end-to-end encryption, and messaging ship
-through Phase 4 (see the Messaging section below). Ban-safety, media,
-multi-account orchestration, broadcast, and presence arrive in later phases.
+Wire protocol, pairing, Signal end-to-end encryption, messaging, and the
+mandatory ban-safety gate ship through Phase 5 (see the Messaging and
+Ban-Safety sections below). Media,
+multi-account orchestration, broadcast, and full presence arrive in later phases.
 
 ## In-memory reference store — read this
 
@@ -87,24 +89,68 @@ API surface only, as exercised by the sample host.
   `OperationCanceledException`, releases the send gate, and never touches the
   wire.
 
-### Risk ledger (Phase 4 — honest scope)
+### Ban-safety / risk ledger (Phase 5 — honest scope)
 
-**Mitigated:** end-to-end encryption for 1:1 and group text (X3DH + Double
-Ratchet, sender keys for groups), typed retry recovery, receipt/ack plumbing,
-typed decryption-failure signaling, and send discipline — no silent drops,
-bounded event backpressure.
+Every public send (`SendMessageAsync`, `SendGroupMessageAsync`, `ReplyAsync`)
+passes a mandatory in-process safety gate before the inner send. There is no
+bypass path in the public API; protocol-generated acks, receipts, and retry
+resends are responses, not account traffic, and stay outside the gate.
 
-**Not mitigated / deferred:**
+**What the layer does:**
 
-- **Signed-prekey rotation is not yet periodic** — signed prekeys upload at
-  pairing, but no scheduled rotate/republish cycle exists yet (State of the Art
-  gap; tracked for a later phase).
-- **Group read-side is deferred (GRPM-01)** — group membership work here is
-  participants-for-fanout only; group history/sync read-side is not implemented.
-- **Presence / `inactive` nuances are Phase 8** — presence semantics beyond
-  parsing the `inactive` receipt type are out of scope here.
-- Ban-safety pacing (rate limits, warm-up, circuit breaker) is Phase 5 — see
-  the Compliance note; this phase adds no pacing of its own.
+- Minute/hour/day token buckets with randomized inter-send jitter on every
+  send (safe defaults: 20/min, 250/hr, 1000/day).
+- Warm-up ramp for new accounts: the daily ceiling grows with persisted
+  account age (`ISafetyStateStore` is the source of truth across restarts).
+- Hard daily cold-outreach cap (30/day) over a durable per-account recipient
+  ledger; replies to inbound messages are exempt from the cap.
+- Circuit breaker with exponential backoff on repeated send failures: trips
+  open, refuses fast while open, admits a single probe, and closes on success.
+  Typed safety events (`BudgetExhausted`, `ThrottleEngaged`,
+  `AccountRestricted`) fire on the corresponding transitions.
+- Active-hours window with typed refusal outside the window, plus best-effort
+  human-like presence pacing (bounded typing/recording pause, currently a
+  no-op wire signal until Phase 8).
+- Safe-by-default configuration: `SafetyOptions.SafeDefaults` plus startup
+  validation that rejects unsafe throughput unless the host explicitly opts in
+  (see below).
+
+**What the layer does NOT do:**
+
+- No guarantee against bans or restrictions. Raising throughput raises
+  restriction risk; no setting lowers risk.
+- No rehabilitation of already-flagged or restricted accounts.
+- No guarantee of compliance with WhatsApp Terms of Service. The host is
+  responsible for lawful, policy-compliant use (see Compliance below).
+- No visibility into server-side signals the SDK cannot observe (account age
+  reputation, contact quality, complaint rates, device reputation). Those
+  operational realities remain the host's responsibility.
+- Signed-prekey rotation is still not periodic; group read-side is still
+  deferred (GRPM-01); full presence semantics remain Phase 8.
+
+**Unsafe opt-in acknowledgment (required):**
+
+Exceeding the safe bands (above 60/min, 600/hr, or 1000/day) requires both
+`AllowUnsafeThroughput = true` **and** a non-empty
+`DeclaredUnsafeAcknowledgment` stating the host has read this ledger and
+accepts the elevated restriction risk. Without both, validation throws
+`ArgumentOutOfRangeException` before any I/O.
+
+```csharp
+using Iwasug.WhatsApp.Sdk.Safety;
+
+var options = new SafetyOptions
+{
+    AllowUnsafeThroughput = true,
+    DeclaredUnsafeAcknowledgment =
+        "We have read the Ban-Safety risk ledger and accept the elevated restriction risk.",
+    MaxMessagesPerMinute = 120,
+};
+```
+
+Byte-level protocol observations in this phase: none new. Phase 5 adds policy
+only over the existing send path and pluggable stores; no protocol code,
+schemas, or constants were copied from any source, including MPL-2.0 sources.
 
 ### Sample messaging mode
 
@@ -141,10 +187,11 @@ service required.
 
 ## Compliance
 
-WhatsApp actively detects and bans automation that violates its ToS. This
-library documents the risks it mitigates (rate limiting, jitter, backoff —
-planned in later phases) and the risks it cannot. There is no "100% ban-proof"
-guarantee; you are responsible for how you use this software.
+WhatsApp actively detects and restricts automation that violates its ToS. This
+library documents the risks it mitigates (rate limiting, jitter, warm-up,
+cold-outreach caps, circuit breaking, pacing — Phase 5) and the risks it
+cannot (see the Ban-safety risk ledger above). There is no guarantee against
+restrictions or bans; you are responsible for how you use this software.
 
 ## License & provenance
 
