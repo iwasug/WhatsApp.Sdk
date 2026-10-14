@@ -1,18 +1,18 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 5
+current_phase: 05
 current_phase_name: Ban-Safety Layer
-current_plan: 5
+current_plan: 6
 status: executing
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-10-14T06:00:00.000Z"
-state_head: e6ffa9d84979590f9ddb263ef6cd93456606ac27
+stopped_at: Completed 05-06-PLAN.md
+last_updated: "2026-10-14T08:10:00.000Z"
+state_head: 5b30202
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 30
-  completed_plans: 28
-  percent: 44
+  completed_phases: 5
+  total_plans: 31
+  completed_plans: 30
+  percent: 56
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
 ---
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-10-07)
 
 **Core value:** Reliably send and receive messages through a linked WhatsApp account — across many accounts at once, without getting those accounts banned.
 
-**Current focus:** Phase 04 — Signal E2EE & Messaging (executing, wave 1 complete, wave 2 next)
+**Current focus:** Phase 05 — Ban-Safety Layer
 
 ## Current Position
 
-Phase: 5 — Ban-Safety Layer
-Current Plan: 6 (gap closure for 05-VERIFICATION.md warm-up enforcement gap)
-Total Plans in Phase: 6 (5 executed + 05-06 gap closure planned)
-Status: Ready to execute
+Phase: 05 (Ban-Safety Layer) — EXECUTING
+Current Plan: 1
+Total Plans in Phase: 6
+Status: Executing Phase 05
 
-Progress: [████░░░░░░] 44%
+Progress: [██████░░░░] 56%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [████░░░░░░] 44%
 | Phase 05-ban-safety-layer P03 | 1 execution pass | 3 tasks | 17 files |
 | Phase 05-ban-safety-layer P04 | 1 execution pass | 3 tasks | 19 files |
 | Phase 05-ban-safety-layer P05 | 1 execution pass | 3 tasks | 11 files |
+| Phase 05-ban-safety-layer P06 | 1 execution pass | 3 tasks | 4 files |
 
 ## Per-Plan Metrics:
 
@@ -153,6 +154,7 @@ Recent decisions affecting current work:
 - [Phase 05]: [Phase 05-05]: Day safe-threshold stays at 1000 (not the plan's literal 300) so SafeDefaults remain valid per the 05-01 precedent; hour adopts the plan's 600
 - [Phase 05]: [Phase 05-05]: Unsafe opt-in requires non-empty DeclaredUnsafeAcknowledgment; existing unsafe test helpers pinned with explicit acknowledgments
 - [Phase 05]: [Phase 05-05]: Phase gate closes with the 4 documented pre-existing PairingLifecycleTests environment failures; no new failures, no new packages
+- [Phase 05]: [Phase 05-06]: Warm-up ceiling enforced end-to-end (SAF-03 / SC2b closed) — AdmitAsync takes the resolved stage int with zero store writes, counter is per-UTC-day under a shared lock, unpaired sessions share the stage-0 ceiling, over-ceiling refusal reuses RateLimit-to-BudgetExhausted with rule-only messages
 
 ### Pending Todos
 
@@ -166,6 +168,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T06:00:00.000Z
-Stopped at: Completed 05-05-PLAN.md
+Last session: 2026-10-14T08:10:00.000Z
+Stopped at: Completed 05-06-PLAN.md
 Resume file: None
