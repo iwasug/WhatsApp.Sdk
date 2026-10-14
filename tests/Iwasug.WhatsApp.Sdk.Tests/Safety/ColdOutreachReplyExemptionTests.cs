@@ -30,6 +30,10 @@ public sealed class ColdOutreachReplyExemptionTests
         MaxMessagesPerMinute = 100,
         MaxColdOutreachPerDay = coldCap,
         BaseInterSendJitter = TimeSpan.Zero,
+        // Zero pacing: the 05-04 presence pause is a mandatory gate stage, but
+        // these pre-pacing tests prove reply-exemption behavior, not pause timing.
+        PacingPresenceMinMs = 0,
+        PacingPresenceMaxMs = 0,
     };
 
     [Fact]

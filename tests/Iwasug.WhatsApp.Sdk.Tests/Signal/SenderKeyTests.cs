@@ -235,6 +235,7 @@ public sealed class SenderKeyTests
         };
         await using var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions());
         connection.StoreRegistry = new StoreRegistry(registryOptions);
+        connection.SafetyPolicy = NoSafetyDelays();
 
         ScriptedPeer? peer = null;
         var peerTask = Task.Run(async () =>
@@ -351,6 +352,7 @@ public sealed class SenderKeyTests
         };
         await using var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions());
         connection.StoreRegistry = new StoreRegistry(registryOptions);
+        connection.SafetyPolicy = NoSafetyDelays();
 
         ScriptedPeer? peer = null;
         var peerTask = Task.Run(async () =>
@@ -418,6 +420,7 @@ public sealed class SenderKeyTests
         };
         await using var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions());
         connection.StoreRegistry = new StoreRegistry(registryOptions);
+        connection.SafetyPolicy = NoSafetyDelays();
 
         ScriptedPeer? peer = null;
         var peerTask = Task.Run(async () =>

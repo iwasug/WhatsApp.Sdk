@@ -80,12 +80,21 @@ internal sealed class SafetyGate : ISafetyGate
 
     private async Task PublishViolationAsync(SafetyRuleViolationException ex, SendContext context, CancellationToken cancellationToken)
     {
+        // CircuitOpen refusals emit nothing: the Open transition already emitted
+        // AccountRestricted once via PublishBreakerOpenAsync, and every refusal
+        // while already open is steady-state, not a transition (SAF-05: no
+        // duplicate AccountRestricted on repeated sends while already open).
+        // The typed refusal itself still propagates to the caller below.
+        if (ex.Rule == SafetyRule.CircuitOpen)
+        {
+            return;
+        }
+
         WhatsAppEvent? evt = ex.Rule switch
         {
             SafetyRule.RateLimit => new BudgetExhaustedEvent(context.Chat.ToString(), "Window", DateTimeOffset.MaxValue, (int)ex.Rule, _clock.GetUtcNow()),
             SafetyRule.InactiveHours => new ThrottleEngagedEvent(context.Chat.ToString(), "Window", DateTimeOffset.MaxValue, (int)ex.Rule, _clock.GetUtcNow()),
             SafetyRule.ColdOutreach => new AccountRestrictedEvent(context.Chat.ToString(), "Outcome", DateTimeOffset.MaxValue, (int)ex.Rule, _clock.GetUtcNow()),
-            SafetyRule.CircuitOpen => new AccountRestrictedEvent(context.Chat.ToString(), "Error", DateTimeOffset.MaxValue, (int)ex.Rule, _clock.GetUtcNow()),
             _ => null,
         };
 
@@ -114,7 +123,6 @@ internal sealed class SafetyGate : ISafetyGate
                 ThrottleEngaged?.Invoke(this, new ThrottleEngagedEventArgs(context.Chat.ToString(), "Window", DateTimeOffset.MaxValue, (int)ex.Rule));
                 break;
             case SafetyRule.ColdOutreach:
-            case SafetyRule.CircuitOpen:
                 AccountRestricted?.Invoke(this, new AccountRestrictedEventArgs(context.Chat.ToString(), "Error", DateTimeOffset.MaxValue, (int)ex.Rule));
                 break;
         }
@@ -162,7 +170,8 @@ internal sealed class SafetyGate : ISafetyGate
     }
     private async Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken)
     {
-        StoreSession stores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+        // Process-local buckets: no store round-trip (durability lives in the
+        // warm-up row and the recipient ledger, not in rate windows).
         TokenBucketRateLimiterSet.AcquisitionResult result = await _rateLimits.TryAcquireAsync(cancellationToken).ConfigureAwait(false);
         if (!result.Acquired)
         {
@@ -218,6 +227,21 @@ internal sealed class SafetyGate : ISafetyGate
         if (opened)
         {
             await PublishBreakerOpenAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Warm-up accounting is best-effort and never fails the returned outcome (D-20).
+        try
+        {
+            StoreSession warmupStores = await _resolveStores(cancellationToken).ConfigureAwait(false);
+            await _warmup.RecordSendAsync(warmupStores, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Warm-up record failed; continuing (D-20).");
         }
 
         // Mark only after a send that actually left the process (Sent or TimedOut), and

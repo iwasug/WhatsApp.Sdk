@@ -171,7 +171,7 @@ public sealed class RecentCachePolicyTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("prekey-low", token);
+        await using Rig rig = await BuildRigAsync("prekey-low", token, safetyOptions: NoSafetyDelays());
         await SeedOwnPrekeysAsync(rig.PreKeys, count: 3, firstId: 100, token); // below the Pattern-3 floor of 5
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
@@ -190,7 +190,7 @@ public sealed class RecentCachePolicyTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("prekey-healthy", token);
+        await using Rig rig = await BuildRigAsync("prekey-healthy", token, safetyOptions: NoSafetyDelays());
         await SeedOwnPrekeysAsync(rig.PreKeys, count: 7, firstId: 100, token); // above the floor
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;

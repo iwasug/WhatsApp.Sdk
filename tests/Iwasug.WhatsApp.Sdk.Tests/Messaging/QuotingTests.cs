@@ -216,7 +216,7 @@ public sealed class QuotingTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("quote-shape", token);
+        await using Rig rig = await BuildRigAsync("quote-shape", token, safetyOptions: NoSafetyDelays());
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
 

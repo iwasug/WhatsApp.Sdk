@@ -7,6 +7,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Safety;
 using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.InMemory;
@@ -56,7 +57,8 @@ public sealed class MessageCorrelationTests
         TimeProvider? clock = null,
         Action<ScriptedPeer>? configurePeer = null,
         Func<FixedStores, IRecentMessageCacheStoreFactory>? cacheFactoryOverride = null,
-        bool seedReceivePair = false)
+        bool seedReceivePair = false,
+        SafetyOptions? safetyOptions = null)
     {
         AccountId account = NewAccount(hint);
         OwnKeys own = CreateOwnKeys(777);
@@ -96,6 +98,13 @@ public sealed class MessageCorrelationTests
             SafetyStateFactory = fixedStores, CredentialFactory = fixedStores,
         };
         var connection = new WaConnection(account, CreateClient(peers), payloads, TracerOptions(), clock);
+        if (safetyOptions is not null)
+        {
+            // Pinned before first Messaging use (WaConnection.SafetyPolicy
+            // contract): loopback send proofs opt out of production gate timing.
+            connection.SafetyPolicy = safetyOptions;
+        }
+
         connection.StoreRegistry = new StoreRegistry(registryOptions);
 
         var peerReady = new TaskCompletionSource<ScriptedPeer>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -190,7 +199,8 @@ public sealed class MessageCorrelationTests
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
         await using Rig rig = await BuildRigAsync(
-            "corr-timeout", token, clock: fakeTime, configurePeer: p => p.AutoAck = false);
+            "corr-timeout", token, clock: fakeTime, configurePeer: p => p.AutoAck = false,
+            safetyOptions: NoSafetyDelays());
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
 
@@ -230,7 +240,7 @@ public sealed class MessageCorrelationTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("corr-phash", token);
+        await using Rig rig = await BuildRigAsync("corr-phash", token, safetyOptions: NoSafetyDelays());
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
 
@@ -289,7 +299,7 @@ public sealed class MessageCorrelationTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("corr-cancel", token, configurePeer: p => p.AutoAck = false);
+        await using Rig rig = await BuildRigAsync("corr-cancel", token, configurePeer: p => p.AutoAck = false, safetyOptions: NoSafetyDelays());
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
 

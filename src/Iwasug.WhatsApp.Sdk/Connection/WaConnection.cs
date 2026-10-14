@@ -7,6 +7,7 @@ using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Safety;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Transport;
 using Microsoft.Extensions.Logging;
@@ -176,6 +177,8 @@ public sealed class WaConnection : IAsyncDisposable
     private Messenger? _messaging;
     private readonly object _messagingGate = new();
     private StoreRegistry? _storeRegistry;
+
+    private SafetyOptions? _safetyPolicy;
     private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
@@ -329,6 +332,21 @@ public sealed class WaConnection : IAsyncDisposable
     {
         get => Volatile.Read(ref _storeRegistry);
         set => Volatile.Write(ref _storeRegistry, value);
+    }
+
+    /// <summary>
+    /// Safety-policy seam (05-04): the ban-safety configuration the messaging
+    /// layer gates every send through. Set before first <see cref="Messaging"/> use
+    /// (the <see cref="StoreRegistry"/> precedent above); when unset, the gate runs
+    /// the safe production defaults. Loopback send proofs pin deterministic
+    /// zero-timing policies here so they never absorb the production presence
+    /// pause; the pause itself is proven in the Safety unit suites on fake clocks.
+    /// The public host-facing configuration story is a Phase 5 plan 05-05 concern.
+    /// </summary>
+    internal SafetyOptions? SafetyPolicy
+    {
+        get => Volatile.Read(ref _safetyPolicy);
+        set => Volatile.Write(ref _safetyPolicy, value);
     }
 
     /// <summary>Resolves the account's store session (host registry first, in-memory fallback per D-03).</summary>

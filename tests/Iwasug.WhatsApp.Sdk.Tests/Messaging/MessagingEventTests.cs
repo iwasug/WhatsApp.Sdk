@@ -166,7 +166,7 @@ public sealed class MessagingEventTests
     {
         using var testCts = new CancellationTokenSource(WaitTimeout);
         CancellationToken token = testCts.Token;
-        await using Rig rig = await BuildRigAsync("evt-inflight", token, configurePeer: p => p.AutoAck = false);
+        await using Rig rig = await BuildRigAsync("evt-inflight", token, configurePeer: p => p.AutoAck = false, safetyOptions: NoSafetyDelays());
         await rig.Connection.ConnectAsync(token);
         ScriptedPeer peer = await rig.PeerReady;
 

@@ -77,7 +77,7 @@ public sealed class Messenger : IAsyncDisposable
         _receipts = new ReceiptHandler(this);
         _safety = new SafetyGate(
             connection.Clock,
-            SafetyOptions.Validate(null),
+            SafetyOptions.Validate(connection.SafetyPolicy),
             logger: null,
             ct => ResolveStoresAsync(ct),
             (evt, ct) => PublishAsync(evt, ct));

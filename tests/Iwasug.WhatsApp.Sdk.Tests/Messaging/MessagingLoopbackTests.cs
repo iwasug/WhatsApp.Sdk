@@ -10,6 +10,7 @@ using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Pairing;
+using Iwasug.WhatsApp.Sdk.Safety;
 using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.InMemory;
@@ -38,6 +39,26 @@ namespace Iwasug.WhatsApp.Sdk.Tests.Messaging;
 public sealed class MessagingLoopbackTests
 {
     internal static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Zero-timing safety policy for loopback send proofs (05-04): no inter-send
+    /// jitter, no presence pause, generous budgets, full-day window. Protocol
+    /// tests prove wire behavior, never policy timing — so they pin the
+    /// production delays (2–12s presence pause per send) to zero instead of
+    /// absorbing them into their 15s script budgets. Policy timing itself is
+    /// proven in the Safety unit suites on fake clocks.
+    /// </summary>
+    internal static SafetyOptions NoSafetyDelays() => new()
+    {
+        AllowUnsafeThroughput = true,
+        MaxMessagesPerMinute = 1000,
+        MaxMessagesPerHour = 1000,
+        MaxMessagesPerDay = 1000,
+        MaxColdOutreachPerDay = 1000,
+        BaseInterSendJitter = TimeSpan.Zero,
+        PacingPresenceMinMs = 0,
+        PacingPresenceMaxMs = 0,
+    };
 
     internal const string OwnUser = "15551234567";
     internal const int OwnDevice = 42;
