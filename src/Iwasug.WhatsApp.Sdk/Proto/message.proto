@@ -6,20 +6,32 @@
 //   - Field numbers and field roles were learned read-only from the
 //     MIT-licensed Baileys sources at commit 0af2386: WAProto/WAProto.proto
 //     (message MessageKey, Message with conversation = 1,
-//     senderKeyDistributionMessage = 2, extendedTextMessage = 6 and
-//     messageContextInfo = 35, ExtendedTextMessage with text = 1 and
-//     contextInfo = 17, ContextInfo with stanzaId = 1, participant = 2,
-//     quotedMessage = 3, remoteJID = 4 and mentionedJID = 15, and the group
-//     SenderKeyDistributionMessage wrapper with groupId = 1 and
-//     axolotlSenderKeyDistributionMessage = 2). No whatsmeow bytes were involved.
+//     senderKeyDistributionMessage = 2, imageMessage = 3, extendedTextMessage = 6,
+//     documentMessage = 7, audioMessage = 8, messageContextInfo = 35,
+//     ExtendedTextMessage with text = 1 and contextInfo = 17, ContextInfo with
+//     stanzaId = 1, participant = 2, quotedMessage = 3, remoteJID = 4 and
+//     mentionedJID = 15, and the group SenderKeyDistributionMessage wrapper with
+//     groupId = 1 and axolotlSenderKeyDistributionMessage = 2). No whatsmeow
+//     bytes were involved.
+//   - ImageMessage fields url=1/mimetype=2/caption=3/fileSha256=4/fileLength=5/
+//     height=6/width=7/mediaKey=8/fileEncSha256=9/directPath=11/
+//     mediaKeyTimestamp=12/jpegThumbnail=16/contextInfo=17.
+//   - DocumentMessage fields url=1/mimetype=2/title=3/fileSha256=4/fileLength=5/
+//     pageCount=6/mediaKey=7/fileName=8/fileEncSha256=9/directPath=10/
+//     mediaKeyTimestamp=11/jpegThumbnail=16/contextInfo=17/caption=20.
+//   - AudioMessage fields url=1/mimetype=2/fileSha256=3/fileLength=4/seconds=5/
+//     ptt=6/mediaKey=7/fileEncSha256=8/directPath=9/mediaKeyTimestamp=10/
+//     contextInfo=17/streamingSidecar=18/waveform=19.
+//   - Media branches imageMessage=3/documentMessage=7/audioMessage=8.
+//   - MediaRetryNotification{stanzaId=1,directPath=2,result=3} and
+//     ServerErrorReceipt{stanzaId=1}.
 //   - Quoting semantics (plain text rides Message.conversation; quote-carrying
 //     replies ride Message.extendedTextMessage with ContextInfo) follow the
 //     same Baileys read (04-RESEARCH Assumption A2).
 //
-// SCOPE (04-02): Phase-4 text-only subset. Media, payment, reaction and other
-// Message oneof branches are deliberately absent: the field numbers above are
-// pinned by message-wire-fixtures.json, and any later branch must keep these
-// numbers stable.
+// SCOPE (06-01): Phase-6 media branches. Media, payment, reaction and other
+// Message oneof branches are only the image/document/audio subset here; the
+// pinned numbers above must stay stable.
 
 syntax = "proto3";
 
@@ -27,8 +39,6 @@ package wa.message;
 
 option csharp_namespace = "Iwasug.WhatsApp.Sdk.Messaging";
 
-// Per-message key: identifies one message inside a chat (receipts and the
-// recent-message cache key off the id; groups additionally carry participant).
 message MessageKey {
   string remoteJid = 1;
   bool fromMe = 2;
@@ -36,8 +46,6 @@ message MessageKey {
   string participant = 4;
 }
 
-// Quoting context carried inside an ExtendedTextMessage: which message is
-// being replied to, who sent it, the quoted render source, and the chat.
 message ContextInfo {
   string stanzaId = 1;
   string participant = 2;
@@ -46,33 +54,84 @@ message ContextInfo {
   repeated string mentionedJID = 15;
 }
 
-// Text with an optional quoting context. Required (not conversation) whenever
-// a quote is present: WhatsApp renders quotes only through this shape.
 message ExtendedTextMessage {
   string text = 1;
   ContextInfo contextInfo = 17;
 }
 
-// Group sender-key distribution wrapper (the WA outer form): which group the
-// enclosed axolotl payload belongs to, plus the opaque inner distribution
-// bytes (a serialized Signal SenderKeyDistributionMessage).
 message SenderKeyDistributionMessage {
   string groupId = 1;
   bytes axolotlSenderKeyDistributionMessage = 2;
 }
 
-// Placeholder for the message-context branch (field 35): Phase-4 text scope
-// pins the field number so later branches cannot renumber it. Intentionally
-// empty until a consumer needs its fields.
 message MessageContextInfo {
 }
 
-// Outer plaintext message: plain text rides conversation; quote-carrying
-// replies ride extendedTextMessage; group key distribution rides
-// senderKeyDistributionMessage.
+message ImageMessage {
+  string url = 1;
+  string mimetype = 2;
+  string caption = 3;
+  bytes fileSha256 = 4;
+  int64 fileLength = 5;
+  int32 height = 6;
+  int32 width = 7;
+  bytes mediaKey = 8;
+  bytes fileEncSha256 = 9;
+  string directPath = 11;
+  int64 mediaKeyTimestamp = 12;
+  bytes jpegThumbnail = 16;
+  ContextInfo contextInfo = 17;
+}
+
+message DocumentMessage {
+  string url = 1;
+  string mimetype = 2;
+  string title = 3;
+  bytes fileSha256 = 4;
+  int64 fileLength = 5;
+  int32 pageCount = 6;
+  bytes mediaKey = 7;
+  string fileName = 8;
+  bytes fileEncSha256 = 9;
+  string directPath = 10;
+  int64 mediaKeyTimestamp = 11;
+  bytes jpegThumbnail = 16;
+  ContextInfo contextInfo = 17;
+  string caption = 20;
+}
+
+message AudioMessage {
+  string url = 1;
+  string mimetype = 2;
+  bytes fileSha256 = 3;
+  int64 fileLength = 4;
+  int32 seconds = 5;
+  bool ptt = 6;
+  bytes mediaKey = 7;
+  bytes fileEncSha256 = 8;
+  string directPath = 9;
+  int64 mediaKeyTimestamp = 10;
+  ContextInfo contextInfo = 17;
+  bytes streamingSidecar = 18;
+  repeated int32 waveform = 19;
+}
+
+message ServerErrorReceipt {
+  string stanzaId = 1;
+}
+
+message MediaRetryNotification {
+  string stanzaId = 1;
+  string directPath = 2;
+  int32 result = 3;
+}
+
 message Message {
   string conversation = 1;
   SenderKeyDistributionMessage senderKeyDistributionMessage = 2;
+  ImageMessage imageMessage = 3;
   ExtendedTextMessage extendedTextMessage = 6;
+  DocumentMessage documentMessage = 7;
+  AudioMessage audioMessage = 8;
   MessageContextInfo messageContextInfo = 35;
 }

@@ -910,3 +910,7 @@ static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator ==(Iwasug.WhatsApp.Sdk.
 static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
 static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator !=(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
 static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator ==(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
+Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.Document = 1 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.Image = 0 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote = 2 -> Iwasug.WhatsApp.Sdk.Media.MediaKind

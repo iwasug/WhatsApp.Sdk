@@ -66,6 +66,20 @@ internal static class MessageBuilder
     /// <summary>Protobuf field number of <c>ExtendedTextMessage.contextInfo</c> (Baileys WAProto role).</summary>
     internal const int ContextInfoFieldNumber = 17;
 
+    /// <summary>Protobuf field number of <c>Message.imageMessage</c> (Baileys WAProto role).</summary>
+    internal const int ImageMessageFieldNumber = 3;
+
+    /// <summary>Protobuf field number of <c>Message.documentMessage</c> (Baileys WAProto role).</summary>
+    internal const int DocumentMessageFieldNumber = 7;
+
+    /// <summary>Protobuf field number of <c>Message.audioMessage</c> (Baileys WAProto role).</summary>
+    internal const int AudioMessageFieldNumber = 8;
+
+    internal const string MediaTypeImage = "image";
+    internal const string MediaTypeDocument = "document";
+    internal const string MediaTypeAudio = "audio";
+    internal const string MediaTypePtt = "ptt";
+
     /// <summary>Enc version attribute carried on every <c>enc</c> child (whatsmeow send.go behavior).</summary>
     internal const string EncVersion = "2";
 
@@ -178,6 +192,113 @@ internal static class MessageBuilder
                 AxolotlSenderKeyDistributionMessage = ByteString.CopyFrom(distributionWire),
             },
         }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for an image message using an upload result.
+    /// </summary>
+    internal static byte[] BuildImageMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string? caption, int? width = null, int? height = null, byte[]? thumbnail = null)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        ValidateUpload(upload);
+        if (thumbnail is not null && thumbnail.Length > Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.MaxThumbnailBytes)
+        {
+            throw new SdkFormatException("Media thumbnails must not exceed 64 KiB.");
+        }
+        var image = new ImageMessage
+        {
+            Url = upload.Url,
+            Mimetype = "image/jpeg",
+            FileSha256 = ByteString.CopyFrom(upload.FileSha256),
+            FileLength = upload.FileLength,
+            MediaKey = ByteString.CopyFrom(upload.MediaKey),
+            FileEncSha256 = ByteString.CopyFrom(upload.FileEncSha256),
+            DirectPath = upload.DirectPath,
+            MediaKeyTimestamp = upload.MediaKeyTimestamp,
+        };
+        if (!string.IsNullOrEmpty(caption)) image.Caption = caption;
+        if (width.HasValue) { if (width < 0 || width > 10000) throw new SdkFormatException("Media dimensions out of range."); image.Width = width.Value; }
+        if (height.HasValue) { if (height < 0 || height > 10000) throw new SdkFormatException("Media dimensions out of range."); image.Height = height.Value; }
+        if (thumbnail is not null) image.JpegThumbnail = ByteString.CopyFrom(thumbnail);
+        return new Message { ImageMessage = image }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for a document message using an upload result.
+    /// </summary>
+    internal static byte[] BuildDocumentMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string mimetype, string? title, string? fileName, string? caption)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        ValidateUpload(upload);
+        if (string.IsNullOrWhiteSpace(mimetype) || (!mimetype.Equals("application/pdf", StringComparison.OrdinalIgnoreCase) && !mimetype.Equals("text/plain", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        }
+        if (fileName is not null && (fileName.Contains('/') || fileName.Contains('\\') || fileName.Contains("..")))
+        {
+            throw new SdkFormatException("Media filenames must not contain path separators or traversal.");
+        }
+        var doc = new DocumentMessage
+        {
+            Url = upload.Url,
+            Mimetype = mimetype,
+            FileSha256 = ByteString.CopyFrom(upload.FileSha256),
+            FileLength = upload.FileLength,
+            MediaKey = ByteString.CopyFrom(upload.MediaKey),
+            FileName = fileName ?? string.Empty,
+            FileEncSha256 = ByteString.CopyFrom(upload.FileEncSha256),
+            DirectPath = upload.DirectPath,
+            MediaKeyTimestamp = upload.MediaKeyTimestamp,
+        };
+        if (!string.IsNullOrEmpty(title)) doc.Title = title;
+        if (!string.IsNullOrEmpty(caption)) doc.Caption = caption;
+        return new Message { DocumentMessage = doc }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for a voice note using an upload result.
+    /// </summary>
+    internal static byte[] BuildVoiceNoteMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string mimetype, int seconds, byte[]? waveform)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        ValidateUpload(upload);
+        if (string.IsNullOrWhiteSpace(mimetype) || !mimetype.StartsWith("audio/ogg", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        }
+        if (seconds < 0 || seconds > 3600)
+        {
+            throw new SdkFormatException("Media seconds out of range.");
+        }
+        if (waveform is not null)
+        {
+            if (waveform.Length != 64) throw new SdkFormatException("Media waveform must be 64 entries.");
+            if (waveform.Any(b => b > 100)) throw new SdkFormatException("Media waveform values out of range.");
+        }
+        var audio = new AudioMessage
+        {
+            Url = upload.Url,
+            Mimetype = mimetype,
+            FileSha256 = ByteString.CopyFrom(upload.FileSha256),
+            FileLength = upload.FileLength,
+            Seconds = seconds,
+            Ptt = true,
+            MediaKey = ByteString.CopyFrom(upload.MediaKey),
+            FileEncSha256 = ByteString.CopyFrom(upload.FileEncSha256),
+            DirectPath = upload.DirectPath,
+            MediaKeyTimestamp = upload.MediaKeyTimestamp,
+        };
+        if (waveform is not null) audio.Waveform.AddRange(waveform.Select(b => (int)b));
+        return new Message { AudioMessage = audio }.ToByteArray();
+    }
+
+    private static void ValidateUpload(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload)
+    {
+        if (upload.MediaKey.Length != 32) throw new SdkFormatException("Media keys must be 32 bytes.");
+        if (upload.FileSha256.Length != 32 || upload.FileEncSha256.Length != 32) throw new SdkFormatException("Media hashes must be 32 bytes.");
+        if (string.IsNullOrEmpty(upload.DirectPath) || !upload.DirectPath.StartsWith('/')) throw new SdkFormatException("Media direct paths must start with '/'.");
+        if (upload.FileLength <= 0) throw new SdkFormatException("Media file length must be positive.");
+        if (string.IsNullOrEmpty(upload.Url)) throw new SdkFormatException("Media urls must not be empty.");
     }
 
     /// <summary>
