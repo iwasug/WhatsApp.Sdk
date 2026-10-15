@@ -88,19 +88,25 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
         WaConnection? connectionInstance = null;
         try
         {
+            // 07 WR-05: every account-graph logger is account-scoped (MUL-03 / SC3) so
+            // each emitted entry carries the AccountId scope and logs stay attributable
+            // when tens of accounts share one process.
+            ILoggerFactory loggerFactory = _loggerFactory ?? NullLoggerFactory.Instance;
+
             connectionInstance = new WaConnection(
                 accountId,
                 ResolveTransportFactory(accountId, connection),
                 ResolveHandshakePayloads(accountId, session),
                 connection,
                 _timeProvider,
-                (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<WaConnection>());
+                new AccountScopedLogger<WaConnection>(accountId, loggerFactory));
 
             connectionInstance.StoreRegistry = registry;
             connectionInstance.SafetyPolicy = safety;
             connectionInstance.MessagingEventChannelCapacity = _eventChannelCapacity;
+            connectionInstance.SafetyLogger = new AccountScopedLogger<SafetyGate>(accountId, loggerFactory);
 
-            var logger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<AccountRuntime>();
+            ILogger<AccountRuntime> logger = new AccountScopedLogger<AccountRuntime>(accountId, loggerFactory);
 
             // 07 CR-02: exactly one gate per account — the real gate inside the messenger
             // that every send traverses. A second, factory-owned gate would never gate a

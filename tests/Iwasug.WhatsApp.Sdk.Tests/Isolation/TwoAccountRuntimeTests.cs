@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Iwasug.WhatsApp.Sdk.Accounts;
 using Iwasug.WhatsApp.Sdk.Messaging;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Iwasug.WhatsApp.Sdk.Tests.Isolation;
@@ -145,5 +147,123 @@ public class TwoAccountRuntimeTests
             // expected on cancellation
         }
         return count;
+    }
+
+    [Fact]
+    public async Task RuntimeLoggers_CarryAccountIdScope()
+    {
+        // 07 WR-05: the account graph must log through AccountScopedLogger (MUL-03 / SC3).
+        // The throwing transport faults the connect attempt, which makes WaConnection emit
+        // a runtime-produced entry through its account-scoped logger; that entry must
+        // carry the AccountId scope or multi-account logs are unattributable.
+        var capture = new CapturingLoggerFactory();
+        var factory = new DefaultAccountRuntimeFactory(
+            loggerFactory: capture,
+            transportFactory: _ => new ThrowingTransport());
+
+        AccountId accountId = AccountId.Create($"wr05-{Guid.NewGuid():N}");
+        AccountRuntime runtime = await factory.CreateAsync(accountId, TestContext.Current.CancellationToken);
+        try
+        {
+            Task connect = runtime.Connection.ConnectAsync(TestContext.Current.CancellationToken);
+            _ = connect.ContinueWith(static t => { _ = t.Exception; }, TaskScheduler.Default);
+
+            string? scopedAccountId = null;
+            await WaitForAsync(
+                () => capture.TryGetScopedAccountId("WaConnection", out scopedAccountId),
+                TimeSpan.FromSeconds(5));
+            scopedAccountId.Should().Be(accountId.Value);
+        }
+        finally
+        {
+            await runtime.DisposeAsync();
+        }
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        while (!condition())
+        {
+            if (DateTimeOffset.UtcNow > deadline)
+            {
+                throw new TimeoutException("The awaited condition was not reached in time.");
+            }
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+        }
+    }
+
+    /// <summary>Captures each forwarded log entry together with the AccountId scope active on it.</summary>
+    private sealed class CapturingLoggerFactory : ILoggerFactory
+    {
+        private readonly ConcurrentQueue<(string Category, string? ScopedAccountId)> _entries = new();
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(this, categoryName);
+
+        public void AddProvider(ILoggerProvider provider) { }
+
+        public void Dispose() { }
+
+        public bool TryGetScopedAccountId(string categorySubstring, out string? accountId)
+        {
+            foreach ((string Category, string? ScopedAccountId) entry in _entries)
+            {
+                if (entry.Category.Contains(categorySubstring, StringComparison.Ordinal) && entry.ScopedAccountId is not null)
+                {
+                    accountId = entry.ScopedAccountId;
+                    return true;
+                }
+            }
+
+            accountId = null;
+            return false;
+        }
+
+        private void Record(string category, string? scopedAccountId) => _entries.Enqueue((category, scopedAccountId));
+
+        private sealed class CapturingLogger(CapturingLoggerFactory owner, string categoryName) : ILogger
+        {
+            private string? _scopedAccountId;
+
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+            {
+                if (state is IEnumerable<KeyValuePair<string, object>> values)
+                {
+                    foreach (KeyValuePair<string, object> kvp in values)
+                    {
+                        if (kvp.Key == "AccountId") _scopedAccountId = kvp.Value?.ToString();
+                    }
+                }
+
+                return new ScopeHandle();
+            }
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+                => owner.Record(categoryName, _scopedAccountId);
+
+            private sealed class ScopeHandle : IDisposable
+            {
+                public void Dispose() { }
+            }
+        }
+    }
+
+    /// <summary>Fails every send so the connect loop faults and logs immediately.</summary>
+    private sealed class ThrowingTransport : Iwasug.WhatsApp.Sdk.Transport.IFrameTransport
+    {
+        public int? CloseStatusCode => null;
+
+        public ValueTask SendAsync(ReadOnlyMemory<byte> frame, CancellationToken cancellationToken = default) =>
+            ValueTask.FromException(new InvalidOperationException("test transport: wire refused"));
+
+        public ValueTask<ReadOnlyMemory<byte>?> ReceiveAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromException<ReadOnlyMemory<byte>?>(new InvalidOperationException("test transport: wire refused"));
+
+        public ValueTask CloseAsync(int statusCode, CancellationToken cancellationToken = default) =>
+            ValueTask.CompletedTask;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

@@ -182,6 +182,7 @@ public sealed class WaConnection : IAsyncDisposable
 
     private SafetyOptions? _safetyPolicy;
     private int _messagingEventChannelCapacity = Iwasug.WhatsApp.Sdk.Messaging.Messenger.EventChannelCapacity;
+    private ILogger<SafetyGate>? _safetyLogger;
     private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
@@ -362,6 +363,18 @@ public sealed class WaConnection : IAsyncDisposable
     {
         get => Volatile.Read(ref _messagingEventChannelCapacity);
         set => Volatile.Write(ref _messagingEventChannelCapacity, value);
+    }
+
+    /// <summary>
+    /// Account-scoped safety-gate logger seam (07 WR-05): the logger the messaging
+    /// layer hands to its <see cref="SafetyGate"/>, carrying the per-account
+    /// <c>AccountId</c> scope. Set before first <see cref="Messaging"/> use (the
+    /// <see cref="StoreRegistry"/> precedent); when unset, the gate logs nothing.
+    /// </summary>
+    internal ILogger<SafetyGate>? SafetyLogger
+    {
+        get => Volatile.Read(ref _safetyLogger);
+        set => Volatile.Write(ref _safetyLogger, value);
     }
 
     /// <summary>Resolves the account's store session (host registry first, in-memory fallback per D-03).</summary>

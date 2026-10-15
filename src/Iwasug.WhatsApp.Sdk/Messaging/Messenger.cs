@@ -91,7 +91,7 @@ public sealed class Messenger : IAsyncDisposable
         _safety = new SafetyGate(
             connection.Clock,
             SafetyOptions.Validate(connection.SafetyPolicy),
-            logger: null,
+            logger: connection.SafetyLogger,
             ct => ResolveStoresAsync(ct),
             (evt, ct) => PublishAsync(evt, ct));
         _safety.BudgetExhausted += (_, args) => _ = RaiseBudgetExhaustedAsync(args, CancellationToken.None);
