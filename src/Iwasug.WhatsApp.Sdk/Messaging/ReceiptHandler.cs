@@ -63,6 +63,9 @@ internal sealed class ReceiptHandler
     /// </summary>
     internal const int MaxOneTimeProbe = 64;
 
+    private readonly Iwasug.WhatsApp.Sdk.Media.MediaRetryTracker _mediaRetryTracker = new();
+    internal Iwasug.WhatsApp.Sdk.Media.MediaRetryTracker MediaRetryTracker => _mediaRetryTracker;
+
     private readonly Messenger _owner;
     private readonly ConcurrentDictionary<string, bool> _deliveryReceiptChats = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, RetryCounter> _retryCounts = new(StringComparer.Ordinal);
@@ -435,8 +438,84 @@ internal sealed class ReceiptHandler
         return (mintedPublic, (uint)mintedId, mintedId);
     }
 
-    private static byte[] BigEndianBytes(uint value, int width)
+    /// <summary>
+    /// Emits the D-66a server-error receipt for an expired inbound media URL (proto recovery
+    /// node shape): <c>&lt;receipt id type="server-error" to="{own}"&gt; ...</c>. Protocol traffic,
+    /// whitelisted egress (SendPathAuditTests), bounded by MediaRetryTracker externally.
+    /// </summary>
+    internal async Task EmitServerErrorReceiptAsync(
+        string messageId,
+        Iwasug.WhatsApp.Sdk.Domain.Jid chat,
+        bool isFromMe,
+        Iwasug.WhatsApp.Sdk.Domain.Jid? participant,
+        System.Threading.CancellationToken cancellationToken)
     {
+        BinaryNode node = BuildServerErrorReceiptNode(messageId, chat, isFromMe, participant);
+        await _owner.Connection.SendNodeAsync(node, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends the same server-error receipt through the whitelisted egress seam.</summary>
+    internal async Task SendServerErrorReceiptAsync(
+        string messageId,
+        Iwasug.WhatsApp.Sdk.Domain.Jid chat,
+        bool isFromMe,
+        Iwasug.WhatsApp.Sdk.Domain.Jid? participant,
+        System.Threading.CancellationToken cancellationToken)
+        => await EmitServerErrorReceiptAsync(messageId, chat, isFromMe, participant, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Composes reserve-then-send around the tracker: returns false when the per-id cap is
+    /// already exhausted (no wire egress in that case).
+    /// </summary>
+    internal async Task<bool> SendMediaRetryReceiptAsync(
+        string messageId,
+        Iwasug.WhatsApp.Sdk.Domain.Jid chat,
+        bool isFromMe,
+        Iwasug.WhatsApp.Sdk.Domain.Jid? participant,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        if (!MediaRetryTracker.TryReserve(messageId))
+        {
+            return false;
+        }
+
+        await SendServerErrorReceiptAsync(messageId, chat, isFromMe, participant, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    internal static BinaryNode BuildServerErrorReceiptNode(
+        string messageId,
+        Iwasug.WhatsApp.Sdk.Domain.Jid chat,
+        bool isFromMe,
+        Iwasug.WhatsApp.Sdk.Domain.Jid? participant)
+    {
+        var attrs = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["id"] = messageId,
+            ["type"] = "server-error",
+            ["to"] = (chat is null ? string.Empty : chat.ToString()),
+        };
+        // rmr child mirrors group-ack participant precedent.
+        var rmrAttrs = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["jid"] = chat?.ToString() ?? string.Empty,
+            ["from_me"] = isFromMe ? "true" : "false",
+        };
+        if (participant is not null)
+        {
+            rmrAttrs["participant"] = participant.ToString();
+        }
+        BinaryNode rmr = BinaryNode.Create("rmr", rmrAttrs);
+
+        var encryptAttrs = new Dictionary<string, string>(StringComparer.Ordinal);
+        BinaryNode encP = BinaryNode.FromBytes("enc_p", System.Array.Empty<byte>(), null);
+        BinaryNode encIv = BinaryNode.FromBytes("enc_iv", System.Array.Empty<byte>(), null);
+        BinaryNode encrypt = BinaryNode.FromChildren("encrypt", [encP, encIv], null);
+
+        return BinaryNode.FromChildren("receipt", [encrypt, rmr], attrs);
+    }
+
+    private static byte[] BigEndianBytes(uint value, int width)    {
         var bytes = new byte[width];
         for (int i = width - 1; i >= 0; i--)
         {

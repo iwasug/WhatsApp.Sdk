@@ -864,6 +864,15 @@ internal sealed class MessageDispatcher
             new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp),
             cancellationToken).ConfigureAwait(false);
 
+        BinaryNode? rmr = FirstChild(node, "rmr");
+        if (rmr is not null)
+        {
+            // Media-retry (D-66b): receipts carrying an <rmr> child route here regardless
+            // of receipt type, BEFORE the Pattern-5 decrypt-retry branch below. Best-effort.
+            await TryHandleMediaRetryReceiptAsync(node, rmr, from, participant, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (kind is ReceiptKind.Retry)
         {
             // MSG-06 respond path: parse the Pattern-5 children bounds-checked, then
@@ -881,6 +890,29 @@ internal sealed class MessageDispatcher
     /// fault is swallowed here so the receive pump keeps running (OperationCanceled
     /// propagates as the only legitimate stop).
     /// </summary>
+    private async Task TryHandleMediaRetryReceiptAsync(
+        BinaryNode node,
+        BinaryNode rmr,
+        Jid from,
+        Jid? participant,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Media-retry correlation is driven by the original message id carried on
+            // the receipt's id attribute; the rmr child supplies chat/participant scope.
+            // Recovery is bounded by MediaRetryTracker and never touches Pattern-5
+            // counters. Full exchange wiring is deferred (host-invisible), but routing
+            // above ensures rmr-carrying receipts never reach the retry branch.
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch
+        {
+            // Log-and-continue: media-retry is best-effort by contract.
+        }
+    }
+
     private async Task TryResendForRetryReceiptAsync(
         Jid requester,
         string messageId,

@@ -40,3 +40,20 @@ public sealed record MediaReceivedEvent(
     int? Seconds = null,
     bool Ptt = false,
     System.IO.Stream? Content = null) : WhatsAppEvent(Timestamp);
+
+/// <summary>
+/// Raised when inbound media download recovery is exhausted or terminally failed.
+/// </summary>
+internal sealed class MediaDownloadFailedEventArgs : EventArgs{
+    public Domain.MessageKeyRecord Key { get; init; }
+    public Domain.Jid Chat { get; init; }
+    public string? MessageId { get; init; }
+    public string? Reason { get; init; }
+    public MediaDownloadFailedEventArgs(Domain.MessageKeyRecord key, Domain.Jid chat, string? messageId = null, string? reason = null)
+    {
+        Key = key;
+        Chat = chat;
+        MessageId = messageId;
+        Reason = reason;
+    }
+}

@@ -109,6 +109,12 @@ public sealed class Messenger : IAsyncDisposable
     /// <see cref="MediaReceivedEventArgs.Content"/>.
     /// </summary>
     public event EventHandler<MediaReceivedEventArgs>? MediaReceived;
+
+    /// <summary>
+    /// Raised when an inbound media download cannot be recovered (cap exhausted or
+    /// terminal rmr error code). The host's only signal; carries no key material.
+    /// </summary>
+    internal event EventHandler<MediaDownloadFailedEventArgs>? MediaDownloadFailed;
     /// <summary>
     /// Raised (on the dispatcher's async path) when an inbound <c>receipt</c> node parses
     /// (04-04, MSG-04): the kind, ids, chat, and optional group participant, parsed
@@ -500,6 +506,12 @@ public sealed class Messenger : IAsyncDisposable
                 args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Kind, args.Mimetype,
                 args.FileLength, args.Caption, args.FileName, args.Seconds, args.Ptt, args.Content),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    internal ValueTask RaiseMediaDownloadFailedAsync(MediaDownloadFailedEventArgs args, CancellationToken cancellationToken = default)
+    {
+        MediaDownloadFailed?.Invoke(this, args);
+        return ValueTask.CompletedTask;
     }
 
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
