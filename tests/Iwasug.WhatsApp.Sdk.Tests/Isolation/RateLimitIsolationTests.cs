@@ -250,4 +250,39 @@ public class RateLimitIsolationTests
         manager.GetStatus(a)!.CircuitState.Should().Be(SafetyCircuitState.Open);
         manager.GetStatus(b)!.CircuitState.Should().Be(SafetyCircuitState.Closed, "A's breaker must not affect B");
     }
+
+    [Fact]
+    public async Task Status_Facts_Have_Real_Writers_Not_Fabricated_Seeds()
+    {
+        // 07 WR-01: RecentFailures/LastConnectedAt/LastActivityAt/LastErrorRuleName must
+        // reflect real facts — never a construction-time seed or an always-null field.
+        var clock = new FakeTimeProvider(Now);
+        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(
+            new DefaultAccountRuntimeFactory(defaultSafety: GateOptions(), timeProvider: clock));
+        AccountId a = AccountId.Create($"wr01-a-{Guid.NewGuid():N}");
+        await manager.AddAccountAsync(a, TestContext.Current.CancellationToken);
+
+        AccountStatus initial = manager.GetStatus(a)!;
+        initial.RecentFailures.Should().Be(0);
+        initial.LastConnectedAt.Should().BeNull("an account that never opened must not report a connection time");
+        initial.LastActivityAt.Should().BeNull("no activity has happened yet");
+        initial.LastErrorRuleName.Should().BeNull();
+
+        // Five consecutive server errors trip the real breaker: every settled send and the
+        // breaker-open AccountRestricted fact must be recorded on the status snapshot.
+        manager.TryGetRuntime(a, out var runtime).Should().BeTrue();
+        for (int i = 0; i < 5; i++)
+        {
+            await runtime!.Messenger.SafetyGate.ExecuteSendAsync(
+                new SendContext(Chat($"155510000{i}"), IsReply: false),
+                TestContext.Current.CancellationToken,
+                _ => Task.FromResult(ServerError($"wr01-{i}")));
+        }
+
+        AccountStatus after = manager.GetStatus(a)!;
+        after.RecentFailures.Should().BeGreaterThan(0);
+        after.LastActivityAt.Should().Be(Now);
+        after.LastErrorRuleName.Should().Be(nameof(SafetyRule.CircuitOpen));
+        after.LastConnectedAt.Should().BeNull("no open transition has happened, even though faults did");
+    }
 }

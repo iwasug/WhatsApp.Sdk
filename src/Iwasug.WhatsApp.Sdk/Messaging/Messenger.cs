@@ -478,6 +478,13 @@ public sealed class Messenger : IAsyncDisposable
     /// </summary>
     internal ISafetyGate SafetyGate => _safety;
 
+    /// <summary>
+    /// Internal observer of every settled outbound send (07 WR-01): the accounts layer
+    /// drives its status activity/failure counters from it. Handlers must return quickly;
+    /// two identical events are never raised for one send.
+    /// </summary>
+    internal event Action<SendOutcome>? SendSettled;
+
     /// <summary>Tests/host seam: attempts to publish a synthetic event to this account's stream (backpressure, no drop).</summary>
     internal bool TryPublishEvent(WhatsAppEvent evt)
     {
@@ -583,12 +590,15 @@ public sealed class Messenger : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    internal ValueTask RaiseMessageAckedAsync(SendOutcome outcome, Jid chat, CancellationToken cancellationToken) =>
-        PublishAsync(
+    internal ValueTask RaiseMessageAckedAsync(SendOutcome outcome, Jid chat, CancellationToken cancellationToken)
+    {
+        SendSettled?.Invoke(outcome);
+        return PublishAsync(
             new MessageAckedEvent(
                 outcome.MessageId, chat, outcome.Status, outcome.Error, outcome.T, outcome.ServerId,
                 _connection.Clock.GetUtcNow()),
             cancellationToken);
+    }
 
     /// <summary>
     /// Writes one fact to the bounded event channel. <see cref="System.Threading.Channels.ChannelClosedException"/>

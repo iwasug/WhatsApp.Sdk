@@ -12,7 +12,12 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 /// <summary>Per-account composition root: owns the full account-scoped graph.</summary>
 internal sealed class AccountRuntime : IAsyncDisposable
 {
+    private readonly TimeProvider _timeProvider;
     private int _disposed;
+    private long _recentFailures;
+    private long _lastConnectedTicks;
+    private long _lastActivityTicks;
+    private string? _lastErrorRuleName;
 
     public AccountRuntime(
         AccountId accountId,
@@ -25,7 +30,8 @@ internal sealed class AccountRuntime : IAsyncDisposable
         ILogger? logger,
         CancellationTokenSource linkedCts,
         ConnectionOptions? connectionOptions = null,
-        SafetyOptions? safetyOptions = null)
+        SafetyOptions? safetyOptions = null,
+        TimeProvider? timeProvider = null)
     {
         AccountId = accountId;
         StoreSession = storeSession;
@@ -38,6 +44,19 @@ internal sealed class AccountRuntime : IAsyncDisposable
         LinkedCts = linkedCts;
         ConnectionOptions = connectionOptions ?? connection.Options;
         SafetyOptions = safetyOptions ?? (safetyGate as Safety.SafetyGate)?.Options;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+
+        // 07 WR-01: every status fact has a real writer — no fabricated seeds. Activity
+        // and connection facts come from the connection's transitions; fault facts come
+        // from the single real safety gate (07 CR-02) and from settled outbound sends.
+        connection.StateChanged += OnConnectionStateChanged;
+        messenger.SendSettled += OnSendSettled;
+        if (safetyGate is Safety.SafetyGate gate)
+        {
+            gate.BudgetExhausted += OnBudgetExhausted;
+            gate.ThrottleEngaged += OnThrottleEngaged;
+            gate.AccountRestricted += OnAccountRestricted;
+        }
     }
 
     private readonly Func<StoreSession> _resolveStores;
@@ -52,13 +71,67 @@ internal sealed class AccountRuntime : IAsyncDisposable
     public CancellationTokenSource LinkedCts { get; }
     public Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions ConnectionOptions { get; }
     public Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? SafetyOptions { get; }
-    public DateTimeOffset? LastConnectedAt { get; set; }
-    public DateTimeOffset? LastActivityAt { get; set; }
-    public string? LastErrorRuleName { get; set; }
+
+    /// <summary>Surfaced ban-safety faults since registration: failed sends, breaker opens, budget/throttle refusals.</summary>
+    public int RecentFailures => (int)Math.Min(int.MaxValue, Interlocked.Read(ref _recentFailures));
+
+    /// <summary>The last time the connection reported <see cref="ConnectionState.Open"/>; null until it has (never seeded).</summary>
+    public DateTimeOffset? LastConnectedAt => ToTimestamp(Volatile.Read(ref _lastConnectedTicks));
+
+    /// <summary>The last observed activity (state transition, settled send, or safety fault); null until one occurs.</summary>
+    public DateTimeOffset? LastActivityAt => ToTimestamp(Volatile.Read(ref _lastActivityTicks));
+
+    /// <summary>The last surfaced safety-rule name (rule-only — never payloads, never JIDs); null until one occurs.</summary>
+    public string? LastErrorRuleName => Volatile.Read(ref _lastErrorRuleName);
+
+    private void OnConnectionStateChanged(object? sender, ConnectionStateChangedEventArgs args)
+    {
+        MarkActivity();
+        if (args.State == ConnectionState.Open)
+        {
+            Volatile.Write(ref _lastConnectedTicks, _timeProvider.GetUtcNow().UtcTicks);
+        }
+    }
+
+    private void OnSendSettled(SendOutcome outcome)
+    {
+        MarkActivity();
+        if (outcome.Status is SendOutcomeStatus.ServerError or SendOutcomeStatus.TimedOut)
+        {
+            Interlocked.Increment(ref _recentFailures);
+        }
+    }
+
+    private void OnBudgetExhausted(object? sender, BudgetExhaustedEventArgs args) => RecordSafetyFault(args.SafetyStage);
+
+    private void OnThrottleEngaged(object? sender, ThrottleEngagedEventArgs args) => RecordSafetyFault(args.SafetyStage);
+
+    private void OnAccountRestricted(object? sender, AccountRestrictedEventArgs args) => RecordSafetyFault(args.SafetyStage);
+
+    private void RecordSafetyFault(int safetyStage)
+    {
+        Interlocked.Increment(ref _recentFailures);
+        Volatile.Write(ref _lastErrorRuleName, ((SafetyRule)safetyStage).ToString());
+        MarkActivity();
+    }
+
+    private void MarkActivity() => Volatile.Write(ref _lastActivityTicks, _timeProvider.GetUtcNow().UtcTicks);
+
+    private static DateTimeOffset? ToTimestamp(long ticks) =>
+        ticks == 0 ? null : new DateTimeOffset(ticks, TimeSpan.Zero);
 
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        // Detach status observers first so events during teardown mutate nothing.
+        Connection.StateChanged -= OnConnectionStateChanged;
+        Messenger.SendSettled -= OnSendSettled;
+        if (SafetyGate is Safety.SafetyGate gate)
+        {
+            gate.BudgetExhausted -= OnBudgetExhausted;
+            gate.ThrottleEngaged -= OnThrottleEngaged;
+            gate.AccountRestricted -= OnAccountRestricted;
+        }
         try { LinkedCts.Cancel(); } catch { }
         try { await Connection.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await StoreSession.DisposeAsync().ConfigureAwait(false); } catch { }

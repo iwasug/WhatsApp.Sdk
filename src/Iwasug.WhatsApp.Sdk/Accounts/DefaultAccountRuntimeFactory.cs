@@ -29,7 +29,6 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
     private readonly Func<AccountId, IFrameTransport>? _transportFactory;
     private readonly Func<AccountId, INoiseHandshakePayloads>? _handshakePayloadsFactory;
     private readonly RegistrationDefaults? _registrationDefaults;
-    private int _seq;
 
     public DefaultAccountRuntimeFactory(
         StoreRegistry? registry = null,
@@ -129,9 +128,9 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
                 logger,
                 cts,
                 connection,
-                safety);
+                safety,
+                _timeProvider);
 
-            runtime.LastConnectedAt = _timeProvider.GetUtcNow().AddTicks(Interlocked.Increment(ref _seq));
             return runtime;
         }
         catch

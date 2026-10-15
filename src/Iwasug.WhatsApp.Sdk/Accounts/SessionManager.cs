@@ -147,7 +147,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
             runtime.Connection.State,
             circuit,
             runtime.OutboundQueue.Reader.Count,
-            0,
+            runtime.RecentFailures,
             runtime.LastConnectedAt,
             runtime.LastActivityAt,
             runtime.LastErrorRuleName);
