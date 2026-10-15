@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Container-neutral DI registration for the WhatsApp SDK.
@@ -34,6 +35,15 @@ public static class WhatsAppSdkServiceCollectionExtensions
     /// <summary>
     /// Registers the SDK by binding options from <paramref name="configuration"/>.
     /// </summary>
+    /// <remarks>
+    /// 07 WR-09: binding through <see cref="ConfigurationBinder"/> is reflection-based, so this
+    /// overload is not trimming/native-AOT safe and carries
+    /// <see cref="RequiresUnreferencedCodeAttribute"/>/<see cref="RequiresDynamicCodeAttribute"/>
+    /// so callers see the warning at their own call site instead of it being hidden by a
+    /// suppression here. Use the delegate overload in AOT-published hosts.
+    /// </remarks>
+    [RequiresUnreferencedCode("Binding WhatsApp SDK options reads configuration through the reflection-based binder; trimmed apps may lose the option types it binds.")]
+    [RequiresDynamicCode("Binding WhatsApp SDK options uses the reflection-based configuration binder, which requires dynamic code generation and is not compatible with native AOT.")]
     public static IServiceCollection AddWhatsAppSdk(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -47,12 +57,10 @@ public static class WhatsAppSdkServiceCollectionExtensions
         // for every consumer — last registration wins — and BindConfiguration's DI
         // indirection would then bind whichever IConfiguration won instead of the one
         // passed here. Direct binding is unambiguous and touches nothing host-owned.
-#pragma warning disable IL2026, IL3050
         services.AddOptions<WhatsAppSdkOptions>()
             .Configure(o => configuration.GetSection(sectionName).Bind(o))
             .Validate(o => { WhatsAppSdkOptions.Validate(o); return true; })
             .ValidateOnStart();
-#pragma warning restore IL2026, IL3050
 
         RegisterCore(services);
         return services;
