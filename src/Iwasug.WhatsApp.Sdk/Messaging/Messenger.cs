@@ -471,6 +471,15 @@ public sealed class Messenger : IAsyncDisposable
         await _receipts.SendReadReceiptsAsync(keys, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Tests/host seam: attempts to publish a synthetic event to this account's stream (backpressure, no drop).</summary>
+    internal bool TryPublishEvent(WhatsAppEvent evt)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        return _events.Writer.TryWrite(evt);
+    }
+
+    /// <summary>Tests/host seam: the writer for this account's event channel.</summary>
+    internal ChannelWriter<WhatsAppEvent> EventWriter => _events.Writer;
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {

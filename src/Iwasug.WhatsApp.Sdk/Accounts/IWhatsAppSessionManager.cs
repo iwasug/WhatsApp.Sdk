@@ -31,7 +31,7 @@ public interface IWhatsAppSessionManager : IAsyncDisposable
     IReadOnlyCollection<AccountStatus> GetStatuses();
 
     /// <summary>Merged event stream across all accounts.</summary>
-    IAsyncEnumerable<WhatsAppEvent> ReadEventsAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<AccountEvent> ReadEventsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Event stream for one account. Throws <see cref="Errors.SdkUnknownAccountException"/> for unknown ids.</summary>
     IAsyncEnumerable<WhatsAppEvent> ReadAccountEventsAsync(AccountId accountId, CancellationToken cancellationToken = default);

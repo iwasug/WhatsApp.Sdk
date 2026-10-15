@@ -18,7 +18,6 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     private readonly ILogger<SessionManager>? _logger;
     private readonly object _lifecycleGate = new();
     private int _disposed;
-    private readonly Channel<WhatsAppEvent> _events = Channel.CreateUnbounded<WhatsAppEvent>();
 
     public SessionManager(IAccountRuntimeFactory factory, ILogger<SessionManager>? logger = null)
     {
@@ -126,10 +125,21 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     public AccountStatus? GetStatus(AccountId accountId)
     {
         if (!_accounts.TryGetValue(accountId, out var runtime)) return null;
+        SafetyCircuitState circuit = SafetyCircuitState.Closed;
+        if (runtime.SafetyGate is Safety.SafetyGate sg)
+        {
+            circuit = sg.CircuitState switch
+            {
+                Safety.CircuitState.Closed => SafetyCircuitState.Closed,
+                Safety.CircuitState.Open => SafetyCircuitState.Open,
+                Safety.CircuitState.HalfOpen => SafetyCircuitState.HalfOpen,
+                _ => SafetyCircuitState.Closed,
+            };
+        }
         return new AccountStatus(
             accountId,
             runtime.Connection.State,
-            SafetyCircuitState.Closed,
+            circuit,
             runtime.OutboundQueue.Reader.Count,
             0,
             runtime.LastConnectedAt,
@@ -148,11 +158,82 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         return list;
     }
 
-    public async IAsyncEnumerable<WhatsAppEvent> ReadEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<AccountEvent> ReadEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var evt in _events.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+        var enumerators = new Dictionary<AccountId, IAsyncEnumerator<WhatsAppEvent>>();
+        var nextTasks = new Dictionary<AccountId, Task<bool>>();
+        try
         {
-            yield return evt;
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                foreach (var kvp in _accounts.ToArray())
+                {
+                    if (!enumerators.ContainsKey(kvp.Key))
+                    {
+                        var en = kvp.Value.Messenger.ReadEventsAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
+                        enumerators[kvp.Key] = en;
+                        nextTasks[kvp.Key] = en.MoveNextAsync().AsTask();
+                    }
+                }
+
+                if (nextTasks.Count == 0)
+                {
+                    try { await Task.Delay(100, cancellationToken).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { yield break; }
+                    continue;
+                }
+
+                Task<bool> completed;
+                try
+                {
+                    completed = await Task.WhenAny(nextTasks.Values).WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    yield break;
+                }
+
+                AccountId completedAccount = default;
+                foreach (var kvp in nextTasks)
+                {
+                    if (kvp.Value == completed) { completedAccount = kvp.Key; break; }
+                }
+                if (!nextTasks.ContainsKey(completedAccount)) { continue; }
+                bool hasItem;
+                try { hasItem = await completed.ConfigureAwait(false); }
+                catch (OperationCanceledException) { yield break; }
+                catch { hasItem = false; }
+
+                if (!hasItem)
+                {
+                    var en = enumerators[completedAccount];
+                    enumerators.Remove(completedAccount);
+                    nextTasks.Remove(completedAccount);
+                    try { await en.DisposeAsync().ConfigureAwait(false); } catch { }
+                    continue;
+                }
+
+                var currentEnumerator = enumerators[completedAccount];
+                yield return new AccountEvent(completedAccount, currentEnumerator.Current);
+
+                try
+                {
+                    nextTasks[completedAccount] = currentEnumerator.MoveNextAsync().AsTask();
+                }
+                catch
+                {
+                    enumerators.Remove(completedAccount);
+                    nextTasks.Remove(completedAccount);
+                    try { await currentEnumerator.DisposeAsync().ConfigureAwait(false); } catch { }
+                }
+            }
+        }
+        finally
+        {
+            foreach (var en in enumerators.Values)
+            {
+                try { await en.DisposeAsync().ConfigureAwait(false); } catch { }
+            }
         }
     }
 
