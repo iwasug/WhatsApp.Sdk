@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Iwasug.WhatsApp.Sdk.Hosting;
 using Iwasug.WhatsApp.Sdk.Messaging;
@@ -161,6 +162,19 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
             if (status is not null) list.Add(status);
         }
         return list;
+    }
+
+    /// <inheritdoc />
+    public bool TryGetConnection(AccountId accountId, [NotNullWhen(true)] out WaConnection? connection)
+    {
+        if (_accounts.TryGetValue(accountId, out AccountRuntime? runtime))
+        {
+            connection = runtime.Connection;
+            return true;
+        }
+
+        connection = null;
+        return false;
     }
 
     public async IAsyncEnumerable<AccountEvent> ReadEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)

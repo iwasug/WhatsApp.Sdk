@@ -43,6 +43,44 @@ public sealed class WhatsAppSdkOptions
     public int EventChannelCapacity { get; set; } = 128;
 
     /// <summary>
+    /// WebSocket endpoint every account connects to. <c>null</c> resolves to the
+    /// production WhatsApp endpoint; loopback hosts and tests override it (or supply
+    /// <see cref="TransportFactory"/>).
+    /// </summary>
+    public Uri? Endpoint { get; set; }
+
+    /// <summary>
+    /// Optional per-account transport override, invoked once per connect attempt and
+    /// expected to mint a fresh <see cref="Transport.IFrameTransport"/> on every call.
+    /// <c>null</c> uses <see cref="Transport.WebSocketFrameTransport"/> against
+    /// <see cref="Endpoint"/> — the production path.
+    /// </summary>
+    public Func<AccountId, Transport.IFrameTransport>? TransportFactory { get; set; }
+
+    /// <summary>
+    /// Optional per-account handshake-payload override. <c>null</c> uses the
+    /// credential-aware <see cref="Pairing.HandshakePayloadProvider"/> over the account's
+    /// credential store — the only payload shape pairing accepts.
+    /// </summary>
+    public Func<AccountId, Noise.INoiseHandshakePayloads>? HandshakePayloadsFactory { get; set; }
+
+    /// <summary>
+    /// Registration inputs (identity public, signed-prekey triple, app version) for the
+    /// no-credential-row branch. <c>null</c> falls back to explicit placeholders: fine for
+    /// login-only accounts with an existing credential row, but first-time registration
+    /// and pairing are rejected by the server until the host supplies real signed-prekey
+    /// material.
+    /// </summary>
+    public Pairing.RegistrationDefaults? RegistrationDefaults { get; set; }
+
+    /// <summary>
+    /// Whether each registered account's connection is started (connected) with the host.
+    /// Defaults to true; set false for tests or hosts that drive
+    /// <see cref="Connection.WaConnection.ConnectAsync"/> themselves.
+    /// </summary>
+    public bool AutoConnect { get; set; } = true;
+
+    /// <summary>
     /// Resolves null to defaults and validates bounds and sub-options before any I/O.
     /// </summary>
     public static WhatsAppSdkOptions Validate(WhatsAppSdkOptions? options)
@@ -56,6 +94,13 @@ public sealed class WhatsAppSdkOptions
 
         resolved.DefaultConnection = ConnectionOptions.ValidateOptions(resolved.DefaultConnection);
         resolved.DefaultSafety = SafetyOptions.Validate(resolved.DefaultSafety);
+
+        if (resolved.Endpoint is not null &&
+            (!resolved.Endpoint.IsAbsoluteUri ||
+             (resolved.Endpoint.Scheme != Uri.UriSchemeWs && resolved.Endpoint.Scheme != Uri.UriSchemeWss)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Endpoint), "Endpoint must be an absolute ws:// or wss:// URI.");
+        }
 
         if (resolved.StartupJitterMs < 0)
         {

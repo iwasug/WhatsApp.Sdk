@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Iwasug.WhatsApp.Sdk.Hosting;
 using Iwasug.WhatsApp.Sdk.Messaging;
@@ -29,6 +30,14 @@ public interface IWhatsAppSessionManager : IAsyncDisposable
 
     /// <summary>Returns status snapshots for every registered account.</summary>
     IReadOnlyCollection<AccountStatus> GetStatuses();
+
+    /// <summary>
+    /// Resolves the live connection for <paramref name="accountId"/> (07 CR-01) — the
+    /// handle a host needs to start pairing or drive the lifecycle itself. Returns
+    /// <c>false</c> for unknown ids. The returned instance is owned by the manager and is
+    /// disposed with the account: callers must not dispose it.
+    /// </summary>
+    bool TryGetConnection(AccountId accountId, [NotNullWhen(true)] out Connection.WaConnection? connection);
 
     /// <summary>Merged event stream across all accounts.</summary>
     IAsyncEnumerable<AccountEvent> ReadEventsAsync(CancellationToken cancellationToken = default);

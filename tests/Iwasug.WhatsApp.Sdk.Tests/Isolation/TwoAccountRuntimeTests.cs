@@ -73,6 +73,37 @@ public class TwoAccountRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task Factory_Wires_Real_Transport_And_Credential_Aware_Pairing()
+    {
+        var factory = new DefaultAccountRuntimeFactory();
+        AccountId accountId = AccountId.Create($"cr01-{Guid.NewGuid():N}");
+
+        // 07 CR-01: the default transport is the production WebSocket transport, not a throwing stub.
+        Iwasug.WhatsApp.Sdk.Transport.IFrameTransport transport =
+            factory.ResolveTransportFactory(accountId, new Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions())();
+        try
+        {
+            transport.Should().BeOfType<Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport>();
+        }
+        finally
+        {
+            await transport.DisposeAsync();
+        }
+
+        // 07 CR-01: pairing requires credential-aware payloads — a bare payload double
+        // makes WaConnection.Pairing throw InvalidOperationException.
+        AccountRuntime runtime = await factory.CreateAsync(accountId, TestContext.Current.CancellationToken);
+        try
+        {
+            runtime.Connection.Pairing.Should().NotBeNull();
+        }
+        finally
+        {
+            await runtime.DisposeAsync();
+        }
+    }
+
     private static async Task<int> DrainEventsAsync(Messenger messenger, CancellationToken ct)
     {
         int count = 0;

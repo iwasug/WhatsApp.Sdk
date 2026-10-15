@@ -1030,6 +1030,7 @@ Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatuses() -> System.Col
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetConnection(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Connection.WaConnection? connection) -> bool
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Closed = 0 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.HalfOpen = 2 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
@@ -1073,6 +1074,16 @@ Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.get -> int
 Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.set -> void
 Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.get -> int
 Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.get -> System.Uri?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Transport.IFrameTransport!>?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads!>?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.get -> Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.get -> bool
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.set -> void
 static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Validate(Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions? options) -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
 Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions
 static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

@@ -75,7 +75,11 @@ public static class WhatsAppSdkServiceCollectionExtensions
                 eventChannelCapacity: value.EventChannelCapacity,
                 defaultConnection: value.DefaultConnection,
                 defaultSafety: value.DefaultSafety,
-                storeOptions: value.StoreFactories);
+                storeOptions: value.StoreFactories,
+                endpoint: value.Endpoint,
+                transportFactory: value.TransportFactory,
+                handshakePayloadsFactory: value.HandshakePayloadsFactory,
+                registrationDefaults: value.RegistrationDefaults);
         });
 
         services.AddHostedService<WhatsAppHostedService>();

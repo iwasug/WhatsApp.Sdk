@@ -20,6 +20,7 @@ public class HostedServiceLifecycleTests
             StartupJitterMs = 0,
             ShutdownDrainTimeoutMs = 1000,
             AutoStartAccounts = true,
+            AutoConnect = false, // unit test: never open real sockets
         };
 
         var service = new WhatsAppHostedService(Options.Create(opts), manager);
@@ -44,6 +45,7 @@ public class HostedServiceLifecycleTests
             StartupJitterMs = 0,
             ShutdownDrainTimeoutMs = 500,
             AutoStartAccounts = true,
+            AutoConnect = false, // unit test: never open real sockets
         };
 
         var service = new WhatsAppHostedService(Options.Create(opts), manager);

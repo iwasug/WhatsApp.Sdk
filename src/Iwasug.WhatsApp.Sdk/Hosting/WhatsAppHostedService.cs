@@ -1,6 +1,7 @@
 namespace Iwasug.WhatsApp.Sdk.Hosting;
 
 using Iwasug.WhatsApp.Sdk.Accounts;
+using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Errors;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -46,8 +47,13 @@ internal sealed class WhatsAppHostedService : BackgroundService
 
                 try
                 {
-                    AccountId.Create(descriptor.AccountId);
+                    AccountId accountId = AccountId.Create(descriptor.AccountId);
                     await _manager.AddAccountAsync(descriptor, cancellationToken).ConfigureAwait(false);
+
+                    if (options.AutoConnect && _manager.TryGetConnection(accountId, out WaConnection? connection))
+                    {
+                        StartConnection(accountId, connection);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -70,6 +76,33 @@ internal sealed class WhatsAppHostedService : BackgroundService
         {
             // expected on host stop
         }
+    }
+
+    /// <summary>
+    /// Starts one account's connection lifecycle without blocking host start (07 CR-01):
+    /// <c>ConnectAsync</c> completes at first open, so the wait stays off the host's
+    /// startup path; a fault is observed and logged here instead of escaping into the
+    /// host's start loop (where per-account failures are deliberately swallowed).
+    /// </summary>
+    private void StartConnection(AccountId accountId, WaConnection connection)
+    {
+        _ = connection.ConnectAsync(CancellationToken.None).ContinueWith(
+            t =>
+            {
+                Exception error = t.Exception?.GetBaseException()
+                    ?? new InvalidOperationException("Connection start failed without an exception.");
+                if (error is ObjectDisposedException or OperationCanceledException)
+                {
+                    _logger.LogDebug("Account connect cancelled {AccountId}.", accountId.Value);
+                    return;
+                }
+
+                string ruleName = error is SdkException ? error.GetType().Name : "ConnectFailed";
+                _logger.LogWarning(t.Exception, "Account connect failed {AccountId} {RuleName}.", accountId.Value, ruleName);
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
