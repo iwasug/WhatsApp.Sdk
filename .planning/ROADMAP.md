@@ -189,12 +189,17 @@ Plans:
   2. Host receives and downloads inbound media; an expired download URL is detected and recovered through the media-retry flow without host intervention.
   3. Media encrypt/decrypt round-trips match golden hash/MAC fixtures in CI, so byte-level media crypto cannot silently regress.
 
-**Plans**: 3 plans
+**Plans**: 6 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Tracer: media crypto core + golden fixtures + schema branches + one gated image round-trip (wave 1)
-- [ ] 06-02-PLAN.md — Media send surface: media-conn + uploader hardening + document/voice-note/group sends + caps + audit extension (wave 2, depends on 06-01)
-- [ ] 06-03-PLAN.md — Media receive + retry: streaming download + media-retry loop + safety regression + phase close (wave 3, depends on 06-02)
+- [x] 06-01-PLAN.md — Tracer: media crypto core + golden fixtures + schema branches + one gated image round-trip (wave 1)
+- [x] 06-02-PLAN.md — Media send surface: media-conn + uploader hardening + document/voice-note/group sends + caps + audit extension (wave 2, depends on 06-01)
+- [x] 06-03-PLAN.md — Media receive + retry: streaming download + media-retry loop + safety regression + phase close (wave 3, depends on 06-02)
+
+**Wave 6** *(gap closure — blocked on verification gap, see 06-VERIFICATION.md)*
+- [ ] 06-04-PLAN.md — Receive pipeline tracer: dispatcher media branch + public MediaReceived event + round-trip byte equality (gap_closure, wave 1)
+- [ ] 06-05-PLAN.md — Media-retry exchange: server-error/rmr senders + rmr routing + capped fresh-path recovery (gap_closure, wave 2, depends on 06-04)
+- [ ] 06-06-PLAN.md — Send-path audit proof: gated-caller reflection + refusal/oversize facts + behavioral wire-attr facts (gap_closure, wave 1)
 
 ### Phase 7: Multi-Account Orchestration
 
