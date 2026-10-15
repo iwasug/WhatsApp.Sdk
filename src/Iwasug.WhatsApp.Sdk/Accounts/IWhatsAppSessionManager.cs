@@ -50,7 +50,12 @@ public interface IWhatsAppSessionManager : IAsyncDisposable
     /// <summary>Merged event stream across all accounts.</summary>
     IAsyncEnumerable<AccountEvent> ReadEventsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Event stream for one account. Throws <see cref="Errors.SdkUnknownAccountException"/> for unknown ids.</summary>
+    /// <summary>
+    /// Event stream for one account. Throws <see cref="Errors.SdkUnknownAccountException"/>
+    /// for unknown ids. Because this is an async iterator, that exception (and resolution of
+    /// the account itself) happens at the first <c>MoveNextAsync</c>, not when the method is
+    /// called — the returned enumerable is inert until enumerated.
+    /// </summary>
     IAsyncEnumerable<WhatsAppEvent> ReadAccountEventsAsync(AccountId accountId, CancellationToken cancellationToken = default);
 }
 #pragma warning restore RS0026

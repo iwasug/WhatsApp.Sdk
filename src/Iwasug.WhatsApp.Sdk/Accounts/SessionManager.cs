@@ -398,13 +398,17 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 
     public async IAsyncEnumerable<WhatsAppEvent> ReadAccountEventsAsync(AccountId accountId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (!_accounts.ContainsKey(accountId)) throw new SdkUnknownAccountException("Unknown account.");
-        if (_accounts.TryGetValue(accountId, out var runtime))
+        // 07 IN-07: one lookup instead of ContainsKey + TryGetValue — the pair could pass
+        // the check and then observe a concurrent removal (silently ending the stream),
+        // while a single TryGetValue resolves the runtime actually being enumerated.
+        if (!_accounts.TryGetValue(accountId, out var runtime))
         {
-            await foreach (var evt in runtime.Messenger.ReadEventsAsync(cancellationToken).ConfigureAwait(false))
-            {
-                yield return evt;
-            }
+            throw new SdkUnknownAccountException("Unknown account.");
+        }
+
+        await foreach (var evt in runtime.Messenger.ReadEventsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yield return evt;
         }
     }
 
