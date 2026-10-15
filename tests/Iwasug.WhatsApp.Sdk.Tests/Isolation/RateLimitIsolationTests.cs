@@ -280,7 +280,7 @@ public class RateLimitIsolationTests
         }
 
         AccountStatus after = manager.GetStatus(a)!;
-        after.RecentFailures.Should().BeGreaterThan(0);
+        after.RecentFailures.Should().Be(1, "the single AccountRestricted fact for the breaker opening is counted exactly once (07 IN-10)");
         after.LastActivityAt.Should().Be(Now);
         after.LastErrorRuleName.Should().Be(nameof(SafetyRule.CircuitOpen));
         after.LastConnectedAt.Should().BeNull("no open transition has happened, even though faults did");

@@ -126,4 +126,31 @@ public class SessionManagerTests
         await manager.RemoveAccountAsync(id, ct);
         manager.TryGetMessenger(id, out _).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Restart_Rebuilds_The_Graph_And_Retires_The_Old_Token_Source()
+    {
+        // 07 IN-10 (07-01-PLAN.md restart identity): a restart must publish a fresh
+        // per-account graph — new runtime, new (live) token source — retire the old one
+        // (its token cancelled), and never accumulate registry entries across restarts.
+        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(new Iwasug.WhatsApp.Sdk.Accounts.DefaultAccountRuntimeFactory());
+        var id = AccountId.Create($"sm-{Guid.NewGuid():N}");
+        var ct = TestContext.Current.CancellationToken;
+
+        await manager.AddAccountAsync(id, ct);
+        manager.TryGetRuntime(id, out var first).Should().BeTrue();
+        CancellationToken retired = first!.LinkedCts.Token;
+
+        for (int i = 0; i < 3; i++)
+        {
+            await manager.RestartAccountAsync(id, ct);
+        }
+
+        manager.TryGetRuntime(id, out var second).Should().BeTrue();
+        second.Should().NotBeSameAs(first, "restart rebuilds the account graph");
+        second!.LinkedCts.Token.IsCancellationRequested.Should().BeFalse("the fresh token source is live");
+        retired.IsCancellationRequested.Should().BeTrue("the previous runtime's token is cancelled at retirement");
+        manager.GetStatuses().Should().HaveCount(1, "restarts must not accumulate registrations");
+        manager.GetStatus(id)!.AccountId.Should().Be(id);
+    }
 }
