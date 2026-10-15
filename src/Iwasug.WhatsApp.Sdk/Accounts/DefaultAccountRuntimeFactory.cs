@@ -2,6 +2,7 @@ using System.Threading;
 using System.Threading.Channels;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Hosting;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Iwasug.WhatsApp.Sdk.Noise;
 using Iwasug.WhatsApp.Sdk.Safety;
@@ -15,28 +16,51 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
 {
     private readonly StoreRegistry? _registry;
+    private readonly StoreRegistryOptions? _storeOptions;
     private readonly ILoggerFactory? _loggerFactory;
     private readonly TimeProvider _timeProvider;
     private readonly int _channelCapacity;
+    private readonly int _eventChannelCapacity;
+    private readonly ConnectionOptions? _defaultConnection;
+    private readonly SafetyOptions? _defaultSafety;
     private int _seq;
 
     public DefaultAccountRuntimeFactory(
         StoreRegistry? registry = null,
         ILoggerFactory? loggerFactory = null,
         TimeProvider? timeProvider = null,
-        int channelCapacity = 128)
+        int channelCapacity = 128,
+        int eventChannelCapacity = 128,
+        ConnectionOptions? defaultConnection = null,
+        SafetyOptions? defaultSafety = null,
+        StoreRegistryOptions? storeOptions = null)
     {
         _registry = registry;
         _loggerFactory = loggerFactory;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _channelCapacity = channelCapacity <= 0 ? 128 : channelCapacity;
+        _eventChannelCapacity = eventChannelCapacity <= 0 ? 128 : eventChannelCapacity;
+        _defaultConnection = defaultConnection;
+        _defaultSafety = defaultSafety;
+        _storeOptions = storeOptions;
     }
 
-    public async ValueTask<AccountRuntime> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
+    public ValueTask<AccountRuntime> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
+        return CreateAsync(new AccountDescriptor { AccountId = accountId.Value }, cancellationToken);
+    }
+
+    public async ValueTask<AccountRuntime> CreateAsync(AccountDescriptor descriptor, CancellationToken cancellationToken = default)
+    {
+        if (descriptor is null) throw new ArgumentNullException(nameof(descriptor));
         cancellationToken.ThrowIfCancellationRequested();
 
-        StoreRegistry registry = _registry ?? new StoreRegistry(new StoreRegistryOptions());
+        AccountId accountId = AccountId.Create(descriptor.AccountId);
+
+        ConnectionOptions connection = ConnectionOptions.ValidateOptions(descriptor.Connection ?? _defaultConnection);
+        SafetyOptions safety = SafetyOptions.Validate(descriptor.Safety ?? _defaultSafety);
+
+        StoreRegistry registry = _registry ?? new StoreRegistry(_storeOptions ?? new StoreRegistryOptions());
 
         StoreSession session;
         try
@@ -48,32 +72,31 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
             throw;
         }
 
-        WaConnection? connection = null;
+        WaConnection? connectionInstance = null;
         try
         {
-            connection = new WaConnection(
+            connectionInstance = new WaConnection(
                 accountId,
                 () => throw new NotSupportedException("No transport wired in Wave 1 factory."),
                 new EmptyNoiseHandshakePayloads(),
-                null,
+                connection,
                 _timeProvider,
                 (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<WaConnection>());
 
-            connection.StoreRegistry = registry;
-            connection.SafetyPolicy = SafetyOptions.Validate(null);
+            connectionInstance.StoreRegistry = registry;
+            connectionInstance.SafetyPolicy = safety;
 
             var logger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<AccountRuntime>();
             var safetyLogger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<SafetyGate>();
 
             ISafetyGate gate = new SafetyGate(
                 _timeProvider,
-                SafetyOptions.Validate(null),
+                safety,
                 safetyLogger,
                 _ => new ValueTask<StoreSession>(session),
                 (evt, token) => ValueTask.CompletedTask);
 
-            // Force messenger creation (built over connection).
-            Messenger messenger = connection.Messaging;
+            Messenger messenger = connectionInstance.Messaging;
 
             Channel<OutboundEnvelope> queue = Channel.CreateBounded<OutboundEnvelope>(
                 new BoundedChannelOptions(_channelCapacity)
@@ -88,22 +111,24 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
             var runtime = new AccountRuntime(
                 accountId,
                 session,
-                connection,
+                connectionInstance,
                 messenger,
                 gate,
                 queue,
                 () => session,
                 logger,
-                cts);
+                cts,
+                connection,
+                safety);
 
             runtime.LastConnectedAt = _timeProvider.GetUtcNow().AddTicks(Interlocked.Increment(ref _seq));
             return runtime;
         }
         catch
         {
-            if (connection is not null)
+            if (connectionInstance is not null)
             {
-                try { await connection.DisposeAsync().ConfigureAwait(false); }
+                try { await connectionInstance.DisposeAsync().ConfigureAwait(false); }
                 catch { }
             }
             try { await session.DisposeAsync().ConfigureAwait(false); }

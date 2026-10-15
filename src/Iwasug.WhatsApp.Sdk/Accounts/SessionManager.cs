@@ -2,16 +2,18 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Hosting;
 using Iwasug.WhatsApp.Sdk.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace Iwasug.WhatsApp.Sdk.Accounts;
 
 /// <summary>Atomic multi-account registry over <see cref="AccountRuntime"/>.</summary>
-internal sealed class SessionManager : IWhatsAppSessionManager
+internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 {
     private readonly ConcurrentDictionary<AccountId, AccountRuntime> _accounts = new();
     private readonly ConcurrentDictionary<AccountId, byte> _registrations = new();
+    private readonly ConcurrentDictionary<AccountId, AccountDescriptor> _descriptors = new();
     private readonly IAccountRuntimeFactory _factory;
     private readonly ILogger<SessionManager>? _logger;
     private readonly object _lifecycleGate = new();
@@ -28,27 +30,43 @@ internal sealed class SessionManager : IWhatsAppSessionManager
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        AccountDescriptor descriptor = new AccountDescriptor { AccountId = accountId.Value };
+
         lock (_lifecycleGate)
         {
             if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
         }
 
+        await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask AddAccountAsync(AccountDescriptor descriptor, CancellationToken cancellationToken = default)
+    {
+        if (descriptor is null) throw new ArgumentNullException(nameof(descriptor));
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_lifecycleGate)
+        {
+            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
+        }
+
+        await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask AddAccountCoreAsync(AccountDescriptor descriptor, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        AccountId accountId = AccountId.Create(descriptor.AccountId);
+
         AccountRuntime runtime;
         try
         {
-            runtime = await _factory.CreateAsync(accountId, cancellationToken).ConfigureAwait(false);
+            runtime = await _factory.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
             throw;
-        }
-
-        lock (_lifecycleGate)
-        {
-            if (Volatile.Read(ref _disposed) != 0)
-            {
-                // dispose outside lock? We'll dispose after releasing; okay approximate
-            }
         }
 
         if (!_accounts.TryAdd(accountId, runtime))
@@ -58,6 +76,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager
         }
 
         _registrations[accountId] = 0;
+        _descriptors[accountId] = descriptor;
         _logger?.LogInformation("Account registered {AccountId}.", accountId.Value);
     }
 
@@ -72,6 +91,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager
 
         if (!_accounts.TryRemove(accountId, out var runtime)) return;
         _registrations.TryRemove(accountId, out _);
+        _descriptors.TryRemove(accountId, out _);
 
         try
         {
@@ -89,8 +109,18 @@ internal sealed class SessionManager : IWhatsAppSessionManager
 
         if (!_accounts.ContainsKey(accountId)) throw new SdkUnknownAccountException("Unknown account.");
 
+        AccountDescriptor? descriptor = _descriptors.TryGetValue(accountId, out var stored) ? stored : null;
+
         await RemoveAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
-        await AddAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
+
+        if (descriptor is not null)
+        {
+            await AddAccountAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await AddAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public AccountStatus? GetStatus(AccountId accountId)
@@ -151,6 +181,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager
         {
             _accounts.TryRemove(new KeyValuePair<AccountId, AccountRuntime>(kvp.Key, kvp.Value));
             _registrations.TryRemove(kvp.Key, out _);
+            _descriptors.TryRemove(kvp.Key, out _);
             try
             {
                 await kvp.Value.DisposeAsync().ConfigureAwait(false);
@@ -161,4 +192,5 @@ internal sealed class SessionManager : IWhatsAppSessionManager
             }
         }
     }
+    public void Dispose() { try { DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { } }
 }

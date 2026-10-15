@@ -165,6 +165,8 @@ public sealed class WaConnection : IAsyncDisposable
     private readonly Func<IFrameTransport> _transportFactory;
     private readonly INoiseHandshakePayloads _payloads;
     private readonly ConnectionOptions _options;
+
+    internal ConnectionOptions Options => _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<WaConnection>? _logger;
     private readonly ReconnectBackoff _backoff;

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Iwasug.WhatsApp.Sdk.Hosting;
 using Iwasug.WhatsApp.Sdk.Messaging;
 
 namespace Iwasug.WhatsApp.Sdk.Accounts;
@@ -10,8 +11,12 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 /// </summary>
 public interface IWhatsAppSessionManager : IAsyncDisposable
 {
+#pragma warning disable RS0026
     /// <summary>Registers a new account. Throws <see cref="Errors.SdkDuplicateAccountException"/> when the id already exists.</summary>
     ValueTask AddAccountAsync(AccountId accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>Registers a new account from an <see cref="Hosting.AccountDescriptor"/>. Throws <see cref="Errors.SdkDuplicateAccountException"/> when the id already exists.</summary>
+    ValueTask AddAccountAsync(Hosting.AccountDescriptor descriptor, CancellationToken cancellationToken = default);
 
     /// <summary>Removes and disposes an account. Unknown ids are a no-op.</summary>
     ValueTask RemoveAccountAsync(AccountId accountId, CancellationToken cancellationToken = default);
@@ -31,3 +36,4 @@ public interface IWhatsAppSessionManager : IAsyncDisposable
     /// <summary>Event stream for one account. Throws <see cref="Errors.SdkUnknownAccountException"/> for unknown ids.</summary>
     IAsyncEnumerable<WhatsAppEvent> ReadAccountEventsAsync(AccountId accountId, CancellationToken cancellationToken = default);
 }
+#pragma warning restore RS0026

@@ -11,6 +11,8 @@ internal sealed class SafetyGate : ISafetyGate
 {
     private readonly TimeProvider _clock;
     private readonly SafetyOptions _options;
+
+    internal SafetyOptions Options => _options;
     private readonly ILogger<SafetyGate>? _logger;
     private readonly Func<CancellationToken, ValueTask<StoreSession>> _resolveStores;
     private readonly Func<WhatsAppEvent, CancellationToken, ValueTask> _publish;

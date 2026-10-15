@@ -1042,3 +1042,39 @@ override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ToString() -> string!
 static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
 static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor! descriptor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountDescriptor() -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.get -> string!
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.get -> string?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.WhatsAppSdkOptions() -> void
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.get -> System.Collections.Generic.List<Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor!>!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.get -> Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.get -> bool
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.set -> void
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Validate(Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions? options) -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "WhatsApp") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

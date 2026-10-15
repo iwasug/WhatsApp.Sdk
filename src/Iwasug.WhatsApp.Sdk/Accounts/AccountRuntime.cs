@@ -23,7 +23,9 @@ internal sealed class AccountRuntime : IAsyncDisposable
         Channel<OutboundEnvelope> outboundQueue,
         Func<StoreSession> resolveStores,
         ILogger? logger,
-        CancellationTokenSource linkedCts)
+        CancellationTokenSource linkedCts,
+        ConnectionOptions? connectionOptions = null,
+        SafetyOptions? safetyOptions = null)
     {
         AccountId = accountId;
         StoreSession = storeSession;
@@ -34,6 +36,8 @@ internal sealed class AccountRuntime : IAsyncDisposable
         _resolveStores = resolveStores;
         Logger = logger;
         LinkedCts = linkedCts;
+        ConnectionOptions = connectionOptions ?? connection.Options;
+        SafetyOptions = safetyOptions ?? (safetyGate as Safety.SafetyGate)?.Options;
     }
 
     private readonly Func<StoreSession> _resolveStores;
@@ -46,6 +50,8 @@ internal sealed class AccountRuntime : IAsyncDisposable
     public Channel<OutboundEnvelope> OutboundQueue { get; }
     public ILogger? Logger { get; }
     public CancellationTokenSource LinkedCts { get; }
+    public Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions ConnectionOptions { get; }
+    public Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? SafetyOptions { get; }
     public DateTimeOffset? LastConnectedAt { get; set; }
     public DateTimeOffset? LastActivityAt { get; set; }
     public string? LastErrorRuleName { get; set; }
