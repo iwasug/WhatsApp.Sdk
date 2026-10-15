@@ -70,6 +70,55 @@ public sealed class SendPathAuditTests
             string.Join(", ", unexpected.Select(p => $"{p.TypeName}.{p.MethodName}")));
     }
 
+    [Fact]
+    public void every_public_media_send_method_is_safety_gated()
+    {
+        Type? gateType = typeof(WaConnection).Assembly.GetType("Iwasug.WhatsApp.Sdk.Safety.SafetyGate");
+        gateType.Should().NotBeNull();
+        MethodInfo? gateMethod = gateType!.GetMethod("ExecuteSendAsync", BindingFlags.Public | BindingFlags.Instance /* concrete internal method */);
+        gateMethod.Should().NotBeNull();
+        byte[] tokenBytes = BitConverter.GetBytes(gateMethod!.MetadataToken);
+
+        var assembly = typeof(WaConnection).Assembly;
+        var found = new HashSet<string>();
+
+        foreach (Type type in assembly.GetTypes())
+        {
+            foreach (MethodInfo method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                MethodBody? body = null;
+                try { body = method.GetMethodBody(); }
+                catch { body = null; }
+                if (body is null) continue;
+                byte[] il = body.GetILAsByteArray() ?? [];
+                if (!Contains(il, tokenBytes)) continue;
+
+                string ownerMethod = method.Name;
+                if (method.Name == "MoveNext" && type.Name.StartsWith("<") && type.Name.Contains(">"))
+                {
+                    ownerMethod = type.Name.TrimStart('<').Split('>')[0];
+                }
+
+                found.Add(ownerMethod);
+            }
+        }
+
+        string[] mediaSends =
+        {
+            "SendImageAsync",
+            "SendDocumentAsync",
+            "SendVoiceNoteAsync",
+            "SendGroupImageAsync",
+            "SendGroupDocumentAsync",
+            "SendGroupVoiceNoteAsync",
+        };
+
+        foreach (string methodName in mediaSends)
+        {
+            found.Should().Contain(methodName, $"{methodName} must IL-reference ISafetyGate.ExecuteSendAsync");
+        }
+    }
+
     private static bool Contains(byte[] haystack, byte[] needle)
     {
         if (needle.Length == 0 || haystack.Length < needle.Length) return false;
