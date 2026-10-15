@@ -104,6 +104,32 @@ public class TwoAccountRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task Factory_Honors_Configured_EventChannelCapacity()
+    {
+        // 07 WR-02: a host-configured capacity must bound the per-account event channel.
+        var factory = new DefaultAccountRuntimeFactory(eventChannelCapacity: 7);
+        AccountRuntime runtime = await factory.CreateAsync(
+            AccountId.Create($"wr02-{Guid.NewGuid():N}"), TestContext.Current.CancellationToken);
+        try
+        {
+            for (int i = 0; i < 7; i++)
+            {
+                runtime.Messenger.TryPublishEvent(
+                    new BudgetExhaustedEvent("k", "Window", DateTimeOffset.MaxValue, 0, DateTimeOffset.UnixEpoch))
+                    .Should().BeTrue();
+            }
+
+            runtime.Messenger.TryPublishEvent(
+                new BudgetExhaustedEvent("k", "Window", DateTimeOffset.MaxValue, 0, DateTimeOffset.UnixEpoch))
+                .Should().BeFalse("the configured capacity of 7 is full");
+        }
+        finally
+        {
+            await runtime.DisposeAsync();
+        }
+    }
+
     private static async Task<int> DrainEventsAsync(Messenger messenger, CancellationToken ct)
     {
         int count = 0;

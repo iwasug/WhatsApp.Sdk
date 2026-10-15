@@ -181,6 +181,7 @@ public sealed class WaConnection : IAsyncDisposable
     private StoreRegistry? _storeRegistry;
 
     private SafetyOptions? _safetyPolicy;
+    private int _messagingEventChannelCapacity = Iwasug.WhatsApp.Sdk.Messaging.Messenger.EventChannelCapacity;
     private byte[]? _lastHandshakeHash;
     private volatile TaskCompletionSource? _firstOpen;
     private readonly object _startupGate = new();
@@ -314,7 +315,7 @@ public sealed class WaConnection : IAsyncDisposable
             {
                 if (_messaging is null)
                 {
-                    var messenger = new Messenger(_accountId, this);
+                    var messenger = new Messenger(_accountId, this, MessagingEventChannelCapacity);
                     StanzaReceived += messenger.OnStanzaReceived;
                     _messaging = messenger;
                 }
@@ -349,6 +350,18 @@ public sealed class WaConnection : IAsyncDisposable
     {
         get => Volatile.Read(ref _safetyPolicy);
         set => Volatile.Write(ref _safetyPolicy, value);
+    }
+
+    /// <summary>
+    /// Event-stream capacity seam (07 WR-02): the bounded capacity of the messaging event
+    /// channel, read once at <see cref="Messaging"/> construction. Set before first
+    /// <see cref="Messaging"/> use (the <see cref="StoreRegistry"/> precedent); the
+    /// default is <see cref="Messaging.Messenger.EventChannelCapacity"/>.
+    /// </summary>
+    internal int MessagingEventChannelCapacity
+    {
+        get => Volatile.Read(ref _messagingEventChannelCapacity);
+        set => Volatile.Write(ref _messagingEventChannelCapacity, value);
     }
 
     /// <summary>Resolves the account's store session (host registry first, in-memory fallback per D-03).</summary>

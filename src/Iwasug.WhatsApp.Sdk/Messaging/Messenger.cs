@@ -56,19 +56,22 @@ public sealed class Messenger : IAsyncDisposable
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
     private readonly SemaphoreSlim _prekeyGate = new(1, 1);
-    private readonly Channel<WhatsAppEvent> _events = Channel.CreateBounded<WhatsAppEvent>(
-        new BoundedChannelOptions(EventChannelCapacity)
-        {
-            SingleReader = false,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.Wait,
-        });
+    private readonly Channel<WhatsAppEvent> _events;
     private bool _prekeysEnsured;
     private int _disposed;
 
-    internal Messenger(AccountId accountId, WaConnection connection)
+    internal Messenger(AccountId accountId, WaConnection connection, int eventChannelCapacity = EventChannelCapacity)
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        // 07 WR-02: the bounded stream capacity is host-configurable (WhatsAppSdkOptions
+        // .EventChannelCapacity); this constant is only the default.
+        _events = Channel.CreateBounded<WhatsAppEvent>(
+            new BoundedChannelOptions(eventChannelCapacity <= 0 ? EventChannelCapacity : eventChannelCapacity)
+            {
+                SingleReader = false,
+                SingleWriter = false,
+                FullMode = BoundedChannelFullMode.Wait,
+            });
         _directory = new DeviceDirectory(
             RouterProvider,
             connection.Clock);

@@ -98,6 +98,7 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
 
             connectionInstance.StoreRegistry = registry;
             connectionInstance.SafetyPolicy = safety;
+            connectionInstance.MessagingEventChannelCapacity = _eventChannelCapacity;
 
             var logger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<AccountRuntime>();
 
