@@ -14,7 +14,6 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 {
     private readonly ConcurrentDictionary<AccountId, AccountRuntime> _accounts = new();
-    private readonly ConcurrentDictionary<AccountId, byte> _registrations = new();
     private readonly ConcurrentDictionary<AccountId, AccountDescriptor> _descriptors = new();
     private readonly IAccountRuntimeFactory _factory;
     private readonly ILogger<SessionManager>? _logger;
@@ -97,7 +96,6 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
             {
                 if (_accounts.TryAdd(accountId, runtime))
                 {
-                    _registrations[accountId] = 0;
                     _descriptors[accountId] = descriptor;
                 }
                 else
@@ -145,7 +143,6 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!_accounts.TryRemove(accountId, out var runtime)) return;
-        _registrations.TryRemove(accountId, out _);
         _descriptors.TryRemove(accountId, out _);
         SignalMembershipChange();
 
@@ -426,7 +423,6 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         foreach (var kvp in snapshot)
         {
             _accounts.TryRemove(new KeyValuePair<AccountId, AccountRuntime>(kvp.Key, kvp.Value));
-            _registrations.TryRemove(kvp.Key, out _);
             _descriptors.TryRemove(kvp.Key, out _);
             try
             {
