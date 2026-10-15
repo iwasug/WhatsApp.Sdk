@@ -53,6 +53,9 @@ public sealed class SendPathAuditTests
             ("ReceiptHandler", "SendDeliveryReceiptAsync"),
             ("ReceiptHandler", "SendReadReceiptsAsync"),
             ("ReceiptHandler", "EmitRetryReceiptAsync"),
+            ("ReceiptHandler", "SendServerErrorReceiptAsync"),
+            ("ReceiptHandler", "EmitServerErrorReceiptAsync"),
+            ("ReceiptHandler", "SendMediaRetryReceiptAsync"),
             ("MessageSender", "AwaitAckAsync"),
             ("MessageSender", "ResendForRetryReceiptAsync"),
         };

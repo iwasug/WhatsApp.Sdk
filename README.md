@@ -122,6 +122,13 @@ resends are responses, not account traffic, and stay outside the gate.
 - No rehabilitation of already-flagged or restricted accounts.
 - No guarantee of compliance with WhatsApp Terms of Service. The host is
   responsible for lawful, policy-compliant use (see Compliance below).
+
+**Media additions (Phase 6):**
+- Uploads are high-bandwidth account activity; upload-then-send doubles
+  observable traffic.
+- Bulk media fan-out is the fastest ban path.
+- The SDK validates labels but never transcodes or judges media semantics.
+- Expiry-recovery requests are capped protocol traffic (three per message id).
 - No visibility into server-side signals the SDK cannot observe (account age
   reputation, contact quality, complaint rates, device reputation). Those
   operational realities remain the host's responsibility.
