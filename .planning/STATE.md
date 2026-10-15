@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 06
 current_phase_name: media-pipeline
-current_plan: Not started
+current_plan: 6 of 6
 status: executing
-stopped_at: Phase 05 complete, ready to plan Phase 6
-last_updated: "2026-10-15T05:36:29.005Z"
-state_head: 1dddb03d57385e717ccfdc05ee06be1b32e0f417
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-10-15T08:37:44.080Z"
+state_head: e247b962e7b10f86b4fe9b828f161b3b1a3bcb01
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 37
-  completed_plans: 31
+  completed_plans: 35
   percent: 56
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 ## Current Position
 
 Phase: 06 (media-pipeline) — READY TO EXECUTE
-Current Plan: Not started
+Current Plan: 6 of 6
 Total Plans in Phase: 6
 Status: Ready to execute
 
@@ -74,6 +74,7 @@ Progress: [██████░░░░] 56%
 | Phase 05-ban-safety-layer P04 | 1 execution pass | 3 tasks | 19 files |
 | Phase 05-ban-safety-layer P05 | 1 execution pass | 3 tasks | 11 files |
 | Phase 05-ban-safety-layer P06 | 1 execution pass | 3 tasks | 4 files |
+| Phase 06 P04 | task | 1 tasks | 4 files |
 
 ## Per-Plan Metrics:
 
@@ -155,6 +156,7 @@ Recent decisions affecting current work:
 - [Phase 05]: [Phase 05-05]: Unsafe opt-in requires non-empty DeclaredUnsafeAcknowledgment; existing unsafe test helpers pinned with explicit acknowledgments
 - [Phase 05]: [Phase 05-05]: Phase gate closes with the 4 documented pre-existing PairingLifecycleTests environment failures; no new failures, no new packages
 - [Phase 05]: [Phase 05-06]: Warm-up ceiling enforced end-to-end (SAF-03 / SC2b closed) — AdmitAsync takes the resolved stage int with zero store writes, counter is per-UTC-day under a shared lock, unpaired sessions share the stage-0 ceiling, over-ceiling refusal reuses RateLimit-to-BudgetExhausted with rule-only messages
+- [Phase 06]: Receive-side media event surface wired: public MediaReceived event, downloader/uploader seams, fail-closed dispatcher media branches
 
 ### Pending Todos
 
@@ -168,6 +170,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-14T09:00:00.000Z
-Stopped at: Phase 05 complete, ready to plan Phase 6
+Last session: 2026-10-15T08:37:29.456Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None

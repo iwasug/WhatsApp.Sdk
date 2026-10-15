@@ -26,7 +26,7 @@
     {
       "number": "5",
       "name": "Ban-Safety Layer",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "6",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd:progress --next",
+    "command": "/gsd-progress --next",
     "label": "Advance to the next step",
-    "reason": "Phase 5 of 9 · 44% · executing"
+    "reason": "Phase 6 of 10 · 56% · executing"
   },
-  "updated_at": "2026-10-14T04:05:54.100Z"
+  "updated_at": "2026-10-15T08:36:52.434Z"
 }

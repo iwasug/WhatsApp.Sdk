@@ -33,7 +33,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Media
 
 - [ ] **MED-01**: Host can send image, document, and voice note
-- [ ] **MED-02**: Host can receive/download media including download-expiry handling and media-retry flow
+- [x] **MED-02**: Host can receive/download media including download-expiry handling and media-retry flow
 
 ### Ban-Safety
 
@@ -126,7 +126,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MSG-06 | Phase 4 | Complete |
 | MSG-07 | Phase 4 | Complete |
 | MED-01 | Phase 6 | Pending |
-| MED-02 | Phase 6 | Pending |
+| MED-02 | Phase 6 | Complete |
 | SAF-01 | Phase 5 | Complete |
 | SAF-02 | Phase 5 | Complete |
 | SAF-03 | Phase 5 | Complete |
