@@ -109,34 +109,44 @@ internal sealed class WhatsAppHostedService : BackgroundService
     {
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
 
-        using CancellationTokenSource drainCts =
-            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // 07 WR-07: one bound only. The old linked drain CTS was dead code — its token
+        // was never observed — and the timeout was applied twice (CancelAfter plus a
+        // Task.Delay); validated options guarantee a positive timeout here.
+        TimeSpan drainTimeout = TimeSpan.FromMilliseconds(_options.Value.ShutdownDrainTimeoutMs);
+        Task disposeTask = _manager.DisposeAsync().AsTask();
+
         try
         {
-            drainCts.CancelAfter(_options.Value.ShutdownDrainTimeoutMs);
+            await disposeTask.WaitAsync(drainTimeout, cancellationToken).ConfigureAwait(false);
         }
-        catch (ArgumentOutOfRangeException)
-        {
-            drainCts.CancelAfter(TimeSpan.FromMilliseconds(_options.Value.ShutdownDrainTimeoutMs));
-        }
-
-        Task disposeTask = _manager.DisposeAsync().AsTask();
-        Task completed = await Task.WhenAny(disposeTask, Task.Delay(_options.Value.ShutdownDrainTimeoutMs, cancellationToken)).ConfigureAwait(false);
-
-        if (completed != disposeTask)
+        catch (TimeoutException)
         {
             _logger.LogWarning("Account drain timed out {RuleName}.", "DrainTimeout");
+            ObserveAbandonedDrain(disposeTask);
         }
-        else
+        catch (OperationCanceledException)
         {
-            try
-            {
-                await disposeTask.ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Account drain faulted {RuleName}.", ex.GetType().Name);
-            }
+            // Host stop aborted the wait; the drain keeps unwinding — observe it so a
+            // late fault is logged instead of going unobserved.
+            ObserveAbandonedDrain(disposeTask);
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Account drain faulted {RuleName}.", ex.GetType().Name);
+        }
+    }
+
+    /// <summary>
+    /// 07 WR-07: after a timeout or host cancellation, <c>StopAsync</c> returns while the
+    /// manager is still draining — observe its eventual completion so a late fault is
+    /// logged rather than abandoned unobserved.
+    /// </summary>
+    private void ObserveAbandonedDrain(Task disposeTask)
+    {
+        _ = disposeTask.ContinueWith(
+            t => _logger.LogWarning(t.Exception, "Abandoned account drain faulted {RuleName}.", "DrainFault"),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 }
