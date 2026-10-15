@@ -217,9 +217,12 @@ public class RateLimitIsolationTests
     }
 
     [Fact]
-    public async Task Manager_Status_Enumeration_Reflects_Both_Accounts()
+    public async Task Manager_Status_Reflects_Real_Breaker_State()
     {
-        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(new DefaultAccountRuntimeFactory());
+        // 07 CR-02 / IN-10: the manager's status must reflect the real gate every send
+        // traverses — tripping it through a send must surface SafetyCircuitState.Open.
+        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(
+            new DefaultAccountRuntimeFactory(defaultSafety: GateOptions()));
         AccountId a = AccountId.Create($"rl-mgr-a-{Guid.NewGuid():N}");
         AccountId b = AccountId.Create($"rl-mgr-b-{Guid.NewGuid():N}");
         await manager.AddAccountAsync(a, TestContext.Current.CancellationToken);
@@ -230,7 +233,21 @@ public class RateLimitIsolationTests
         statuses.Select(s => s.AccountId).Should().Contain(new[] { a, b });
         foreach (AccountStatus status in statuses)
         {
-            status.CircuitState.Should().Be(SafetyCircuitState.Closed);
+            status.CircuitState.Should().Be(SafetyCircuitState.Closed, "no outcome has been recorded yet");
         }
+
+        // Trip A's real gate (the one every send traverses) with five consecutive server errors.
+        manager.TryGetRuntime(a, out var runtimeA).Should().BeTrue();
+        for (int i = 0; i < 5; i++)
+        {
+            SendOutcome outcome = await runtimeA!.Messenger.SafetyGate.ExecuteSendAsync(
+                new SendContext(Chat($"155500000{i}"), IsReply: false),
+                TestContext.Current.CancellationToken,
+                _ => Task.FromResult(ServerError($"mgr-a-{i}")));
+            outcome.Status.Should().Be(SendOutcomeStatus.ServerError);
+        }
+
+        manager.GetStatus(a)!.CircuitState.Should().Be(SafetyCircuitState.Open);
+        manager.GetStatus(b)!.CircuitState.Should().Be(SafetyCircuitState.Closed, "A's breaker must not affect B");
     }
 }

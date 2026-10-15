@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Iwasug.WhatsApp.Sdk.Errors;
@@ -121,6 +122,10 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
             await AddAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    /// <summary>Resolves the live runtime for <paramref name="accountId"/> (07 WR-08 seam backing).</summary>
+    internal bool TryGetRuntime(AccountId accountId, [NotNullWhen(true)] out AccountRuntime? runtime)
+        => _accounts.TryGetValue(accountId, out runtime);
 
     public AccountStatus? GetStatus(AccountId accountId)
     {

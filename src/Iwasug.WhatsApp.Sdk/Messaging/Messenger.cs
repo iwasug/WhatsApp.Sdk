@@ -471,6 +471,13 @@ public sealed class Messenger : IAsyncDisposable
         await _receipts.SendReadReceiptsAsync(keys, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The single per-account safety gate (07 CR-02): every send through
+    /// <see cref="SendMessageAsync"/> traverses this gate, so status/health surfaces
+    /// must read its real state. There is exactly one gate per account.
+    /// </summary>
+    internal ISafetyGate SafetyGate => _safety;
+
     /// <summary>Tests/host seam: attempts to publish a synthetic event to this account's stream (backpressure, no drop).</summary>
     internal bool TryPublishEvent(WhatsAppEvent evt)
     {

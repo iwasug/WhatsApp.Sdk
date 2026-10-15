@@ -87,16 +87,12 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
             connectionInstance.SafetyPolicy = safety;
 
             var logger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<AccountRuntime>();
-            var safetyLogger = (_loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<SafetyGate>();
 
-            ISafetyGate gate = new SafetyGate(
-                _timeProvider,
-                safety,
-                safetyLogger,
-                _ => new ValueTask<StoreSession>(session),
-                (evt, token) => ValueTask.CompletedTask);
-
+            // 07 CR-02: exactly one gate per account — the real gate inside the messenger
+            // that every send traverses. A second, factory-owned gate would never gate a
+            // send and would leave AccountStatus.CircuitState permanently Closed.
             Messenger messenger = connectionInstance.Messaging;
+            ISafetyGate gate = messenger.SafetyGate;
 
             Channel<OutboundEnvelope> queue = Channel.CreateBounded<OutboundEnvelope>(
                 new BoundedChannelOptions(_channelCapacity)
