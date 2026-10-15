@@ -1028,7 +1028,6 @@ Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.What
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId) -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus?
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatuses() -> System.Collections.Generic.IReadOnlyCollection<Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!>!
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
@@ -1078,3 +1077,27 @@ static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Validate(Iwasug.WhatsApp.S
 Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions
 static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "WhatsApp") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!>!
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountEvent(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.init -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.get -> Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.init -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILogger<T>! innerLogger) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILoggerFactory! factory) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.BeginScope<TState>(TState state) -> System.IDisposable?
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) -> bool
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
+Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>
+Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>.ScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILogger<T>! innerLogger) -> void
+Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>.ScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILoggerFactory! factory) -> void
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.ToString() -> string!
+static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator !=(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator ==(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool

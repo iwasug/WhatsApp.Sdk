@@ -47,15 +47,17 @@ internal sealed class SafetyGate : ISafetyGate
         _warmup = new WarmupLadder(_clock);
         _coldOutreach = new ColdOutreachBudget(_clock, _options);
         _breaker = new CircuitBreaker(_clock);
+    
         _pacing = new HumanPacing(_clock, _options);
     }
+
+    internal Safety.CircuitState CircuitState => _breaker.State;
 
     public async Task<SendOutcome> ExecuteSendAsync(
         SendContext context,
         CancellationToken cancellationToken,
         Func<CancellationToken, Task<SendOutcome>> innerSend)
     {
-        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(innerSend);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -78,6 +80,12 @@ internal sealed class SafetyGate : ISafetyGate
             await PublishViolationAsync(ex, context, cancellationToken).ConfigureAwait(false);
             throw;
         }
+    }
+
+    private void CheckCircuit(SendContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        _breaker.ThrowIfOpen(cancellationToken);
     }
 
     private async Task PublishViolationAsync(SafetyRuleViolationException ex, SendContext context, CancellationToken cancellationToken)
@@ -128,12 +136,7 @@ internal sealed class SafetyGate : ISafetyGate
                 AccountRestricted?.Invoke(this, new AccountRestrictedEventArgs(context.Chat.ToString(), "Error", DateTimeOffset.MaxValue, (int)ex.Rule));
                 break;
         }
-    }
 
-    private void CheckCircuit(SendContext context, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        _breaker.ThrowIfOpen(cancellationToken);
     }
 
     /// <summary>
@@ -167,7 +170,6 @@ internal sealed class SafetyGate : ISafetyGate
 
     private void CheckActiveHours(SendContext context, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(context);
         _pacing.AssertInsideActiveHours(cancellationToken);
     }
     private async Task AcquireRateLimits(SendContext context, CancellationToken cancellationToken)
