@@ -80,15 +80,7 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
         // host-supplied registry is host-owned and never disposed by the SDK.
         bool ownsRegistry = _registry is null;
 
-        StoreSession session;
-        try
-        {
-            session = await registry.CreateSessionAsync(accountId, cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            throw;
-        }
+        StoreSession session = await registry.CreateSessionAsync(accountId, cancellationToken).ConfigureAwait(false);
 
         WaConnection? connectionInstance = null;
         try
