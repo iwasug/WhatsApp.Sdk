@@ -426,21 +426,20 @@ public async IAsyncEnumerable<AccountEvent> ReadEventsAsync(
 | A4 | Optional mediator DI packages (M.E.DI 10.0.12) already pulled transitively but not central-pinned; pin them explicitly to avoid drift | Standard Stack | Low; host versions typically dominate |
 | A5 | No external orchestration library (e.g. MassTransit) is needed; std channels suffice | Don't Hand-Roll | If outbox/durable send appears in scope, revisit |
 
-## Open Questions
-
+## Open Questions (RESOLVED)
 1. **Outbox / durable send queueing** (hinted in research SUMMARY Phase 7 as "durable outbox (P2 can slot here)")
    - What we know: outbound messages are one-send semantics (Phase 4 idempotency contract).
    - What's unclear: whether host durability requirement means a DB-backed outbox in this phase.
    - Recommendation: Keep `Channel<T>` in memory for v1, document outbox as optional extension seam (a second implementation of the outbound sink), defer DB outbox to Phase 8 planning unless road map adds it.
-
+   - **Resolution (adopted in 07-01/07-03):** `Channel<T>` stays the sole in-memory outbound sink in Phase 7; `AccountRuntime` owns one bounded `Channel<OutboundEnvelope>` per account (07-01) and `WhatsAppSdkOptions` exposes capacity/count tuning (07-03). DB-backed durable outbox is deferred beyond Phase 7; an extension seam remains.
 2. **Where `AccountId` string pairing happens in config**
    - What we know: `AccountId.Create` validates; config stores strings.
    - What's unclear: whether host provides per-account store factory on AddAccount vs global StoreRegistry.
    - Recommendation: Global `StoreRegistry` (already singleton seam) created from `StoreFactories`; per-account resolution uses AccountId - no change required.
-
+   - **Resolution (adopted in 07-03):** `AccountDescriptor` carries the validated `AccountId` string; `DefaultAccountRuntimeFactory` resolves the store session through the global `StoreRegistry` keyed by that `AccountId`; no per-account store factory is added to `AddAccountAsync`. Host continues to own the registry via `StoreFactories`.
 3. **Manager event granularity**
    - Whether `AccountEvent` should wrap the whole `WhatsAppEvent` or expose per-typed streams. Recommend wrapper for simplicity, single consumption shape.
-
+   - **Resolution (adopted in 07-04):** `AccountEvent` wraps the whole `WhatsAppEvent` verbatim (`(AccountId, WhatsAppEvent)`); manager exposes one fused `IAsyncEnumerable<AccountEvent>` with cooperative cancellation; no per-typed streams in this phase.
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
