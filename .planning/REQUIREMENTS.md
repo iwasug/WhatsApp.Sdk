@@ -47,9 +47,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Multi-Account
 
-- [ ] **MUL-01**: Host can manage many concurrent accounts via `SessionManager` (add/remove/status/restart, hot add/remove, per-account health)
+- [x] **MUL-01**: Host can manage many concurrent accounts via `SessionManager` (add/remove/status/restart, hot add/remove, per-account health)
 - [x] **MUL-02**: Accounts are hard-isolated (per-account store namespace, outbound queue, limiter, no shared mutable state) with an isolation test suite running in CI
-- [ ] **MUL-03**: SDK surface is idiomatic .NET (DI, `IOptions<T>`, `IHostedService`, async streams, `CancellationToken`, `ILogger` per-account scopes)
+- [x] **MUL-03**: SDK surface is idiomatic .NET (DI, `IOptions<T>`, `IHostedService`, async streams, `CancellationToken`, `ILogger` per-account scopes)
 
 ### Broadcast
 
@@ -134,9 +134,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAF-05 | Phase 5 | Complete |
 | SAF-06 | Phase 5 | Complete |
 | SAF-07 | Phase 5 | Complete |
-| MUL-01 | Phase 7 | Pending |
+| MUL-01 | Phase 7 | Complete |
 | MUL-02 | Phase 7 | Complete |
-| MUL-03 | Phase 7 | Pending |
+| MUL-03 | Phase 7 | Complete |
 | BCT-01 | Phase 8 | Pending |
 | EXT-01 | Phase 8 | Pending |
 | EXT-02 | Phase 8 | Pending |
