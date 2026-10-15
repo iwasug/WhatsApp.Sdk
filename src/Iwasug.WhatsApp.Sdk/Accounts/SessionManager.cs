@@ -24,6 +24,13 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     // atomic with respect to every other mutation (no resurrection, no spurious
     // duplicate), and a registration can never race the shutdown snapshot.
     private readonly SemaphoreSlim _mutationGate = new(1, 1);
+
+    // 07 WR-04: broadcast signal for account-set changes. Readers snapshot the
+    // current source before enumerating accounts and race it against the per-account
+    // reads, so an account added (or removed) while every existing account is quiet
+    // wakes the fused reader instead of waiting for the next pre-existing event.
+    private readonly object _membershipLock = new();
+    private TaskCompletionSource _membershipSignal = CreateMembershipSignal();
     private int _disposed;
 
     public SessionManager(IAccountRuntimeFactory factory, ILogger<SessionManager>? logger = null)
@@ -113,6 +120,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         }
 
         _logger?.LogInformation("Account registered {AccountId}.", accountId.Value);
+        SignalMembershipChange();
     }
 
     public async ValueTask RemoveAccountAsync(AccountId accountId, CancellationToken cancellationToken = default)
@@ -139,6 +147,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         if (!_accounts.TryRemove(accountId, out var runtime)) return;
         _registrations.TryRemove(accountId, out _);
         _descriptors.TryRemove(accountId, out _);
+        SignalMembershipChange();
 
         try
         {
@@ -192,6 +201,26 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         {
             if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
         }
+    }
+
+    private static TaskCompletionSource CreateMembershipSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Wakes every fused reader currently parked on the account set (07 WR-04):
+    /// the current signal is swapped for a fresh one under the lock, and the old
+    /// one completes — readers awaiting it re-enumerate <c>_accounts</c>.
+    /// </summary>
+    private void SignalMembershipChange()
+    {
+        TaskCompletionSource previous;
+        lock (_membershipLock)
+        {
+            previous = _membershipSignal;
+            _membershipSignal = CreateMembershipSignal();
+        }
+
+        previous.TrySetResult();
     }
 
     private static async ValueTask DisposeRuntimeQuietlyAsync(AccountRuntime runtime)
@@ -267,6 +296,16 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
+                // 07 WR-04: snapshot the membership signal BEFORE enumerating accounts so a
+                // change landing between the snapshot and the wait below can never be missed:
+                // any change after the snapshot completes this source, and any change before
+                // it is already reflected in the enumeration.
+                Task membershipChanged;
+                lock (_membershipLock)
+                {
+                    membershipChanged = _membershipSignal.Task;
+                }
+
                 foreach (var kvp in _accounts.ToArray())
                 {
                     if (!enumerators.ContainsKey(kvp.Key))
@@ -279,7 +318,7 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 
                 if (nextTasks.Count == 0)
                 {
-                    try { await Task.Delay(100, cancellationToken).ConfigureAwait(false); }
+                    try { await membershipChanged.WaitAsync(cancellationToken).ConfigureAwait(false); }
                     catch (OperationCanceledException) { yield break; }
                     continue;
                 }
@@ -287,7 +326,16 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
                 Task<bool> completed;
                 try
                 {
-                    completed = await Task.WhenAny(nextTasks.Values).WaitAsync(cancellationToken).ConfigureAwait(false);
+                    Task<Task<bool>> anyEvent = Task.WhenAny(nextTasks.Values);
+                    Task first = await Task.WhenAny(anyEvent, membershipChanged).WaitAsync(cancellationToken).ConfigureAwait(false);
+                    if (first == membershipChanged)
+                    {
+                        // An account was added or removed while every enumerated account
+                        // was quiet — re-enumerate instead of sleeping on stale tasks.
+                        continue;
+                    }
+
+                    completed = await anyEvent.ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -358,6 +406,9 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
             Interlocked.Exchange(ref _disposed, 1);
             snapshot = _accounts.ToArray();
         }
+
+        // 07 WR-04: wake fused readers so they observe the drained account set promptly.
+        SignalMembershipChange();
 
         foreach (var kvp in snapshot)
         {
