@@ -39,6 +39,14 @@ public interface IWhatsAppSessionManager : IAsyncDisposable
     /// </summary>
     bool TryGetConnection(AccountId accountId, [NotNullWhen(true)] out Connection.WaConnection? connection);
 
+    /// <summary>
+    /// Resolves the live per-account messenger for <paramref name="accountId"/> (07 WR-08) —
+    /// the handle a host needs to send and to observe one account's event stream. Returns
+    /// <c>false</c> for unknown ids. The returned instance is owned by the manager and is
+    /// disposed with the account: callers must not dispose it.
+    /// </summary>
+    bool TryGetMessenger(AccountId accountId, [NotNullWhen(true)] out Messenger? messenger);
+
     /// <summary>Merged event stream across all accounts.</summary>
     IAsyncEnumerable<AccountEvent> ReadEventsAsync(CancellationToken cancellationToken = default);
 

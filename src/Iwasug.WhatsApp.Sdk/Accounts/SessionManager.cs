@@ -288,6 +288,19 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         return false;
     }
 
+    /// <inheritdoc />
+    public bool TryGetMessenger(AccountId accountId, [NotNullWhen(true)] out Messenger? messenger)
+    {
+        if (_accounts.TryGetValue(accountId, out AccountRuntime? runtime))
+        {
+            messenger = runtime.Messenger;
+            return true;
+        }
+
+        messenger = null;
+        return false;
+    }
+
     public async IAsyncEnumerable<AccountEvent> ReadEventsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var enumerators = new Dictionary<AccountId, IAsyncEnumerator<WhatsAppEvent>>();

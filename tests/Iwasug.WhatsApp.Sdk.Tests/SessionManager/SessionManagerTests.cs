@@ -104,4 +104,26 @@ public class SessionManagerTests
 
         manager.GetStatuses().Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task TryGetMessenger_Resolves_Live_Account_And_Is_False_For_Unknown()
+    {
+        // 07 WR-08: the manager's public surface is the only handle a host has on a
+        // single account's messenger; it must resolve the live instance and report
+        // false (not throw) for ids that are absent.
+        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(new Iwasug.WhatsApp.Sdk.Accounts.DefaultAccountRuntimeFactory());
+        var id = AccountId.Create($"sm-{Guid.NewGuid():N}");
+        var ct = TestContext.Current.CancellationToken;
+
+        manager.TryGetMessenger(id, out _).Should().BeFalse();
+
+        await manager.AddAccountAsync(id, ct);
+
+        manager.TryGetMessenger(id, out var messenger).Should().BeTrue();
+        manager.TryGetRuntime(id, out var runtime).Should().BeTrue();
+        messenger.Should().BeSameAs(runtime!.Messenger);
+
+        await manager.RemoveAccountAsync(id, ct);
+        manager.TryGetMessenger(id, out _).Should().BeFalse();
+    }
 }

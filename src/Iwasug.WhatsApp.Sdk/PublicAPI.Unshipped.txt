@@ -1031,6 +1031,7 @@ Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwas
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetConnection(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Connection.WaConnection? connection) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetMessenger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Messaging.Messenger? messenger) -> bool
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Closed = 0 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
 Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.HalfOpen = 2 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
