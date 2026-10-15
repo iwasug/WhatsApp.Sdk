@@ -857,10 +857,24 @@ internal sealed class MessageDispatcher
     /// informational events that gate no SDK behavior). Receipt nodes are not acked in
     /// 04-04 scope; the <c>retry</c> kind additionally dispatches the MSG-06 respond
     /// path (the same-id cache resend), best-effort — a respond fault never breaks
-    /// the receive path.
+    /// the receive path. A receipt carrying an <c>&lt;rmr&gt;</c> child short-circuits
+    /// ALL of the above (D-66b routing contract).
     /// </summary>
     private async Task HandleReceipt(BinaryNode node, CancellationToken cancellationToken)
     {
+        // Media-retry routing is PRESENCE-based (D-66b / 06-RESEARCH.md:235-236/245):
+        // a receipt carrying an <rmr> child routes to the media-retry handler
+        // regardless of — or absent — its type attribute, BEFORE any receipt-type
+        // classification. Gating this behind TryParseReceiptKind would silently kill
+        // expiry recovery for server-error-typed (or otherwise unknown-typed)
+        // notifications and would mislabel protocol traffic to hosts as a Delivery
+        // receipt fact.
+        if (FirstChild(node, "rmr") is BinaryNode rmr)
+        {
+            await TryHandleMediaRetryReceiptAsync(node, rmr, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         string typeAttr = node.Attrs.TryGetValue("type", out string? type) && !string.IsNullOrEmpty(type)
             ? type
             : "delivery"; // the historical no-type receipt form is a delivery receipt
@@ -907,15 +921,6 @@ internal sealed class MessageDispatcher
             new ReceiptReceivedEventArgs(kind, ids, chat, participant, timestamp),
             cancellationToken).ConfigureAwait(false);
 
-        BinaryNode? rmr = FirstChild(node, "rmr");
-        if (rmr is not null)
-        {
-            // Media-retry (D-66b): receipts carrying an <rmr> child route here regardless
-            // of receipt type, BEFORE the Pattern-5 decrypt-retry branch below. Best-effort.
-            await TryHandleMediaRetryReceiptAsync(node, rmr, from, participant, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         if (kind is ReceiptKind.Retry)
         {
             // MSG-06 respond path: parse the Pattern-5 children bounds-checked, then
@@ -936,8 +941,6 @@ internal sealed class MessageDispatcher
     private async Task TryHandleMediaRetryReceiptAsync(
         BinaryNode node,
         BinaryNode rmr,
-        Jid from,
-        Jid? participant,
         CancellationToken cancellationToken)
     {
         try
