@@ -66,15 +66,10 @@ internal sealed class MediaDownloader
                 }
                 resp.EnsureSuccessStatusCode();
 
-                if (resp.Content.Headers.ContentLength.HasValue && resp.Content.Headers.ContentLength.Value != fileLength)
-                {
-                    // content length mismatch against file length when present: check upper bound only if present
-                    if (resp.Content.Headers.ContentLength.Value > fileLength)
-                    {
-                        throw new SdkFormatException("Media download size mismatch.");
-                    }
-                }
-
+                // The response body is ciphertext || 10-byte MAC, so its length is ALWAYS
+                // larger than the plaintext fileLength (PKCS7 always pads). Never compare
+                // the transport Content-Length against fileLength here — the semantic size
+                // check runs on the verified plaintext after decryption (below).
                 blob = await resp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
                 break;
             }
@@ -94,6 +89,11 @@ internal sealed class MediaDownloader
 
         string info = MediaKindInfo.InfoString(kind);
         byte[] plaintext = MediaCrypto.VerifyAndDecrypt(blob, mediaKey, info, fileSha256, fileEncSha256);
+        if (plaintext.Length != fileLength)
+        {
+            throw new SdkFormatException("Media plaintext length mismatch.");
+        }
+
         var ms = new System.IO.MemoryStream(plaintext, writable: false);
         return ms;
     }
