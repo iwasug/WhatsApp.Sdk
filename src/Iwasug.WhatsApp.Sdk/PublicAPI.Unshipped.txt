@@ -1105,9 +1105,6 @@ Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.Wh
 Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.BeginScope<TState>(TState state) -> System.IDisposable?
 Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) -> bool
 Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
-Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>
-Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>.ScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILogger<T>! innerLogger) -> void
-Iwasug.WhatsApp.Sdk.Hosting.ScopedLogger<T>.ScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILoggerFactory! factory) -> void
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.ToString() -> string!

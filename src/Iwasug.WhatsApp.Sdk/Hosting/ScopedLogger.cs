@@ -51,13 +51,3 @@ public class AccountScopedLogger<T> : ILogger<T>
         }
     }
 }
-
-/// <summary>Alias for <see cref="AccountScopedLogger{T}"/> (plan 07-04 file name).</summary>
-public sealed class ScopedLogger<T> : AccountScopedLogger<T>
-{
-    /// <inheritdoc />
-    public ScopedLogger(AccountId accountId, ILoggerFactory factory) : base(accountId, factory) { }
-
-    /// <inheritdoc />
-    public ScopedLogger(AccountId accountId, ILogger<T> innerLogger) : base(accountId, innerLogger) { }
-}
