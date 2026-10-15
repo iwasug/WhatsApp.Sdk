@@ -68,8 +68,23 @@ internal sealed class AccountRuntime : IAsyncDisposable
     public WaConnection Connection { get; }
     public Messenger Messenger { get; }
     public ISafetyGate SafetyGate { get; }
+
+    /// <summary>
+    /// Bounded outbound queue for this account. Scaffolding, NOT yet wired (07 IN-04):
+    /// nothing under <c>src/</c> produces or drains entries yet — only the queue depth
+    /// surfaces via <see cref="AccountStatus.QueuedOutbound"/>. Kept as the planned pump
+    /// seam; remove or wire when the outbound pump lands.
+    /// </summary>
     public Channel<OutboundEnvelope> OutboundQueue { get; }
+
     public ILogger? Logger { get; }
+
+    /// <summary>
+    /// Per-account cancellation source. Scaffolding, NOT yet wired (07 IN-04): it is
+    /// never linked to a manager stop token and never handed to any consumer — it is
+    /// only cancelled and disposed with this runtime. Kept as the planned per-account
+    /// token seam.
+    /// </summary>
     public CancellationTokenSource LinkedCts { get; }
 
     /// <summary>
