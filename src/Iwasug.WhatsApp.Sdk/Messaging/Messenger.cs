@@ -495,8 +495,6 @@ public sealed class Messenger : IAsyncDisposable
         return _events.Writer.TryWrite(evt);
     }
 
-    /// <summary>Tests/host seam: the writer for this account's event channel.</summary>
-    internal ChannelWriter<WhatsAppEvent> EventWriter => _events.Writer;
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
