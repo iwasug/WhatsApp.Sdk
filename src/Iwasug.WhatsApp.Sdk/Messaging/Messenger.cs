@@ -114,10 +114,13 @@ public sealed class Messenger : IAsyncDisposable
     public event EventHandler<MediaReceivedEventArgs>? MediaReceived;
 
     /// <summary>
-    /// Raised when an inbound media download cannot be recovered (cap exhausted or
-    /// terminal rmr error code). The host's only signal; carries no key material.
+    /// Raised when an inbound media download cannot be recovered: the per-id request cap
+    /// is exhausted or an rmr notification answered terminally (<c>&lt;error code="2"/&gt;</c>
+    /// or a non-success result). The host's only signal for unrecoverable inbound media
+    /// (MED-02); carries no key material. Handler-only by design — this fact is not
+    /// published to the <see cref="ReadEventsAsync"/> stream.
     /// </summary>
-    internal event EventHandler<MediaDownloadFailedEventArgs>? MediaDownloadFailed;
+    public event EventHandler<MediaDownloadFailedEventArgs>? MediaDownloadFailed;
     /// <summary>
     /// Raised (on the dispatcher's async path) when an inbound <c>receipt</c> node parses
     /// (04-04, MSG-04): the kind, ids, chat, and optional group participant, parsed
@@ -532,6 +535,11 @@ public sealed class Messenger : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The single emit point for the media-download-failure fact (MED-02/WR-03):
+    /// raises the <see cref="MediaDownloadFailed"/> handler twin. Deliberately
+    /// handler-only — no stream twin is published, documented on the event itself.
+    /// </summary>
     internal ValueTask RaiseMediaDownloadFailedAsync(MediaDownloadFailedEventArgs args, CancellationToken cancellationToken = default)
     {
         MediaDownloadFailed?.Invoke(this, args);

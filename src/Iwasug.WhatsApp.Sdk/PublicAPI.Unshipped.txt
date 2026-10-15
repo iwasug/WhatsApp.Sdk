@@ -1108,5 +1108,16 @@ Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.Log<TState>(Microsoft.Extensi
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.ToString() -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MediaDownloadFailedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! key, Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string? messageId = null, string? reason = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaDownloadFailed -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs!>?
 static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator !=(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
 static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator ==(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool

@@ -608,13 +608,30 @@ internal sealed class MessageDispatcher
             }
             catch (MediaDownloadExpiredException)
             {
+                bool? requestSent = null;
                 try
                 {
-                    await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe, participant: null, cancellationToken).ConfigureAwait(false);
+                    requestSent = await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe, participant: null, cancellationToken).ConfigureAwait(false);
                 }
                 catch
                 {
                     // Best-effort: server-error receipt is protocol traffic and must not kill the receive path.
+                }
+
+                if (requestSent is false)
+                {
+                    // Cap exhausted: no further request will ever be sent for this id, so
+                    // no pending context is registered — the typed failure is the host's
+                    // only signal (MED-02 scale 2, WR-03).
+                    await _owner.RaiseMediaDownloadFailedAsync(
+                        new MediaDownloadFailedEventArgs(key, chat, key.Id, "media-retry request cap exhausted"),
+                        cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                if (requestSent is not true)
+                {
+                    return; // the request faulted: no pending (recovery cannot be requested again)
                 }
 
                 _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
@@ -726,13 +743,27 @@ internal sealed class MessageDispatcher
             }
             catch (MediaDownloadExpiredException)
             {
+                bool? requestSent = null;
                 try
                 {
-                    await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe: false, participant, cancellationToken).ConfigureAwait(false);
+                    requestSent = await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe: false, participant, cancellationToken).ConfigureAwait(false);
                 }
                 catch
                 {
                     // Best-effort.
+                }
+
+                if (requestSent is false)
+                {
+                    await _owner.RaiseMediaDownloadFailedAsync(
+                        new MediaDownloadFailedEventArgs(key, chat, key.Id, "media-retry request cap exhausted"),
+                        cancellationToken).ConfigureAwait(false);
+                    return; // cap exhausted: no pending, no further request for this id
+                }
+
+                if (requestSent is not true)
+                {
+                    return; // the request faulted: no pending
                 }
 
                 _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
