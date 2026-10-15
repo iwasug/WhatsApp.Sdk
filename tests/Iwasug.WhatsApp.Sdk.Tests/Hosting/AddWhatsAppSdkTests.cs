@@ -125,6 +125,23 @@ public class AddWhatsAppSdkTests
     }
 
     [Fact]
+    public void Delegate_Overload_Validates_Options_On_Start()
+    {
+        // 07 IN-09: the delegate overload validates on start like the configuration
+        // overload — invalid options fail when the startup validator runs, instead of
+        // lazily at the first IOptions<WhatsAppSdkOptions>.Value resolution. The
+        // validation delegate's own exception surfaces unwrapped (ValidateOptions<T>
+        // no longer wraps it), so assert on the operator-facing message, not the type.
+        var services = new ServiceCollection();
+        services.AddWhatsAppSdk(o => o.ShutdownDrainTimeoutMs = 0);
+
+        using var provider = services.BuildServiceProvider();
+        IStartupValidator validator = provider.GetRequiredService<IStartupValidator>();
+        Action act = () => validator.Validate();
+        act.Should().Throw<Exception>().WithMessage("*ShutdownDrainTimeoutMs*");
+    }
+
+    [Fact]
     public async Task Per_Account_Registry_Is_Owned_And_Disposed_With_The_Runtime()
     {
         // 07 WR-06: with no host registry registered, the factory creates a per-account

@@ -26,7 +26,11 @@ public static class WhatsAppSdkServiceCollectionExtensions
 
         services.AddOptions<WhatsAppSdkOptions>()
             .Configure(o => configure?.Invoke(o))
-            .Validate(o => { WhatsAppSdkOptions.Validate(o); return true; });
+            // 07 IN-09: symmetrical with the IConfiguration overload — invalid options
+            // fail host start with OptionsValidationException instead of surfacing later
+            // on the first IOptions<WhatsAppSdkOptions>.Value resolution.
+            .Validate(o => { WhatsAppSdkOptions.Validate(o); return true; })
+            .ValidateOnStart();
 
         RegisterCore(services);
         return services;
