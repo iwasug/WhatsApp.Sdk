@@ -62,6 +62,19 @@ public sealed record SafetyOptions
 
     /// <summary>Maximum human-like presence pause in milliseconds (typing/recording before send).</summary>
     public int PacingPresenceMaxMs { get; init; } = 12000;
+
+    /// <summary>Maximum bytes for an image upload.</summary>
+    public long MaxImageBytes { get; init; } = 16777216;
+
+    /// <summary>Maximum bytes for a document upload.</summary>
+    public long MaxDocumentBytes { get; init; } = 67108864;
+
+    /// <summary>Maximum bytes for an audio/voice-note upload.</summary>
+    public long MaxAudioBytes { get; init; } = 16777216;
+
+    /// <summary>Maximum bytes for a thumbnail payload.</summary>
+    public long MaxThumbnailBytes { get; init; } = 65536;
+
     /// <summary>Conservative defaults.</summary>
     public static SafetyOptions SafeDefaults => new();
 
@@ -122,6 +135,11 @@ public sealed record SafetyOptions
             resolved = resolved with { PacingPresenceMaxMs = resolved.PacingPresenceMinMs };
         }
 
+        if (resolved.MaxImageBytes <= 0 || resolved.MaxDocumentBytes <= 0 || resolved.MaxAudioBytes <= 0 || resolved.MaxThumbnailBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Media byte caps must be positive.");
+        }
+
         if (!resolved.AllowUnsafeThroughput)
         {
             if (resolved.MaxMessagesPerMinute > 60)
@@ -137,6 +155,26 @@ public sealed record SafetyOptions
             if (resolved.MaxMessagesPerDay > 1000)
             {
                 throw new ArgumentOutOfRangeException(nameof(options), "MaxMessagesPerDay exceeds the safe threshold of 1000 per day. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
+            }
+
+            if (resolved.MaxImageBytes > 16777216)
+            {
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxImageBytes exceeds the safe threshold. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
+            }
+
+            if (resolved.MaxDocumentBytes > 67108864)
+            {
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxDocumentBytes exceeds the safe threshold. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
+            }
+
+            if (resolved.MaxAudioBytes > 16777216)
+            {
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxAudioBytes exceeds the safe threshold. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
+            }
+
+            if (resolved.MaxThumbnailBytes > 65536)
+            {
+                throw new ArgumentOutOfRangeException(nameof(options), "MaxThumbnailBytes exceeds the safe threshold. Set AllowUnsafeThroughput with an explicit acknowledgment to exceed safe throughput.");
             }
         }
         else if (string.IsNullOrWhiteSpace(resolved.DeclaredUnsafeAcknowledgment))

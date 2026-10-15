@@ -294,6 +294,12 @@ Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReadEventsAsync(System.Threading.Cancell
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReceiptReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReplyAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! quotedMessageId, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, string! mimetype, string! fileName, string? title = null, string? caption = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, string! mimetype, string! fileName, string? title = null, string? caption = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SetDeliveryReceipts(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, bool enabled) -> void
 Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind
@@ -839,6 +845,14 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxThumbnailBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxThumbnailBytes.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.get -> bool
