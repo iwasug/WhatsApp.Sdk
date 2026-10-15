@@ -216,7 +216,7 @@ Plans:
 **Plans**: 4 plans
 
 **Wave 1**
-- [ ] 07-01-PLAN.md - Atomic account registry, runtime composition, restart lifecycle over the per-account graph (tracer)
+- [x] 07-01-PLAN.md - Atomic account registry, runtime composition, restart lifecycle over the per-account graph (tracer)
 
 **Wave 2** *(depends on 07-01)*
 - [ ] 07-02-PLAN.md - Hard isolation suite: static-state audit, two-account concurrent interaction, rate-limit/breaker independence
