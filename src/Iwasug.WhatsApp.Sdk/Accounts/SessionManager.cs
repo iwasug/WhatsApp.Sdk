@@ -19,6 +19,11 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     private readonly IAccountRuntimeFactory _factory;
     private readonly ILogger<SessionManager>? _logger;
     private readonly object _lifecycleGate = new();
+
+    // 07 WR-03: serializes Add/Remove/Restart so a restart's remove+add pair is
+    // atomic with respect to every other mutation (no resurrection, no spurious
+    // duplicate), and a registration can never race the shutdown snapshot.
+    private readonly SemaphoreSlim _mutationGate = new(1, 1);
     private int _disposed;
 
     public SessionManager(IAccountRuntimeFactory factory, ILogger<SessionManager>? logger = null)
@@ -33,12 +38,17 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 
         AccountDescriptor descriptor = new AccountDescriptor { AccountId = accountId.Value };
 
-        lock (_lifecycleGate)
-        {
-            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
-        }
+        ThrowIfDisposed();
 
-        await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        await _mutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutationGate.Release();
+        }
     }
 
     public async ValueTask AddAccountAsync(AccountDescriptor descriptor, CancellationToken cancellationToken = default)
@@ -46,12 +56,17 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
         if (descriptor is null) throw new ArgumentNullException(nameof(descriptor));
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_lifecycleGate)
-        {
-            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
-        }
+        ThrowIfDisposed();
 
-        await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        await _mutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await AddAccountCoreAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutationGate.Release();
+        }
     }
 
     private async ValueTask AddAccountCoreAsync(AccountDescriptor descriptor, CancellationToken cancellationToken)
@@ -60,24 +75,43 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
 
         AccountId accountId = AccountId.Create(descriptor.AccountId);
 
-        AccountRuntime runtime;
-        try
+        AccountRuntime runtime = await _factory.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
+
+        bool disposed;
+        bool duplicate = false;
+        lock (_lifecycleGate)
         {
-            runtime = await _factory.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            throw;
+            // 07 WR-03: the disposed flag and the registration are decided under one
+            // lock, so DisposeAsync's drain snapshot can never miss a runtime that
+            // was created concurrently — add-after-dispose disposes the runtime and
+            // throws instead of leaking it past shutdown.
+            disposed = Volatile.Read(ref _disposed) != 0;
+            if (!disposed)
+            {
+                if (_accounts.TryAdd(accountId, runtime))
+                {
+                    _registrations[accountId] = 0;
+                    _descriptors[accountId] = descriptor;
+                }
+                else
+                {
+                    duplicate = true;
+                }
+            }
         }
 
-        if (!_accounts.TryAdd(accountId, runtime))
+        if (disposed)
         {
-            try { await runtime.DisposeAsync().ConfigureAwait(false); } catch { }
+            await DisposeRuntimeQuietlyAsync(runtime).ConfigureAwait(false);
+            throw new ObjectDisposedException(nameof(SessionManager));
+        }
+
+        if (duplicate)
+        {
+            await DisposeRuntimeQuietlyAsync(runtime).ConfigureAwait(false);
             throw new SdkDuplicateAccountException("An account with this id is already registered.");
         }
 
-        _registrations[accountId] = 0;
-        _descriptors[accountId] = descriptor;
         _logger?.LogInformation("Account registered {AccountId}.", accountId.Value);
     }
 
@@ -85,10 +119,22 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_lifecycleGate)
+        ThrowIfDisposed();
+
+        await _mutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
+            await RemoveAccountCoreAsync(accountId, cancellationToken).ConfigureAwait(false);
         }
+        finally
+        {
+            _mutationGate.Release();
+        }
+    }
+
+    private async ValueTask RemoveAccountCoreAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!_accounts.TryRemove(accountId, out var runtime)) return;
         _registrations.TryRemove(accountId, out _);
@@ -108,19 +154,55 @@ internal sealed class SessionManager : IWhatsAppSessionManager, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        ThrowIfDisposed();
+
+        await _mutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await RestartAccountCoreAsync(accountId, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutationGate.Release();
+        }
+    }
+
+    private async ValueTask RestartAccountCoreAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+
+        // 07 WR-03: remove+add run in one critical section (the mutation gate):
+        // a concurrent remove can no longer be undone by the re-add, and a
+        // concurrent add can no longer race the restart into a spurious duplicate
+        // for the account the restart itself just removed.
         if (!_accounts.ContainsKey(accountId)) throw new SdkUnknownAccountException("Unknown account.");
 
         AccountDescriptor? descriptor = _descriptors.TryGetValue(accountId, out var stored) ? stored : null;
 
-        await RemoveAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
+        await RemoveAccountCoreAsync(accountId, cancellationToken).ConfigureAwait(false);
+        await AddAccountCoreAsync(
+            descriptor ?? new AccountDescriptor { AccountId = accountId.Value },
+            cancellationToken).ConfigureAwait(false);
+    }
 
-        if (descriptor is not null)
+    private void ThrowIfDisposed()
+    {
+        lock (_lifecycleGate)
         {
-            await AddAccountAsync(descriptor, cancellationToken).ConfigureAwait(false);
+            if (Volatile.Read(ref _disposed) != 0) throw new ObjectDisposedException(nameof(SessionManager));
         }
-        else
+    }
+
+    private static async ValueTask DisposeRuntimeQuietlyAsync(AccountRuntime runtime)
+    {
+        try
         {
-            await AddAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
+            await runtime.DisposeAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best effort: the runtime is being discarded either way.
         }
     }
 

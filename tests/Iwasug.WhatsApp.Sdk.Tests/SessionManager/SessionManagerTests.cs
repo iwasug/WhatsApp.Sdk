@@ -68,4 +68,40 @@ public class SessionManagerTests
         // access runtimes via reflection? Skip strict; status count
         manager.GetStatuses().Should().HaveCount(2);
     }
+
+    [Fact]
+    public async Task Interleaved_Add_Restart_Remove_No_Resurrection()
+    {
+        // 07 WR-03: the plan required an interleaved add/remove proof — no
+        // resurrection and a final count of zero when all removes win. Add and
+        // restart race on the same id; a duplicate thrown by restart (the
+        // resurrection/race symptom) fails the test, as does any leftover status.
+        var registry = new Iwasug.WhatsApp.Sdk.Stores.StoreRegistry(new Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions());
+        await using var manager = new Iwasug.WhatsApp.Sdk.Accounts.SessionManager(new DefaultAccountRuntimeFactory(registry));
+        var id = AccountId.Create($"sm-{Guid.NewGuid():N}");
+        var ct = TestContext.Current.CancellationToken;
+
+        var adder = Task.Run(async () =>
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                try { await manager.AddAccountAsync(id, ct); }
+                catch (SdkDuplicateAccountException) { }
+                await manager.RemoveAccountAsync(id, ct);
+            }
+        }, ct);
+
+        var restarter = Task.Run(async () =>
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                try { await manager.RestartAccountAsync(id, ct); }
+                catch (SdkUnknownAccountException) { }
+            }
+        }, ct);
+
+        await Task.WhenAll(adder, restarter);
+
+        manager.GetStatuses().Should().BeEmpty();
+    }
 }
