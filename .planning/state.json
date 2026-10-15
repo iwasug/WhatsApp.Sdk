@@ -31,12 +31,12 @@
     {
       "number": "6",
       "name": "Media Pipeline",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "7",
       "name": "Multi-Account Orchestration",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "8",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-progress --next",
+    "command": "/gsd:progress --next",
     "label": "Advance to the next step",
-    "reason": "Phase 6 of 10 · 56% · executing"
+    "reason": "Phase 7 of 9 · 56% · executing"
   },
-  "updated_at": "2026-10-15T08:36:52.434Z"
+  "updated_at": "2026-10-15T12:27:16.590Z"
 }

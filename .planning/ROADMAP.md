@@ -220,7 +220,7 @@ Plans:
 
 **Wave 2** *(depends on 07-01)*
 - [x] 07-02-PLAN.md - Hard isolation suite: static-state audit, two-account concurrent interaction, rate-limit/breaker independence
-- [ ] 07-03-PLAN.md - Idiomatic .NET hosting surface: DI registration, IOptions binding, IHostedService lifecycle
+- [x] 07-03-PLAN.md - Idiomatic .NET hosting surface: DI registration, IOptions binding, IHostedService lifecycle
 
 **Wave 3** *(depends on 07-03)*
 - [ ] 07-04-PLAN.md - AccountEvent fusion, per-account scoped logger, cancellation, health snapshots, phase close
@@ -265,6 +265,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
 | 5. Ban-Safety Layer | 6/6 | Complete    | 2026-10-14 |
 | 6. Media Pipeline | 4/6 | In Progress | - |
-| 7. Multi-Account Orchestration | 2/4 | In Progress | - |
+| 7. Multi-Account Orchestration | 3/4 | In Progress | - |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |
 | 9. Ship | 0/TBD | Not started | - |
