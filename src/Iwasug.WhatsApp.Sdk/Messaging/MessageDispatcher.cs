@@ -955,6 +955,26 @@ internal sealed class MessageDispatcher
                 return;
             }
 
+            // D-66b typed error terminal: an <error code="{n}"/> child answers the
+            // recovery request. code 2 = the media is gone on the sender's phone and
+            // is terminal (consume the pending: no later notification can succeed);
+            // any other code is retryable-once, so the pending context is kept and a
+            // later notification may still recover. Either way the host gets the
+            // typed failure signal instead of silence.
+            if (FirstChild(node, "error") is BinaryNode error
+                && int.TryParse(error.Attrs.GetValueOrDefault("code"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int errorCode))
+            {
+                await _owner.RaiseMediaDownloadFailedAsync(
+                    new MediaDownloadFailedEventArgs(pending.Key, pending.Chat, receiptId, $"media-retry error {errorCode}"),
+                    cancellationToken).ConfigureAwait(false);
+                if (errorCode == 2)
+                {
+                    _pendingMediaRecoveries.TryRemove(receiptId, out _);
+                }
+
+                return;
+            }
+
             BinaryNode? encrypt = FirstChild(node, "encrypt");
             BinaryNode? encPNode = encrypt is null ? null : FirstChild(encrypt, "enc_p");
             BinaryNode? encIvNode = encrypt is null ? null : FirstChild(encrypt, "enc_iv");
@@ -1014,9 +1034,21 @@ internal sealed class MessageDispatcher
                 return;
             }
 
-            if (notification.Result != 1 || string.IsNullOrEmpty(notification.DirectPath))
+            // Non-success results (NOT_FOUND / GENERAL_ERROR terminals from the peer)
+            // are typed failures — never silently indistinguishable from malformed
+            // traffic (WR-02). The pending context is kept: this is not the terminal
+            // error-code shape, so a later notification can still recover.
+            if (notification.Result != 1)
             {
+                await _owner.RaiseMediaDownloadFailedAsync(
+                    new MediaDownloadFailedEventArgs(pending.Key, pending.Chat, receiptId, $"media-retry result {notification.Result}"),
+                    cancellationToken).ConfigureAwait(false);
                 return;
+            }
+
+            if (string.IsNullOrEmpty(notification.DirectPath))
+            {
+                return; // success result without a fresh path: malformed, retryable
             }
 
             string? safeFileName = pending.FileName;
