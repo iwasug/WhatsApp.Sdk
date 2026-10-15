@@ -928,3 +928,76 @@ Iwasug.WhatsApp.Sdk.Media.MediaKind
 Iwasug.WhatsApp.Sdk.Media.MediaKind.Document = 1 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
 Iwasug.WhatsApp.Sdk.Media.MediaKind.Image = 0 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
 Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote = 2 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.get -> System.IO.Stream?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.get -> long
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.MediaReceivedEvent(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.get -> int?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.get -> System.IO.Stream?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.get -> long
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.MediaReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.get -> int?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!>?
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.ToString() -> string!
+override sealed Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool

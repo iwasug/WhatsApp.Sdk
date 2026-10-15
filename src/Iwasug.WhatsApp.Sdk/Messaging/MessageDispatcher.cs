@@ -4,6 +4,7 @@ using Iwasug.WhatsApp.Sdk.Codec;
 using Iwasug.WhatsApp.Sdk.Connection;
 using Iwasug.WhatsApp.Sdk.Domain;
 using Iwasug.WhatsApp.Sdk.Errors;
+using Iwasug.WhatsApp.Sdk.Media;
 using Iwasug.WhatsApp.Sdk.Signal;
 using Iwasug.WhatsApp.Sdk.Stores;
 using Iwasug.WhatsApp.Sdk.Stores.Runtime;
@@ -55,13 +56,25 @@ internal sealed class MessageDispatcher
 
     private readonly Messenger _owner;
     private readonly SenderKeyRepository _senderKeys;
+    private Iwasug.WhatsApp.Sdk.Media.MediaDownloader? _mediaDownloader;
     private int _disposed;
 
-    internal MessageDispatcher(Messenger owner, SenderKeyRepository senderKeys)
+    internal MessageDispatcher(Messenger owner, SenderKeyRepository senderKeys, Iwasug.WhatsApp.Sdk.Media.MediaDownloader? mediaDownloader = null)
     {
         _owner = owner ?? throw new ArgumentNullException(nameof(owner));
         _senderKeys = senderKeys ?? throw new ArgumentNullException(nameof(senderKeys));
+        _mediaDownloader = mediaDownloader;
     }
+
+    /// <summary>Receive-side media downloader seam.</summary>
+    internal Iwasug.WhatsApp.Sdk.Media.MediaDownloader MediaDownloader
+    {
+        get => _mediaDownloader ?? _owner.MediaDownloader;
+        set => _mediaDownloader = value;
+    }
+
+    /// <summary>Compatibility alias for the downloader seam.</summary>
+    internal Iwasug.WhatsApp.Sdk.Media.MediaDownloader Downloader { get => MediaDownloader; set => MediaDownloader = value; }
 
     /// <summary>
     /// The stanza-pump handler (one subscription per connection, made when the
@@ -217,6 +230,32 @@ internal sealed class MessageDispatcher
                 // No message event and no cache write: a distribution is not a message.
                 StoreSenderKeyDistribution(message.SenderKeyDistributionMessage, from);
                 await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            // MEDIA BRANCH (06-04): image / document / audio. ValidateReceive runs
+            // fail-closed BEFORE any download; ack precedes download (D-67).
+            if (message.ImageMessage is not null)
+            {
+                await HandleInboundMediaAsync(
+                    chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
+                    timestamp, Media.MediaKind.Image, image: message.ImageMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            if (message.DocumentMessage is not null)
+            {
+                var doc = message.DocumentMessage;
+                await HandleInboundMediaAsync(
+                    chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
+                    timestamp, Media.MediaKind.Document, document: doc, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            if (message.AudioMessage is not null)
+            {
+                var aud = message.AudioMessage;
+                await HandleInboundMediaAsync(
+                    chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
+                    timestamp, Media.MediaKind.VoiceNote, audio: aud, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -407,6 +446,28 @@ internal sealed class MessageDispatcher
         // (process-local durability: SenderKeyRepository is in-memory, WR-02).
         _senderKeys.Save(senderKeyAddress, senderKey);
 
+        if (message.ImageMessage is not null
+            || message.DocumentMessage is not null
+            || message.AudioMessage is not null)
+        {
+            var mgKey = new MessageKeyRecord(chat, FromMe: false, messageId, participant.ToString());
+            if (message.ImageMessage is not null)
+            {
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Image, image: message.ImageMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            if (message.DocumentMessage is not null)
+            {
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Document, document: message.DocumentMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            if (message.AudioMessage is not null)
+            {
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.VoiceNote, audio: message.AudioMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+        }
+
         await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);
 
         string? text = message.Conversation.Length == 0 ? null : message.Conversation;
@@ -446,6 +507,207 @@ internal sealed class MessageDispatcher
         catch
         {
             // D-20 log-and-continue: the store may throw; the event and ack are already done.
+        }
+    }
+
+    private async Task HandleInboundMediaAsync(
+        Jid chat,
+        Jid from,
+        bool isFromMe,
+        MessageKeyRecord key,
+        DateTimeOffset timestamp,
+        MediaKind kind,
+        ImageMessage? image = null,
+        DocumentMessage? document = null,
+        AudioMessage? audio = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            byte[] mediaKey;
+            byte[] fileSha;
+            byte[] fileEnc;
+            string directPath;
+            long fileLength;
+            string mimetype;
+            string? caption = null;
+            string? fileName = null;
+            int? seconds = null;
+            bool ptt = false;
+            int? width = null;
+            int? height = null;
+
+            if (kind == MediaKind.Image && image is not null)
+            {
+                mediaKey = image.MediaKey.ToByteArray();
+                fileSha = image.FileSha256.ToByteArray();
+                fileEnc = image.FileEncSha256.ToByteArray();
+                directPath = image.DirectPath;
+                fileLength = image.FileLength;
+                mimetype = image.Mimetype;
+                caption = image.Caption;
+                width = image.Width;
+                height = image.Height;
+            }
+            else if (kind == MediaKind.Document && document is not null)
+            {
+                mediaKey = document.MediaKey.ToByteArray();
+                fileSha = document.FileSha256.ToByteArray();
+                fileEnc = document.FileEncSha256.ToByteArray();
+                directPath = document.DirectPath;
+                fileLength = document.FileLength;
+                mimetype = document.Mimetype;
+                caption = document.Caption;
+                fileName = document.FileName;
+            }
+            else if (kind == MediaKind.VoiceNote && audio is not null)
+            {
+                mediaKey = audio.MediaKey.ToByteArray();
+                fileSha = audio.FileSha256.ToByteArray();
+                fileEnc = audio.FileEncSha256.ToByteArray();
+                directPath = audio.DirectPath;
+                fileLength = audio.FileLength;
+                mimetype = string.IsNullOrEmpty(audio.Mimetype) ? "audio/ogg; codecs=opus" : audio.Mimetype;
+                seconds = audio.Seconds;
+                ptt = audio.Ptt;
+            }
+            else
+            {
+                return;
+            }
+
+            try
+            {
+                MediaMetadata.ValidateReceive(kind, mediaKey, fileSha, fileEnc, directPath, fileLength, mimetype, fileName, seconds, width, height);
+            }
+            catch
+            {
+                return; // fail closed before ack/download
+            }
+
+            await SendAckAsync(key.Id, from, cancellationToken).ConfigureAwait(false);
+
+            string? safeFileName = fileName;
+            if (kind == MediaKind.Document && !string.IsNullOrEmpty(fileName))
+            {
+                try { safeFileName = MediaMetadata.SanitizeFileName(fileName); }
+                catch { return; }
+            }
+
+            System.IO.Stream? content = null;
+            try
+            {
+                content = await MediaDownloader.DownloadAsync(kind, directPath, mediaKey, fileSha, fileEnc, fileLength, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                return; // download fault: no event
+            }
+
+            var args = new MediaReceivedEventArgs(key, chat, from, isFromMe, timestamp, kind, mimetype, fileLength, caption, safeFileName, seconds, ptt, content);
+            await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Pump survival: never throw.
+        }
+    }
+
+    private async Task HandleInboundGroupMediaAsync(
+        Jid chat,
+        Jid participant,
+        MessageKeyRecord key,
+        DateTimeOffset timestamp,
+        MediaKind kind,
+        ImageMessage? image = null,
+        DocumentMessage? document = null,
+        AudioMessage? audio = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            byte[] mediaKey;
+            byte[] fileSha;
+            byte[] fileEnc;
+            string directPath;
+            long fileLength;
+            string mimetype;
+            string? caption = null;
+            string? fileName = null;
+            int? seconds = null;
+            bool ptt = false;
+
+            if (kind == MediaKind.Image && image is not null)
+            {
+                mediaKey = image.MediaKey.ToByteArray();
+                fileSha = image.FileSha256.ToByteArray();
+                fileEnc = image.FileEncSha256.ToByteArray();
+                directPath = image.DirectPath;
+                fileLength = image.FileLength;
+                mimetype = image.Mimetype;
+                caption = image.Caption;
+            }
+            else if (kind == MediaKind.Document && document is not null)
+            {
+                mediaKey = document.MediaKey.ToByteArray();
+                fileSha = document.FileSha256.ToByteArray();
+                fileEnc = document.FileEncSha256.ToByteArray();
+                directPath = document.DirectPath;
+                fileLength = document.FileLength;
+                mimetype = document.Mimetype;
+                caption = document.Caption;
+                fileName = document.FileName;
+            }
+            else if (kind == MediaKind.VoiceNote && audio is not null)
+            {
+                mediaKey = audio.MediaKey.ToByteArray();
+                fileSha = audio.FileSha256.ToByteArray();
+                fileEnc = audio.FileEncSha256.ToByteArray();
+                directPath = audio.DirectPath;
+                fileLength = audio.FileLength;
+                mimetype = string.IsNullOrEmpty(audio.Mimetype) ? "audio/ogg; codecs=opus" : audio.Mimetype;
+                seconds = audio.Seconds;
+                ptt = audio.Ptt;
+            }
+            else
+            {
+                return;
+            }
+
+            try
+            {
+                MediaMetadata.ValidateReceive(kind, mediaKey, fileSha, fileEnc, directPath, fileLength, mimetype, fileName, seconds);
+            }
+            catch
+            {
+                return;
+            }
+
+            string? safeFileName = fileName;
+            if (kind == MediaKind.Document && !string.IsNullOrEmpty(fileName))
+            {
+                try { safeFileName = MediaMetadata.SanitizeFileName(fileName); }
+                catch { return; }
+            }
+
+            await SendAckAsync(key.Id, chat, cancellationToken, participant).ConfigureAwait(false);
+
+            System.IO.Stream? content = null;
+            try
+            {
+                content = await MediaDownloader.DownloadAsync(kind, directPath, mediaKey, fileSha, fileEnc, fileLength, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                return;
+            }
+
+            var args = new MediaReceivedEventArgs(key, chat, participant, IsFromMe: false, timestamp, kind, mimetype, fileLength, caption, safeFileName, seconds, ptt, content);
+            await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Pump survival.
         }
     }
 

@@ -51,7 +51,8 @@ public sealed class Messenger : IAsyncDisposable
     private readonly SenderKeyRepository _senderKeys;
     private readonly SafetyGate _safety;
     private readonly MessageSender _sender;
-    private readonly Media.MediaUploader _uploader;
+    private Media.MediaUploader _uploader;
+    private Media.MediaDownloader _downloader;
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
     private readonly SemaphoreSlim _prekeyGate = new(1, 1);
@@ -79,7 +80,10 @@ public sealed class Messenger : IAsyncDisposable
             new Iwasug.WhatsApp.Sdk.Media.MediaConn(RouterProvider, connection.Clock),
             connection.Clock,
             connection.SafetyPolicy);
-        _dispatcher = new MessageDispatcher(this, _senderKeys);
+        _downloader = new Iwasug.WhatsApp.Sdk.Media.MediaDownloader(
+            new System.Net.Http.HttpClient(new System.Net.Http.SocketsHttpHandler()),
+            connection.Clock);
+        _dispatcher = new MessageDispatcher(this, _senderKeys, _downloader);
         _receipts = new ReceiptHandler(this);
         _safety = new SafetyGate(
             connection.Clock,
@@ -98,6 +102,13 @@ public sealed class Messenger : IAsyncDisposable
     /// </summary>
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
 
+    /// <summary>
+    /// Raised (on the dispatcher's async path) once per successfully verified inbound
+    /// media message, after the durable session write, the ack, and the full verify chain
+    /// (hash-swap → MAC → plain hash) have completed. The host owns disposal of
+    /// <see cref="MediaReceivedEventArgs.Content"/>.
+    /// </summary>
+    public event EventHandler<MediaReceivedEventArgs>? MediaReceived;
     /// <summary>
     /// Raised (on the dispatcher's async path) when an inbound <c>receipt</c> node parses
     /// (04-04, MSG-04): the kind, ids, chat, and optional group participant, parsed
@@ -481,6 +492,16 @@ public sealed class Messenger : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    internal async ValueTask RaiseMediaReceivedAsync(MediaReceivedEventArgs args, CancellationToken cancellationToken)
+    {
+        MediaReceived?.Invoke(this, args);
+        await PublishAsync(
+            new MediaReceivedEvent(
+                args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Kind, args.Mimetype,
+                args.FileLength, args.Caption, args.FileName, args.Seconds, args.Ptt, args.Content),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     internal void RaiseDeviceSetChanged(DeviceSetChangedEventArgs args) => DeviceSetChanged?.Invoke(this, args);
 
     /// <summary>The single emit point for one receipt fact: EventHandler twin, then the stream (backpressure, no drop).</summary>
@@ -741,6 +762,30 @@ public sealed class Messenger : IAsyncDisposable
     internal MessageSender Sender => _sender;
 
     internal WaConnection Connection => _connection;
+
+    /// <summary>Receive-side media downloader seam (tests may substitute a stub-backed instance).</summary>
+    internal Media.MediaDownloader MediaDownloader
+    {
+        get => _downloader;
+        set
+        {
+            _downloader = value ?? throw new ArgumentNullException(nameof(value));
+            _dispatcher.MediaDownloader = _downloader;
+        }
+    }
+
+    /// <summary>Compatibility alias for the downloader seam.</summary>
+    internal Media.MediaDownloader Downloader { get => MediaDownloader; set => MediaDownloader = value; }
+
+    /// <summary>Upload-side media uploader seam (tests may substitute a stub-backed instance).</summary>
+    internal Media.MediaUploader MediaUploader
+    {
+        get => _uploader;
+        set => _uploader = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>Compatibility alias for the uploader seam.</summary>
+    internal Media.MediaUploader Uploader { get => MediaUploader; set => MediaUploader = value; }
 
     /// <summary>The pump seam: the connection invokes this once per inbound stanza.</summary>
     internal void OnStanzaReceived(object? sender, BinaryNode node) => _dispatcher.OnStanzaReceived(sender, node);

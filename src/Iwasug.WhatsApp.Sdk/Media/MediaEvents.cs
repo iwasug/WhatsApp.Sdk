@@ -2,7 +2,12 @@ using Iwasug.WhatsApp.Sdk.Domain;
 
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
-internal sealed record MediaReceivedEventArgs(
+/// <summary>
+/// Raised for a fully verified inbound media message. <see cref="Content"/> is a
+/// read-only <see cref="System.IO.MemoryStream"/> over the verified plaintext; the
+/// host owns its disposal.
+/// </summary>
+public sealed record MediaReceivedEventArgs(
     Domain.MessageKeyRecord Key,
     Domain.Jid Chat,
     Domain.Jid Sender,
@@ -17,7 +22,11 @@ internal sealed record MediaReceivedEventArgs(
     bool Ptt = false,
     System.IO.Stream? Content = null);
 
-internal sealed record MediaReceivedEvent(
+/// <summary>
+/// Stream event twin of <see cref="MediaReceivedEventArgs"/>. <see cref="Content"/>
+/// ownership is the same as the handler twin: the host disposes it.
+/// </summary>
+public sealed record MediaReceivedEvent(
     Domain.MessageKeyRecord Key,
     Domain.Jid Chat,
     Domain.Jid Sender,
