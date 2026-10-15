@@ -104,12 +104,12 @@ public sealed class WhatsAppSdkOptions
 
         if (resolved.StartupJitterMs < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), "StartupJitterMs must not be negative.");
+            throw new ArgumentOutOfRangeException(nameof(resolved.StartupJitterMs), "StartupJitterMs must not be negative.");
         }
 
         if (resolved.ShutdownDrainTimeoutMs <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), "ShutdownDrainTimeoutMs must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(resolved.ShutdownDrainTimeoutMs), "ShutdownDrainTimeoutMs must be positive.");
         }
 
         if (resolved.OutboundQueueCapacity <= 0)
@@ -129,10 +129,10 @@ public sealed class WhatsAppSdkOptions
 
         foreach (AccountDescriptor descriptor in resolved.Accounts!)
         {
-            if (descriptor is null) throw new ArgumentNullException(nameof(options), "Account descriptors must not be null.");
+            if (descriptor is null) throw new ArgumentNullException(nameof(resolved.Accounts), "Account descriptors must not be null.");
             if (string.IsNullOrWhiteSpace(descriptor.AccountId))
             {
-                throw new ArgumentOutOfRangeException(nameof(options), "Account descriptor AccountId must not be empty.");
+                throw new ArgumentOutOfRangeException(nameof(descriptor.AccountId), "Account descriptor AccountId must not be empty.");
             }
 
             // Validate without surfacing the value (rule-only). AccountId.Create throws SdkFormatException on invalid.
