@@ -3,9 +3,9 @@ phase: "6"
 slug: "media-pipeline"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-14"
 ---
 
@@ -41,15 +41,15 @@ created: "2026-10-14"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 06-01-T1 | 01 | 1 | MED-01 | T-06-01 | media crypto golden fixtures green, tamper fail-closed | unit + golden-fixture | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaCryptoFixtureTests` | ❌ W0 | ⬜ pending |
-| 06-01-T2 | 01 | 1 | MED-01 | — | schema branches stable, text field numbers unchanged | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSchemaTests` | ❌ W0 | ⬜ pending |
-| 06-02-T1 | 02 | 2 | MED-01 | T-06-04 | upload URL/headers/body exact over stubbed mmg + conn refresh | unit (HttpMessageHandler stub) | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaUploadTests` | ❌ W0 | ⬜ pending |
-| 06-02-T2 | 02 | 2 | MED-01 | T-06-05 | image/doc/voice-note gated sends, type=media + mediatype attrs, ack correlation | unit + loopback | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSendTests` | ❌ W0 | ⬜ pending |
-| 06-02-T3 | 02 | 2 | SAF-01 | T-06-04 | send-path audit covers 3 new media APIs; mmg/retry egress whitelisted | static audit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter SendPathAuditTests` | ❌ W0 | ⬜ pending |
-| 06-03-T1 | 03 | 3 | MED-02 | T-06-01 | download→verify→Stream delivery; tamper/oversize/sanitize fail-closed | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaDownloadTests` | ❌ W0 | ⬜ pending |
-| 06-03-T2 | 03 | 3 | MED-02 | T-06-03 | 403/404/410 → server-error receipt → rmr → fresh-path re-download, host-invisible, capped | unit + loopback | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaRetryTests` | ❌ W0 | ⬜ pending |
-| 06-03-T3 | 03 | 3 | MED-02 | — | retry-request GCM loopback, wrong-AAD fails | unit + golden-fixture | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaRetryCryptoTests` | ❌ W0 | ⬜ pending |
-| 06-03-T4 | 03 | 3 | SAF-01 | T-06-06 | gate refusal → zero HTTP + zero ids; caps enforced pre-upload | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSafetyTests` | ❌ W0 | ⬜ pending |
+| 06-01-T1 | 01 | 1 | MED-01 | T-06-01 | media crypto golden fixtures green, tamper fail-closed | unit + golden-fixture | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaCryptoFixtureTests` | ✅ | ✅ green |
+| 06-01-T2 | 01 | 1 | MED-01 | — | schema branches stable, text field numbers unchanged | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSchemaTests` | ✅ | ✅ green |
+| 06-02-T1 | 02 | 2 | MED-01 | T-06-04 | upload URL/headers/body exact over stubbed mmg + conn refresh | unit (HttpMessageHandler stub) | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaUploadTests` | ✅ | ✅ green |
+| 06-02-T2 | 02 | 2 | MED-01 | T-06-05 | image/doc/voice-note gated sends, type=media + mediatype attrs, ack correlation | unit + loopback | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSendTests` | ✅ | ✅ green |
+| 06-02-T3 | 02 | 2 | SAF-01 | T-06-04 | send-path audit covers 3 new media APIs; mmg/retry egress whitelisted | static audit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter SendPathAuditTests` | ✅ | ✅ green |
+| 06-03-T1 | 03 | 3 | MED-02 | T-06-01 | download→verify→Stream delivery; tamper/oversize/sanitize fail-closed | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaDownloadTests` | ✅ | ✅ green |
+| 06-03-T2 | 03 | 3 | MED-02 | T-06-03 | 403/404/410 → server-error receipt → rmr → fresh-path re-download, host-invisible, capped | unit + loopback | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaRetryTests` | ✅ | ✅ green |
+| 06-03-T3 | 03 | 3 | MED-02 | — | retry-request GCM loopback, wrong-AAD fails | unit + golden-fixture | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaRetryCryptoTests` | ✅ | ✅ green |
+| 06-03-T4 | 03 | 3 | SAF-01 | T-06-06 | gate refusal → zero HTTP + zero ids; caps enforced pre-upload | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter MediaSafetyTests` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -57,13 +57,13 @@ created: "2026-10-14"
 
 ## Wave 0 Requirements
 
-- [ ] `tests/.../TestData/media-crypto-fixtures.json` — expand vectors + encrypt/hash/MAC goldens + tampers
-- [ ] `tests/.../TestData/media-retry-fixtures.json` — retryKey hex + GCM loopback + notification proto bytes
-- [ ] `Media/` production seams (MediaCrypto, MediaConn, MediaUploader/MediaDownloader, MediaRetryTracker)
-- [ ] `message.proto` media-branch extension (hand-written, provenance header, internal_access)
-- [ ] Stub mmg `HttpMessageHandler` + fake media-conn IQ + fake `<rmr>` notification loopback harness
-- [ ] `SendPathAuditTests` extension rows for the three new send APIs + mmg/retry whitelist entries
-- [ ] `SafetyOptions` byte-cap fields + `PublicAPI.Unshipped.txt` entries for new public surface
+- [x] `tests/.../TestData/media-crypto-fixtures.json` — expand vectors + encrypt/hash/MAC goldens + tampers
+- [x] `tests/.../TestData/media-retry-fixtures.json` — retryKey hex + GCM loopback + notification proto bytes
+- [x] `Media/` production seams (MediaCrypto, MediaConn, MediaUploader/MediaDownloader, MediaRetryTracker)
+- [x] `message.proto` media-branch extension (hand-written, provenance header, internal_access)
+- [x] Stub mmg `HttpMessageHandler` + fake media-conn IQ + fake `<rmr>` notification loopback harness
+- [x] `SendPathAuditTests` extension rows for the three new send APIs + mmg/retry whitelist entries
+- [x] `SafetyOptions` byte-cap fields + `PublicAPI.Unshipped.txt` entries for new public surface
 
 *Wave 0 is folded into 06-01 (tracer): no standalone wave-0 plan.*
 
@@ -82,11 +82,19 @@ created: "2026-10-14"
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
+
+## Validation Audit 2026-10-15
+
+| Metric | Count |
+|---|---|
+| Gapsfound | 2 |
+| Resolved | 2 |
+| Escalated | 0 |
