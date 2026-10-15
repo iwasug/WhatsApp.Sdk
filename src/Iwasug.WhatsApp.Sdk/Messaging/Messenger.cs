@@ -51,6 +51,7 @@ public sealed class Messenger : IAsyncDisposable
     private readonly SenderKeyRepository _senderKeys;
     private readonly SafetyGate _safety;
     private readonly MessageSender _sender;
+    private readonly Media.MediaUploader _uploader;
     private readonly MessageDispatcher _dispatcher;
     private readonly ReceiptHandler _receipts;
     private readonly SemaphoreSlim _prekeyGate = new(1, 1);
@@ -73,6 +74,11 @@ public sealed class Messenger : IAsyncDisposable
         _groups = new GroupDirectory(RouterProvider, connection.Clock);
         _senderKeys = new SenderKeyRepository();
         _sender = new MessageSender(this, _directory, _groups, _senderKeys);
+        _uploader = new Iwasug.WhatsApp.Sdk.Media.MediaUploader(
+            new System.Net.Http.HttpClient(new System.Net.Http.SocketsHttpHandler()),
+            new Iwasug.WhatsApp.Sdk.Media.MediaConn(RouterProvider, connection.Clock),
+            connection.Clock,
+            connection.SafetyPolicy);
         _dispatcher = new MessageDispatcher(this, _senderKeys);
         _receipts = new ReceiptHandler(this);
         _safety = new SafetyGate(
@@ -218,6 +224,120 @@ public sealed class Messenger : IAsyncDisposable
             new SendContext(group, IsReply: false),
             cancellationToken,
             ct => _sender.SendGroupAsync(group, text, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid chat, System.IO.Stream content, string mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(mimetype) || !Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.Images.Contains(mimetype, System.StringComparer.OrdinalIgnoreCase))
+        {
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        }
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail);
+                return await _sender.SendMediaAsync(chat, plaintext, caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid chat, System.IO.Stream content, string mimetype, string fileName, string? title = null, string? caption = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(mimetype) || !Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.Documents.Contains(mimetype, System.StringComparer.OrdinalIgnoreCase))
+        {
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        }
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption);
+                return await _sender.SendMediaAsync(chat, plaintext, fileName ?? caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid chat, System.IO.Stream content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildVoiceNoteMessage(upload, "audio/ogg; codecs=opus", seconds, waveform);
+                return await _sender.SendMediaAsync(chat, plaintext, "audio", Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendGroupImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid group, System.IO.Stream content, string mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(mimetype) || !Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.Images.Contains(mimetype, System.StringComparer.OrdinalIgnoreCase))
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        return await _safety.ExecuteSendAsync(
+            new SendContext(group, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail);
+                return await _sender.SendGroupMediaAsync(group, plaintext, caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendGroupDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid group, System.IO.Stream content, string mimetype, string fileName, string? title = null, string? caption = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(mimetype) || !Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.Documents.Contains(mimetype, System.StringComparer.OrdinalIgnoreCase))
+            throw new SdkFormatException("Media mimetype is not on the allow list.");
+        return await _safety.ExecuteSendAsync(
+            new SendContext(group, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption);
+                return await _sender.SendGroupMediaAsync(group, plaintext, fileName ?? caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends media. See plan 06-02.</summary>
+    public async Task<SendOutcome> SendGroupVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid group, System.IO.Stream content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(group, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote, content, null, ct).ConfigureAwait(false);
+                byte[] plaintext = MessageBuilder.BuildVoiceNoteMessage(upload, "audio/ogg; codecs=opus", seconds, waveform);
+                return await _sender.SendGroupMediaAsync(group, plaintext, "audio", Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote), ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
     }
 
     /// <summary>

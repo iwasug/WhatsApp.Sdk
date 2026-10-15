@@ -136,7 +136,7 @@ internal sealed class MessageSender
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await SendCoreAsync(chat, messageId, displayText, plaintext, cancellationToken).ConfigureAwait(false);
+            return await SendCoreAsync(chat, messageId, displayText, plaintext, "text", null, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -144,7 +144,7 @@ internal sealed class MessageSender
         }
     }
 
-    private async Task<SendOutcome> SendCoreAsync(Jid chat, string messageId, string displayText, byte[] plaintext, CancellationToken cancellationToken)
+    private async Task<SendOutcome> SendCoreAsync(Jid chat, string messageId, string displayText, byte[] plaintext, string messageType, string? mediaType, CancellationToken cancellationToken)
     {
         StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
         CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
@@ -193,7 +193,7 @@ internal sealed class MessageSender
             ciphertexts.Add(new DeviceCiphertext(device, encType, wire));
         }
 
-        List<BinaryNode> children = [.. BuildRecipientChildren(ciphertexts)];
+        List<BinaryNode> children = [.. BuildRecipientChildren(ciphertexts, mediaType)];
         if (anyPreKey)
         {
             // Pattern 2: the device-identity child rides the node when any child is pkmsg.
@@ -212,11 +212,94 @@ internal sealed class MessageSender
             {
                 ["id"] = messageId,
                 ["to"] = chat.ToString(),
-                ["type"] = "text",
+                ["type"] = messageType,
                 ["t"] = t.ToString(CultureInfo.InvariantCulture),
             });
 
         return await AwaitAckAsync(node, chat, messageId, phash, onSent: null, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends one E2EE 1:1 media message from pre-marshalled plaintext bytes: same
+    /// shape as <see cref="SendPayloadAsync"/> but with <c>type="media"</c> node attr
+    /// and <c>mediatype</c> on every <c>enc</c> child.
+    /// </summary>
+    internal Task<SendOutcome> SendMediaAsync(Jid chat, byte[] plaintext, string displayText, string mediaType, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        ArgumentNullException.ThrowIfNull(plaintext);
+        if (plaintext.Length == 0)
+        {
+            throw new SdkFormatException("Message plaintext must not be empty.");
+        }
+        if (string.IsNullOrEmpty(displayText))
+        {
+            displayText = mediaType;
+        }
+        return SendMediaPayloadAsync(chat, displayText, plaintext, mediaType, cancellationToken);
+    }
+
+    internal Task<SendOutcome> SendMediaPayloadAsync(Jid chat, string displayText, byte[] plaintext, string mediaType, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        ArgumentNullException.ThrowIfNull(plaintext);
+        if (plaintext.Length == 0)
+        {
+            throw new SdkFormatException("Message plaintext must not be empty.");
+        }
+        if (string.IsNullOrEmpty(displayText))
+        {
+            displayText = mediaType;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        string messageId = GenerateMessageId();
+        return SendMediaPayloadCoreAsync(chat, messageId, displayText, plaintext, mediaType, cancellationToken);
+    }
+
+    private async Task<SendOutcome> SendMediaPayloadCoreAsync(Jid chat, string messageId, string displayText, byte[] plaintext, string mediaType, CancellationToken cancellationToken)
+    {
+        await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await SendCoreAsync(chat, messageId, displayText, plaintext, "media", mediaType, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _sendGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Sends one E2EE group media message via the sender-key path.
+    /// </summary>
+    internal Task<SendOutcome> SendGroupMediaAsync(Jid group, byte[] plaintext, string displayText, string mediaType, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(plaintext);
+        if (plaintext.Length == 0)
+        {
+            throw new SdkFormatException("Message plaintext must not be empty.");
+        }
+        if (string.IsNullOrEmpty(displayText))
+        {
+            displayText = mediaType;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        string messageId = GenerateMessageId();
+        return SendGroupMediaPayloadCoreAsync(group, messageId, displayText, plaintext, mediaType, cancellationToken);
+    }
+
+    private async Task<SendOutcome> SendGroupMediaPayloadCoreAsync(Jid group, string messageId, string displayText, byte[] plaintext, string mediaType, CancellationToken cancellationToken)
+    {
+        await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await SendGroupCoreAsync(group, messageId, displayText, plaintext, "media", mediaType, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _sendGate.Release();
+        }
     }
 
     /// <summary>
@@ -262,7 +345,7 @@ internal sealed class MessageSender
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await SendGroupCoreAsync(group, messageId, displayText, plaintext, cancellationToken).ConfigureAwait(false);
+            return await SendGroupCoreAsync(group, messageId, displayText, plaintext, "text", null, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -270,7 +353,7 @@ internal sealed class MessageSender
         }
     }
 
-    private async Task<SendOutcome> SendGroupCoreAsync(Jid group, string messageId, string displayText, byte[] plaintext, CancellationToken cancellationToken)
+    private async Task<SendOutcome> SendGroupCoreAsync(Jid group, string messageId, string displayText, byte[] plaintext, string messageType, string? mediaType, CancellationToken cancellationToken)
     {
         StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
         CredentialRecord? row = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
@@ -377,14 +460,16 @@ internal sealed class MessageSender
                 null));
         }
 
+        var skmsgAttrs = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["v"] = MessageBuilder.EncVersion,
+            ["type"] = MessageBuilder.EncTypeSenderKey,
+        };
+        if (mediaType is not null) skmsgAttrs["mediatype"] = mediaType;
         children.Add(BinaryNode.FromBytes(
             "enc",
             skmsg,
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["v"] = MessageBuilder.EncVersion,
-                ["type"] = MessageBuilder.EncTypeSenderKey,
-            }));
+            skmsgAttrs));
 
         BinaryNode node = BinaryNode.FromChildren(
             "message",
@@ -393,7 +478,7 @@ internal sealed class MessageSender
             {
                 ["id"] = messageId,
                 ["to"] = group.ToString(),
-                ["type"] = "text",
+                ["type"] = messageType,
                 ["t"] = t.ToString(CultureInfo.InvariantCulture),
                 ["phash"] = phash,
             });
@@ -891,20 +976,23 @@ internal sealed class MessageSender
         await repository.SaveAsync(DoubleRatchet.SignalSessionRepository.AddressFor(device), ratchet, cancellationToken).ConfigureAwait(false);
     }
 
-    private static IEnumerable<BinaryNode> BuildRecipientChildren(IReadOnlyList<DeviceCiphertext> ciphertexts)
+    private static IEnumerable<BinaryNode> BuildRecipientChildren(IReadOnlyList<DeviceCiphertext> ciphertexts, string? mediaType = null)
     {
         foreach (DeviceCiphertext device in ciphertexts)
         {
+            var encAttrs = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["v"] = MessageBuilder.EncVersion,
+                ["type"] = device.EncType,
+            };
+            if (mediaType is not null) encAttrs["mediatype"] = mediaType;
+
             yield return BinaryNode.FromChildren(
                 "to",
                 [BinaryNode.FromBytes(
                     "enc",
                     device.Ciphertext,
-                    new Dictionary<string, string>(StringComparer.Ordinal)
-                    {
-                        ["v"] = MessageBuilder.EncVersion,
-                        ["type"] = device.EncType,
-                    })],
+                    encAttrs)],
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["jid"] = device.Device.ToString(),
