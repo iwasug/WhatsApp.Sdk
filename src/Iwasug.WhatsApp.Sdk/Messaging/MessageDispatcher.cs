@@ -950,7 +950,7 @@ internal sealed class MessageDispatcher
                 return;
             }
 
-            if (!_pendingMediaRecoveries.TryRemove(receiptId, out PendingRecoveryContext? pending) || pending is null)
+            if (!_pendingMediaRecoveries.TryGetValue(receiptId, out PendingRecoveryContext? pending) || pending is null)
             {
                 return;
             }
@@ -1048,19 +1048,19 @@ internal sealed class MessageDispatcher
                 pending.Kind, pending.Mimetype, pending.FileLength, pending.Caption, safeFileName,
                 pending.Seconds, pending.Ptt, content);
             await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
+
+            // Consume the recovery state ONLY after verified delivery (WR-01): every
+            // earlier return in this method is either retryable (malformed/undecryptable
+            // notification, transient download fault) or terminal (handled by the
+            // explicit terminal branches). Removing the entry before validation would
+            // permanently destroy the only copy of the recovery context on the first
+            // malformed notification.
+            _pendingMediaRecoveries.TryRemove(receiptId, out _);
         }
         catch (OperationCanceledException) { throw; }
         catch
         {
             // Log-and-continue: media-retry is best-effort by contract.
-        }
-        finally
-        {
-            // Defensive: remove any leftover (idempotent).
-            if (!string.IsNullOrEmpty(node.Attrs.TryGetValue("id", out string? id2) ? id2 : null))
-            {
-                _pendingMediaRecoveries.TryRemove(id2!, out _);
-            }
         }
     }
 
