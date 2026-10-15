@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Google.Protobuf;
 using Iwasug.WhatsApp.Sdk.Codec;
@@ -58,6 +59,12 @@ internal sealed class MessageDispatcher
     private readonly SenderKeyRepository _senderKeys;
     private Iwasug.WhatsApp.Sdk.Media.MediaDownloader? _mediaDownloader;
     private int _disposed;
+
+    /// <summary>Pending media-recovery contexts keyed by the original message id (MED-02).</summary>
+    private readonly ConcurrentDictionary<string, PendingRecoveryContext> _pendingMediaRecoveries = new(StringComparer.Ordinal);
+
+    /// <summary>Thread-safe accessor for pending media-recovery contexts (MED-02).</summary>
+    internal ConcurrentDictionary<string, PendingRecoveryContext> PendingMediaRecoveries => _pendingMediaRecoveries;
 
     internal MessageDispatcher(Messenger owner, SenderKeyRepository senderKeys, Iwasug.WhatsApp.Sdk.Media.MediaDownloader? mediaDownloader = null)
     {
@@ -599,6 +606,22 @@ internal sealed class MessageDispatcher
             {
                 content = await MediaDownloader.DownloadAsync(kind, directPath, mediaKey, fileSha, fileEnc, fileLength, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
+            catch (MediaDownloadExpiredException)
+            {
+                try
+                {
+                    await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe, participant: null, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort: server-error receipt is protocol traffic and must not kill the receive path.
+                }
+
+                _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
+                    chat, from, isFromMe, kind, key, timestamp,
+                    mediaKey, fileSha, fileEnc, fileLength, mimetype, caption, fileName, seconds, ptt, width, height, directPath);
+                return; // no event yet — recovery resumes via rmr notification
+            }
             catch
             {
                 return; // download fault: no event
@@ -636,6 +659,8 @@ internal sealed class MessageDispatcher
             string? fileName = null;
             int? seconds = null;
             bool ptt = false;
+            int? width = null;
+            int? height = null;
 
             if (kind == MediaKind.Image && image is not null)
             {
@@ -646,6 +671,8 @@ internal sealed class MessageDispatcher
                 fileLength = image.FileLength;
                 mimetype = image.Mimetype;
                 caption = image.Caption;
+                width = image.Width;
+                height = image.Height;
             }
             else if (kind == MediaKind.Document && document is not null)
             {
@@ -696,6 +723,22 @@ internal sealed class MessageDispatcher
             try
             {
                 content = await MediaDownloader.DownloadAsync(kind, directPath, mediaKey, fileSha, fileEnc, fileLength, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (MediaDownloadExpiredException)
+            {
+                try
+                {
+                    await _owner.Receipts.SendMediaRetryReceiptAsync(key.Id, chat, isFromMe: false, participant, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort.
+                }
+
+                _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
+                    chat, participant, false, kind, key, timestamp,
+                    mediaKey, fileSha, fileEnc, fileLength, mimetype, caption, fileName, seconds, ptt, width, height, directPath);
+                return;
             }
             catch
             {
@@ -899,17 +942,122 @@ internal sealed class MessageDispatcher
     {
         try
         {
-            // Media-retry correlation is driven by the original message id carried on
-            // the receipt's id attribute; the rmr child supplies chat/participant scope.
-            // Recovery is bounded by MediaRetryTracker and never touches Pattern-5
-            // counters. Full exchange wiring is deferred (host-invisible), but routing
-            // above ensures rmr-carrying receipts never reach the retry branch.
-            await Task.CompletedTask.ConfigureAwait(false);
+            if (!node.Attrs.TryGetValue("id", out string? receiptId) || string.IsNullOrEmpty(receiptId))
+            {
+                return;
+            }
+
+            if (!_pendingMediaRecoveries.TryRemove(receiptId, out PendingRecoveryContext? pending) || pending is null)
+            {
+                return;
+            }
+
+            BinaryNode? encrypt = FirstChild(node, "encrypt");
+            BinaryNode? encPNode = encrypt is null ? null : FirstChild(encrypt, "enc_p");
+            BinaryNode? encIvNode = encrypt is null ? null : FirstChild(encrypt, "enc_iv");
+            byte[]? encP = encPNode?.Data;
+            byte[]? encIv = encIvNode?.Data;
+            if (encP is null || encP.Length == 0 || encIv is null || encIv.Length == 0)
+            {
+                return;
+            }
+
+            string messageId = receiptId;
+            byte[] retryKey = MediaCrypto.DeriveRetryKey(pending.MediaKey);
+
+            byte[] ciphertext;
+            byte[] tag;
+            byte[] nonce;
+            if (encIv.Length == MediaCrypto.GcmNonceLength)
+            {
+                if (encP.Length < MediaCrypto.GcmTagLength)
+                {
+                    return;
+                }
+                nonce = (byte[])encIv.Clone();
+                tag = encP.AsSpan(encP.Length - MediaCrypto.GcmTagLength).ToArray();
+                ciphertext = encP.AsSpan(0, encP.Length - MediaCrypto.GcmTagLength).ToArray();
+            }
+            else if (encIv.Length == (MediaCrypto.GcmNonceLength + MediaCrypto.GcmTagLength))
+            {
+                nonce = encIv.AsSpan(0, MediaCrypto.GcmNonceLength).ToArray();
+                tag = encIv.AsSpan(MediaCrypto.GcmNonceLength).ToArray();
+                ciphertext = (byte[])encP.Clone();
+            }
+            else
+            {
+                return;
+            }
+
+            byte[] plaintext;
+            try
+            {
+                plaintext = MediaCrypto.GcmDecrypt(
+                    ciphertext, tag, nonce, retryKey,
+                    System.Text.Encoding.UTF8.GetBytes(messageId));
+            }
+            catch
+            {
+                return;
+            }
+
+            MediaRetryNotification notification;
+            try
+            {
+                notification = MediaRetryNotification.Parser.ParseFrom(plaintext);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (notification.Result != 1 || string.IsNullOrEmpty(notification.DirectPath))
+            {
+                return;
+            }
+
+            string? safeFileName = pending.FileName;
+            if (pending.Kind == MediaKind.Document && !string.IsNullOrEmpty(pending.FileName))
+            {
+                try { safeFileName = MediaMetadata.SanitizeFileName(pending.FileName); }
+                catch { return; }
+            }
+
+            System.IO.Stream? content;
+            try
+            {
+                content = await MediaDownloader.DownloadAsync(
+                    pending.Kind,
+                    notification.DirectPath,
+                    pending.MediaKey,
+                    pending.FileSha,
+                    pending.FileEnc,
+                    pending.FileLength,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                return;
+            }
+
+            var args = new MediaReceivedEventArgs(
+                pending.Key, pending.Chat, pending.From, pending.IsFromMe, pending.Timestamp,
+                pending.Kind, pending.Mimetype, pending.FileLength, pending.Caption, safeFileName,
+                pending.Seconds, pending.Ptt, content);
+            await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch
         {
             // Log-and-continue: media-retry is best-effort by contract.
+        }
+        finally
+        {
+            // Defensive: remove any leftover (idempotent).
+            if (!string.IsNullOrEmpty(node.Attrs.TryGetValue("id", out string? id2) ? id2 : null))
+            {
+                _pendingMediaRecoveries.TryRemove(id2!, out _);
+            }
         }
     }
 
@@ -996,6 +1144,31 @@ internal sealed class MessageDispatcher
 
         return null;
     }
+
+    /// <summary>
+    /// Pending media-recovery context captured when an inbound media download
+    /// expires, resuming the exchange when the peer's <c>&lt;rmr&gt;</c> notification
+    /// arrives (MED-02). Thread-safe storage is the outer ConcurrentDictionary.
+    /// </summary>
+    internal sealed record PendingRecoveryContext(
+        Jid Chat,
+        Jid From,
+        bool IsFromMe,
+        MediaKind Kind,
+        MessageKeyRecord Key,
+        DateTimeOffset Timestamp,
+        byte[] MediaKey,
+        byte[] FileSha,
+        byte[] FileEnc,
+        long FileLength,
+        string Mimetype,
+        string? Caption,
+        string? FileName,
+        int? Seconds,
+        bool Ptt,
+        int? Width,
+        int? Height,
+        string? DirectPath = null);
 
     internal void Dispose() => Interlocked.Exchange(ref _disposed, 1);
 }
