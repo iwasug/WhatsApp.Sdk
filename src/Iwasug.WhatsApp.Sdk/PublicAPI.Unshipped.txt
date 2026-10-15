@@ -1001,3 +1001,44 @@ static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator !=(Iwasug.Whats
 static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
+
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.<Clone>$() -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, int QueuedOutbound, int RecentFailures, System.DateTimeOffset? LastConnectedAt, System.DateTimeOffset? LastActivityAt, string? LastErrorRuleName) -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.get -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, out Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, out int QueuedOutbound, out int RecentFailures, out System.DateTimeOffset? LastConnectedAt, out System.DateTimeOffset? LastActivityAt, out string? LastErrorRuleName) -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? other) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.get -> System.DateTimeOffset?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.get -> System.DateTimeOffset?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.get -> string?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.get -> int
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.get -> int
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId) -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus?
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatuses() -> System.Collections.Generic.IReadOnlyCollection<Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Closed = 0 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.HalfOpen = 2 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Open = 1 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException
+Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException.SdkUnknownAccountException(string! message, System.Exception? inner = null) -> void
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ToString() -> string!
+static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
+static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool

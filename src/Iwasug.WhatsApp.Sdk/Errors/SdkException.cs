@@ -91,6 +91,18 @@ public sealed class SdkTransportException : SdkException
 }
 
 /// <summary>
+/// An operation referenced an account id that is not currently registered.
+/// </summary>
+public sealed class SdkUnknownAccountException : SdkException
+{
+    /// <summary>Initializes a new instance.</summary>
+    public SdkUnknownAccountException(string message, Exception? inner = null)
+        : base(message, inner)
+    {
+    }
+}
+
+/// <summary>
 /// A connection-level failure surfaced to the host: a terminal disconnect reason
 /// (401/403/411/419 logged-out or outdated), a replaced session (440), or a query that
 /// timed out or was lost to a drop. Retryable drops never surface this exception — they
