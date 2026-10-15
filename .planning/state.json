@@ -36,7 +36,7 @@
     {
       "number": "7",
       "name": "Multi-Account Orchestration",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "8",
@@ -50,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd:progress --next",
-    "label": "Advance to the next step",
-    "reason": "Phase 7 of 9 · 56% · executing"
+    "command": "/gsd-progress --next",
+    "label": "Advance to the next step (verify)",
+    "reason": "Phase 6 of 10 · 67% · ready to verify"
   },
-  "updated_at": "2026-10-15T12:27:16.590Z"
+  "updated_at": "2026-10-15T15:16:12.114Z"
 }

@@ -17,7 +17,7 @@ The SDK grows from its persistence seam outward: stable granular store interface
 - [x] **Phase 4: Signal E2EE & Messaging** - Double Ratchet, 1:1 + group text, receipts, retry recovery, typed event surface (completed 2026-10-14)
 - [x] **Phase 5: Ban-Safety Layer** - Mandatory send gate, rate limits, warm-up, cold-outreach budget, circuit breaker, safe-by-default
 - [ ] **Phase 6: Media Pipeline** - Send/receive image, document, voice note with expiry and media-retry handling
-- [ ] **Phase 7: Multi-Account Orchestration** - SessionManager, hard isolation with CI isolation suite, idiomatic .NET surface
+- [x] **Phase 7: Multi-Account Orchestration** - SessionManager, hard isolation with CI isolation suite, idiomatic .NET surface (completed 2026-10-15)
 - [ ] **Phase 8: Broadcast & Extended Messaging** - Broadcast fan-out, durable outbox, presence, reactions, edit/delete
 - [ ] **Phase 9: Ship** - NuGet package, docs, CI with drift-detecting live-interop job
 
@@ -213,7 +213,7 @@ Plans:
   3. Host consumes the SDK idiomatically: DI registration, `IOptions<T>` configuration, `IHostedService` lifecycle, async-stream events, `CancellationToken` end-to-end, and `ILogger` scopes tagged per account.
   4. One account hitting its rate limit or circuit breaker never stalls another account's sends.
 
-**Plans**: 4/4 plans executed
+**Plans**: 4/4 plans complete
 
 **Wave 1**
 - [x] 07-01-PLAN.md - Atomic account registry, runtime composition, restart lifecycle over the per-account graph (tracer)
@@ -265,6 +265,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Signal E2EE & Messaging | 5/5 | Complete    | 2026-10-14 |
 | 5. Ban-Safety Layer | 6/6 | Complete    | 2026-10-14 |
 | 6. Media Pipeline | 4/6 | In Progress | - |
-| 7. Multi-Account Orchestration | 4/4 | In Progress | - |
+| 7. Multi-Account Orchestration | 4/4 | Complete    | 2026-10-15 |
 | 8. Broadcast & Extended Messaging | 0/TBD | Not started | - |
 | 9. Ship | 0/TBD | Not started | - |
