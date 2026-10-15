@@ -31,7 +31,8 @@ internal sealed class AccountRuntime : IAsyncDisposable
         CancellationTokenSource linkedCts,
         ConnectionOptions? connectionOptions = null,
         SafetyOptions? safetyOptions = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        StoreRegistry? ownedStoreRegistry = null)
     {
         AccountId = accountId;
         StoreSession = storeSession;
@@ -42,6 +43,7 @@ internal sealed class AccountRuntime : IAsyncDisposable
         _resolveStores = resolveStores;
         Logger = logger;
         LinkedCts = linkedCts;
+        OwnedStoreRegistry = ownedStoreRegistry;
         ConnectionOptions = connectionOptions ?? connection.Options;
         SafetyOptions = safetyOptions ?? (safetyGate as Safety.SafetyGate)?.Options;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -69,6 +71,14 @@ internal sealed class AccountRuntime : IAsyncDisposable
     public Channel<OutboundEnvelope> OutboundQueue { get; }
     public ILogger? Logger { get; }
     public CancellationTokenSource LinkedCts { get; }
+
+    /// <summary>
+    /// The per-account <see cref="StoreRegistry"/> this runtime OWNS and disposes with
+    /// itself (07 WR-06); <c>null</c> when the registry is host-supplied (D-03) and
+    /// therefore host-owned.
+    /// </summary>
+    public StoreRegistry? OwnedStoreRegistry { get; }
+
     public Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions ConnectionOptions { get; }
     public Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? SafetyOptions { get; }
 
@@ -135,6 +145,13 @@ internal sealed class AccountRuntime : IAsyncDisposable
         try { LinkedCts.Cancel(); } catch { }
         try { await Connection.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await StoreSession.DisposeAsync().ConfigureAwait(false); } catch { }
+        if (OwnedStoreRegistry is not null)
+        {
+            // 07 WR-06: the factory created this registry for this account only, so the
+            // runtime is its owner — disposing it runs the registry's own teardown
+            // (session drain is a no-op here, fallback factory disposal is not).
+            try { await OwnedStoreRegistry.DisposeAsync().ConfigureAwait(false); } catch { }
+        }
         LinkedCts.Dispose();
     }
 }

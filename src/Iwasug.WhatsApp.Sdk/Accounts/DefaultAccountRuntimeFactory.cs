@@ -75,6 +75,11 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
 
         StoreRegistry registry = _registry ?? new StoreRegistry(_storeOptions ?? new StoreRegistryOptions());
 
+        // 07 WR-06: a factory-created registry belongs to this account's runtime — the
+        // runtime disposes it (draining the session and the fallback factory). A
+        // host-supplied registry is host-owned and never disposed by the SDK.
+        bool ownsRegistry = _registry is null;
+
         StoreSession session;
         try
         {
@@ -136,7 +141,8 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
                 cts,
                 connection,
                 safety,
-                _timeProvider);
+                _timeProvider,
+                ownsRegistry ? registry : null);
 
             return runtime;
         }
@@ -149,6 +155,11 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
             }
             try { await session.DisposeAsync().ConfigureAwait(false); }
             catch { }
+            if (ownsRegistry)
+            {
+                try { await registry.DisposeAsync().ConfigureAwait(false); }
+                catch { }
+            }
             throw;
         }
     }

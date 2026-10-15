@@ -42,10 +42,14 @@ public static class WhatsAppSdkServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        // 07 WR-06: bind the section the caller handed us DIRECTLY. Registering the
+        // instance as IConfiguration would clobber (or race) a host's own IConfiguration
+        // for every consumer — last registration wins — and BindConfiguration's DI
+        // indirection would then bind whichever IConfiguration won instead of the one
+        // passed here. Direct binding is unambiguous and touches nothing host-owned.
 #pragma warning disable IL2026, IL3050
-        services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(configuration);
         services.AddOptions<WhatsAppSdkOptions>()
-            .BindConfiguration(sectionName)
+            .Configure(o => configuration.GetSection(sectionName).Bind(o))
             .Validate(o => { WhatsAppSdkOptions.Validate(o); return true; })
             .ValidateOnStart();
 #pragma warning restore IL2026, IL3050
@@ -68,7 +72,11 @@ public static class WhatsAppSdkServiceCollectionExtensions
             IOptions<WhatsAppSdkOptions> opts = sp.GetRequiredService<IOptions<WhatsAppSdkOptions>>();
             WhatsAppSdkOptions value = opts.Value;
             return new DefaultAccountRuntimeFactory(
-                registry: null,
+                // 07 WR-06: a container-registered StoreRegistry is the host persistence
+                // seam (D-03) and is used as-is (host-owned). When the host registers
+                // none, the factory creates one registry per account and the runtime
+                // disposes it with itself.
+                registry: sp.GetService<StoreRegistry>(),
                 loggerFactory: sp.GetService<ILoggerFactory>(),
                 timeProvider: sp.GetService<TimeProvider>() ?? TimeProvider.System,
                 channelCapacity: value.OutboundQueueCapacity,
