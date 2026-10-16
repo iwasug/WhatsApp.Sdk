@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Iwasug.WhatsApp.Sdk.InteropProbe</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <!--
+      D-12 invariant: the solution contains exactly two packable projects
+      (Iwasug.WhatsApp.Sdk and Iwasug.WhatsApp.Sdk.Testing). Without this line a
+      fresh `dotnet pack Iwasug.WhatsApp.Sdk.sln` would also emit
+      Iwasug.WhatsApp.Sdk.InteropProbe.<version>.nupkg - the probe is a CI
+      host, not a package.
+    -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      T-9-SC: the probe adds zero third-party packages; it exercises the
+      shipped public API only (T-9-06). TargetFramework/Nullable/ImplicitUsings
+      come from Directory.Build.props.
+    -->
+    <ProjectReference Include="..\..\src\Iwasug.WhatsApp.Sdk\Iwasug.WhatsApp.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

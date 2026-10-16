@@ -52,6 +52,12 @@
       in-memory/scratch implementations.
     -->
     <ProjectReference Include="..\..\samples\Iwasug.WhatsApp.Sdk.PairingSample\Iwasug.WhatsApp.Sdk.PairingSample.csproj" />
+    <!--
+      Plan 09-03 Task 1: the interop drift probe is CI tooling, not shipped code — its
+      network-free decision contract (classifier, bounded wait, scripted outcomes) is
+      proven from this project before the live workflow (09-04) consumes it.
+    -->
+    <ProjectReference Include="..\..\tools\Iwasug.WhatsApp.Sdk.InteropProbe\Iwasug.WhatsApp.Sdk.InteropProbe.csproj" />
   </ItemGroup>
 
   <!--
