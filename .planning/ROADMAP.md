@@ -260,14 +260,23 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
+**Wave 1**
 - [ ] 09-01-PLAN.md — packaging truth + suite-green gate (tracer: exactly two packages via verify-pack; repair the 4 PairingLifecycleTests)
-- [ ] 09-02-PLAN.md — public API freeze + provenance audit (NOTICE Phase 7/9 rows)
 - [ ] 09-03-PLAN.md — interop probe with classified exit contract (tracer; scripted-peer drift/infra tests)
-- [ ] 09-04-PLAN.md — version.json tag refspec + ci.yml, release.yml, live-interop.yml
 - [ ] 09-05-PLAN.md — risk-ledger relocation + README rewrite (repack gate)
 - [ ] 09-06-PLAN.md — store-implementation guide, webhook recipe, tests README corrections
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 09-02-PLAN.md — public API freeze + provenance audit (NOTICE Phase 7/9 rows)
+- [ ] 09-04-PLAN.md — version.json tag refspec + ci.yml, release.yml, live-interop.yml
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 09-07-PLAN.md — push master, first remote CI run, probe calibration, 09-CI-EVIDENCE.md
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 09-08-PLAN.md — nuget.org policy + visibility election → go/no-go → tag & publish
+
+**Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 09-09-PLAN.md — UAT authoring + traceability & honesty section
 
 ## Progress
