@@ -692,13 +692,33 @@ public sealed class Messenger : IAsyncDisposable
                 await Task.Delay(delay, _connection.Clock, cancellationToken).ConfigureAwait(false);
             }
 
-            // messageFactory is invoked lazily, per recipient, only after the
-            // cancellation check above.
-            string text = messageFactory(recipient);
-            SendOutcome outcome = await _safety.ExecuteSendAsync(
-                new SendContext(recipient, IsReply: false),
-                cancellationToken,
-                ct => _sender.SendAsync(recipient, text, ct)).ConfigureAwait(false);
+            SendOutcome outcome;
+            try
+            {
+                // WR-04: messageFactory and the gated send are isolated per recipient —
+                // one recipient's safety violation, connection fault, or factory
+                // exception is recorded as that recipient's Failed outcome and the
+                // fan-out continues, instead of the first throw aborting the loop and
+                // discarding every outcome already computed.
+                string text = messageFactory(recipient);
+                outcome = await _safety.ExecuteSendAsync(
+                    new SendContext(recipient, IsReply: false),
+                    cancellationToken,
+                    ct => _sender.SendAsync(recipient, text, ct)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // cancellation remains the only documented early-exit
+            }
+            catch
+            {
+                // Recorded on the outcome row, never propagated (WR-04).
+                outcome = new SendOutcome(string.Empty, SendOutcomeStatus.Failed);
+            }
+
+            // Host cancellation is re-checked before recording so the loop stops
+            // cleanly without synthesizing outcomes for remaining recipients.
+            cancellationToken.ThrowIfCancellationRequested();
             result.Add(new BroadcastRecipientOutcome(recipient, outcome));
             first = false;
         }

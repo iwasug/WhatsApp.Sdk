@@ -676,6 +676,7 @@ Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.Sent = 0 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.ServerError = 1 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.TimedOut = 2 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
+Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.Failed = 3 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent
 Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.get -> string!
 Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.init -> void

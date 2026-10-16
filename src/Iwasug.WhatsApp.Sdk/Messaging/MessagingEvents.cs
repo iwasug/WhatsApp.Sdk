@@ -76,6 +76,16 @@ public enum SendOutcomeStatus
 
     /// <summary>No correlated reply arrived inside the send window; the message was dropped (never re-sent).</summary>
     TimedOut,
+
+    /// <summary>
+    /// The send failed locally (WR-04): a safety-gate violation, connection fault, or
+    /// payload-factory exception prevented the attempt from reaching any server reply.
+    /// <see cref="Messenger.SendBroadcastAsync"/> records this per-recipient outcome in
+    /// place of a thrown exception so one recipient's failure neither aborts the
+    /// fan-out nor discards already-computed outcomes. The <see cref="SendOutcome.MessageId"/>
+    /// is empty when no id was generated before the failure.
+    /// </summary>
+    Failed = 3,
 }
 
 /// <summary>
