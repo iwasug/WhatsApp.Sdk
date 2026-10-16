@@ -226,10 +226,14 @@ internal static class MessageBuilder
     /// <summary>
     /// Builds the serialized plaintext for a document message using an upload result.
     /// </summary>
-    internal static byte[] BuildDocumentMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string mimetype, string? title, string? fileName, string? caption)
+    internal static byte[] BuildDocumentMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string mimetype, string? title, string? fileName, string? caption, byte[]? thumbnail = null)
     {
         ArgumentNullException.ThrowIfNull(upload);
         ValidateUpload(upload);
+        if (thumbnail is not null && thumbnail.Length > Iwasug.WhatsApp.Sdk.Media.MediaMimeAllowList.MaxThumbnailBytes)
+        {
+            throw new SdkFormatException("Media thumbnails must not exceed 64 KiB.");
+        }
         if (string.IsNullOrWhiteSpace(mimetype) || (!mimetype.Equals("application/pdf", StringComparison.OrdinalIgnoreCase) && !mimetype.Equals("text/plain", StringComparison.OrdinalIgnoreCase)))
         {
             throw new SdkFormatException("Media mimetype is not on the allow list.");
@@ -252,6 +256,7 @@ internal static class MessageBuilder
         };
         if (!string.IsNullOrEmpty(title)) doc.Title = title;
         if (!string.IsNullOrEmpty(caption)) doc.Caption = caption;
+        if (thumbnail is not null) doc.JpegThumbnail = ByteString.CopyFrom(thumbnail);
         return new Message { DocumentMessage = doc }.ToByteArray();
     }
 

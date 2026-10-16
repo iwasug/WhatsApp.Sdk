@@ -286,7 +286,7 @@ public sealed class Messenger : IAsyncDisposable
             async ct =>
             {
                 var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document, content, null, ct).ConfigureAwait(false);
-                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption);
+                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption, thumbnail);
                 return await _sender.SendMediaAsync(chat, plaintext, fileName ?? caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document), ct).ConfigureAwait(false);
             }).ConfigureAwait(false);
     }
@@ -328,7 +328,7 @@ public sealed class Messenger : IAsyncDisposable
     }
 
     /// <summary>Sends media. See plan 06-02.</summary>
-    public async Task<SendOutcome> SendGroupDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid group, System.IO.Stream content, string mimetype, string fileName, string? title = null, string? caption = null, System.Threading.CancellationToken cancellationToken = default)
+    public async Task<SendOutcome> SendGroupDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid group, System.IO.Stream content, string mimetype, string fileName, string? title = null, string? caption = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
@@ -341,7 +341,7 @@ public sealed class Messenger : IAsyncDisposable
             async ct =>
             {
                 var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document, content, null, ct).ConfigureAwait(false);
-                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption);
+                byte[] plaintext = MessageBuilder.BuildDocumentMessage(upload, mimetype, title, fileName, caption, thumbnail);
                 return await _sender.SendGroupMediaAsync(group, plaintext, fileName ?? caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Document), ct).ConfigureAwait(false);
             }).ConfigureAwait(false);
     }
