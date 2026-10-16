@@ -532,14 +532,12 @@ internal sealed class OutboxPump : IAsyncDisposable
             }
         }
 
-        try
-        {
-            _store.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
-        catch
-        {
-            // ignore
-        }
+        // WR-02: the pump does NOT dispose the store it drains. It was given the store
+        // by its owner (in the SDK composition the StoreSession owns every per-account
+        // store view), so disposing it here was a sync-blocked disposal of a resource
+        // the pump does not own and could double-dispose. Ownership stays with the
+        // creator: AccountRuntime disposes the pump and then StoreSession, and hosts
+        // constructing a pump directly dispose their own store.
 
         _gate.Dispose();
         _ownedCts.Dispose();
