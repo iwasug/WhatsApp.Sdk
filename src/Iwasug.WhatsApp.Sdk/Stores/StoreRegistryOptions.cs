@@ -61,4 +61,10 @@ public sealed class StoreRegistryOptions
     /// in-memory reference store fills this capability (D-03).
     /// </summary>
     public IRecipientContactStoreFactory? RecipientContactFactory { get; set; }
+
+    /// <summary>
+    /// Factory for <see cref="IOutboxStore"/> instances. <c>null</c> = the in-memory
+    /// reference store fills this capability (D-03).
+    /// </summary>
+    public IOutboxStoreFactory? OutboxFactory { get; set; }
 }

@@ -230,7 +230,8 @@ public sealed class ColdOutreachBudgetTests
             baseSession.SafetyState,
             baseSession.Credentials,
             failingRecipients,
-            new bool[7]);
+            baseSession.Outbox,
+            new bool[8]);
 
         SafetyGate gate = CreateGate(clock, session, NoJitter(coldCap: 30));
 

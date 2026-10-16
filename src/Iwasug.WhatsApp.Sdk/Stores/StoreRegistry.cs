@@ -69,6 +69,7 @@ public sealed class StoreRegistry : IAsyncDisposable
     private readonly ISafetyStateStoreFactory _fallbackSafety;
     private readonly ICredentialStoreFactory _fallbackCredential;
     private readonly IRecipientContactStoreFactory _fallbackRecipients;
+    private readonly IOutboxStoreFactory _fallbackOutbox;
 
     // D-24 session cache. Lazy<Task<T>> guarantees creation runs exactly once per account
     // under parallel access (the Lazy memoizes its factory); a faulted creation is evicted
@@ -104,6 +105,7 @@ public sealed class StoreRegistry : IAsyncDisposable
         _fallbackSafety = _fallback;
         _fallbackCredential = _fallback;
         _fallbackRecipients = _fallback;
+        _fallbackOutbox = _fallback;
     }
 
     /// <summary>
@@ -367,6 +369,17 @@ public sealed class StoreRegistry : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
             created.Add(recipients.Store);
 
+            IOutboxStoreFactory? outboxFactory = _options.OutboxFactory;
+            (IOutboxStore Store, bool FromHost) outbox = await ResolveStoreAsync(
+                outboxFactory is null
+                    ? null
+                    : (id, token) => outboxFactory.CreateAsync(id, token),
+                _fallbackOutbox.CreateAsync,
+                "outbox",
+                accountId,
+                cancellationToken).ConfigureAwait(false);
+            created.Add(outbox.Store);
+
             var session = new StoreSession(
                 signal.Store,
                 identity.Store,
@@ -375,7 +388,8 @@ public sealed class StoreRegistry : IAsyncDisposable
                 safety.Store,
                 credential.Store,
                 recipients.Store,
-                [signal.FromHost, identity.FromHost, preKeys.FromHost, cache.FromHost, safety.FromHost, credential.FromHost, recipients.FromHost]);
+                outbox.Store,
+                [signal.FromHost, identity.FromHost, preKeys.FromHost, cache.FromHost, safety.FromHost, credential.FromHost, recipients.FromHost, outbox.FromHost]);
             session.AttachEvictionCallback(() => Evict(accountId, self));
             return session;
         }
@@ -550,7 +564,8 @@ public sealed class StoreSession : IAsyncDisposable
     /// <param name="safetyState">Account-scoped ban-safety state row.</param>
     /// <param name="credentials">Account-scoped pairing credential row.</param>
     /// <param name="recipients">Account-scoped recipient-contact ledger.</param>
-    /// <param name="fromHost">Index-aligned with the fixed store order (signal, identity, prekey, cache, safety, credential, recipients): true when the instance came from a host factory.</param>
+    /// <param name="outbox">Account-scoped durable outbox store.</param>
+    /// <param name="fromHost">Index-aligned with the fixed store order (signal, identity, prekey, cache, safety, credential, recipients, outbox): true when the instance came from a host factory.</param>
     internal StoreSession(
         ISignalSessionStore signalSessions,
         IIdentityStore identity,
@@ -559,6 +574,7 @@ public sealed class StoreSession : IAsyncDisposable
         ISafetyStateStore safetyState,
         ICredentialStore credentials,
         IRecipientContactStore recipients,
+        IOutboxStore outbox,
         bool[] fromHost)
     {
         SignalSessions = signalSessions;
@@ -568,6 +584,7 @@ public sealed class StoreSession : IAsyncDisposable
         SafetyState = safetyState;
         Credentials = credentials;
         Recipients = recipients;
+        Outbox = outbox;
         _ownedStores =
         [
             (signalSessions, fromHost[0] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
@@ -577,6 +594,7 @@ public sealed class StoreSession : IAsyncDisposable
             (safetyState, fromHost[4] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
             (credentials, fromHost[5] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
             (recipients, fromHost[6] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
+            (outbox, fromHost[7] ? StoreOrigin.HostFactory : StoreOrigin.Fallback),
         ];
     }
 
@@ -600,6 +618,9 @@ public sealed class StoreSession : IAsyncDisposable
 
     /// <summary>Account-scoped recipient-contact ledger (additive seventh capability).</summary>
     public IRecipientContactStore Recipients { get; }
+
+    /// <summary>Account-scoped durable outbox store.</summary>
+    public IOutboxStore Outbox { get; }
 
     internal void AttachEvictionCallback(Action callback) => _evictionCallback = callback;
 
