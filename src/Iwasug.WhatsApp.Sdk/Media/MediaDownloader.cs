@@ -51,6 +51,7 @@ internal sealed class MediaDownloader
 
         byte[]? blob = null;
         int attempts = 0;
+        Exception? lastTransportException = null;
         while (attempts < 5)
         {
             attempts++;
@@ -66,10 +67,6 @@ internal sealed class MediaDownloader
                 }
                 resp.EnsureSuccessStatusCode();
 
-                // The response body is ciphertext || 10-byte MAC, so its length is ALWAYS
-                // larger than the plaintext fileLength (PKCS7 always pads). Never compare
-                // the transport Content-Length against fileLength here — the semantic size
-                // check runs on the verified plaintext after decryption (below).
                 blob = await resp.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
                 break;
             }
@@ -77,14 +74,19 @@ internal sealed class MediaDownloader
             {
                 throw;
             }
-            catch (HttpRequestException) when (attempts < 5)
+            catch (HttpRequestException ex)
             {
+                lastTransportException = ex;
+                if (attempts >= 5)
+                {
+                    break;
+                }
             }
         }
 
         if (blob is null)
         {
-            throw new SdkTransportException("Media download failed.");
+            throw new SdkTransportException("Media download failed.", lastTransportException);
         }
 
         string info = MediaKindInfo.InfoString(kind);
