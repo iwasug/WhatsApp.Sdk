@@ -11,9 +11,10 @@ namespace Iwasug.WhatsApp.Sdk.InteropProbe;
 /// <summary>
 /// Connect/observe/decide runner for the interop drift probe (09-RESEARCH
 /// Pattern 3): builds a fresh-registration connection over the injected
-/// transport, observes the pairing surface, and classifies the outcome as
-/// accepted (0), drift (10), or infra (20) — never persisting credentials and
-/// never printing material (T-9-06).
+/// transport, starts the pairing attempt on the live stream, observes the
+/// pairing surface, and classifies the outcome as accepted (0), drift (10),
+/// or infra (20) — never persisting credentials and never printing material
+/// (T-9-06).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -75,6 +76,7 @@ public sealed class ProbeRunner
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         WaConnection? connection = null;
         Task? connectTask = null;
+        Task? pairingTask = null;
 
         try
         {
@@ -90,10 +92,16 @@ public sealed class ProbeRunner
                 TaskCreationOptions.RunContinuationsAsynchronously);
             connection.Pairing.StateChanged += (_, e) => completed.TrySetResult(ProbeClassifier.FromStatus(e.Status));
 
+            // The verdict vocabulary IS the pairing surface: the attempt must
+            // be live for a Code (acceptance) or ClientOutdated (405) terminal
+            // to be observable, so start it before awaiting the connect task.
+            // The coordinator's attempt loop gates its first send on the
+            // connection's channel-ready pulse, so this order is safe.
+            pairingTask = connection.Pairing.StartAsync(linked.Token);
             connectTask = connection.ConnectAsync(linked.Token);
 
             Task delayTask = Task.Delay(_timeout, linked.Token);
-            List<Task> races = [completed.Task, delayTask, connectTask];
+            List<Task> races = [completed.Task, delayTask, connectTask, pairingTask];
 
             while (true)
             {
@@ -142,9 +150,15 @@ public sealed class ProbeRunner
         {
             // Teardown is best-effort and ordered so nothing here can replace a
             // classified outcome (T-9-07): cancel the shared token first (the
-            // monitor and any in-flight connect unwind), observe the settled
-            // connect task, then dispose the connection and the store.
+            // monitor, the attempt loop, and any in-flight connect unwind),
+            // observe the settled pairing and connect tasks, then dispose the
+            // connection and the store.
             linked.Cancel();
+
+            if (pairingTask is not null)
+            {
+                await ObserveSettledAsync(pairingTask).ConfigureAwait(false);
+            }
 
             if (connectTask is not null)
             {
