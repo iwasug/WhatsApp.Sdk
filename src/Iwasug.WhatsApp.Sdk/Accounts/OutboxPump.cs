@@ -142,6 +142,46 @@ internal sealed class OutboxPump : IAsyncDisposable
                     ? _messenger.SendGroupMessageAsync(entry.Destination, payload.Text ?? string.Empty, cancellationToken)
                     : _messenger.SendMessageAsync(entry.Destination, payload.Text ?? string.Empty, cancellationToken),
 
+            // WR-01: extended payload kinds route through their Messenger sends instead
+            // of being rejected as unsupported — every row kind the store accepts and the
+            // durable pre-send validation passes drains through the same gated send paths.
+            OutboxPayloadKind.Reply =>
+                _messenger.ReplyAsync(
+                    entry.Destination,
+                    payload.TargetMessageId ?? string.Empty,
+                    payload.Text ?? string.Empty,
+                    cancellationToken),
+
+            // A null/empty emoji sends a reaction removal, still a real gated send.
+            OutboxPayloadKind.Reaction =>
+                _messenger.SendReactionAsync(
+                    entry.Destination,
+                    payload.TargetMessageId ?? string.Empty,
+                    payload.Emoji,
+                    cancellationToken),
+
+            OutboxPayloadKind.Edit =>
+                _messenger.EditOwnMessageAsync(
+                    entry.Destination,
+                    payload.TargetMessageId ?? string.Empty,
+                    payload.Text ?? string.Empty,
+                    cancellationToken),
+
+            OutboxPayloadKind.Delete =>
+                _messenger.DeleteForEveryoneAsync(
+                    entry.Destination,
+                    payload.TargetMessageId ?? string.Empty,
+                    cancellationToken),
+
+            // Media bytes are never part of a stored row (T-08-03), so the default path
+            // cannot re-materialize a media send. Throwing SdkFormatException surfaces
+            // as a PERMANENT failure (dead-lettered immediately by ProcessEntryAsync)
+            // rather than a transient one; hosts that enqueue media rows must register
+            // a send delegate that rebuilds the upload from the payload descriptor.
+            OutboxPayloadKind.Media =>
+                throw new SdkFormatException(
+                    "Outbox media payloads cannot be sent by the default send path: media bytes are never stored in the row; supply a send delegate that re-materializes the upload from the payload descriptor."),
+
             _ => throw new SdkFormatException($"Unsupported outbox payload kind: {payload.Kind}."),
         };
     }
@@ -203,6 +243,17 @@ internal sealed class OutboxPump : IAsyncDisposable
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (SdkFormatException malformed)
+        {
+            // WR-01: a malformed/unsendable payload is permanent — the same retrying
+            // send can never succeed — so dead-letter immediately with the distinct
+            // reason instead of exhausting MaxAttempts with exponential backoff.
+            await _store.DeadLetterAsync(
+                entry.Id,
+                $"malformed-payload: {malformed.Message}",
+                cancellationToken).ConfigureAwait(false);
+            return;
         }
         catch (Exception ex)
         {
@@ -272,8 +323,10 @@ internal sealed class OutboxPump : IAsyncDisposable
             }
         }
 
-        if (payload.Kind is OutboxPayloadKind.Reaction && string.IsNullOrEmpty(payload.TargetMessageId))
+        if ((payload.Kind is OutboxPayloadKind.Reaction or OutboxPayloadKind.Reply) && string.IsNullOrEmpty(payload.TargetMessageId))
         {
+            // WR-01 consistency: a reply's TargetMessageId is the quoted message id the
+            // send requires, so a reply without one can never send.
             reason = "missing-target";
             return true;
         }
