@@ -1037,25 +1037,43 @@ internal sealed class MessageDispatcher
                 return;
             }
 
-            PresenceState state = PresenceState.Available;
+            // IN-02: publish only states the SDK actually maps. A bare <presence> node
+            // (no type attribute) means available on the wire; an unmapped type
+            // attribute — or a chatstate whose children the SDK does not recognize —
+            // is skipped instead of surfacing a synthetic Available update.
+            PresenceState state = PresenceState.Unavailable;
+            bool mapped = false;
             if (node.Attrs.TryGetValue("type", out string? type))
             {
                 if (string.Equals(type, "unavailable", StringComparison.Ordinal))
                 {
                     state = PresenceState.Unavailable;
+                    mapped = true;
                 }
                 else if (string.Equals(type, "available", StringComparison.Ordinal))
                 {
                     state = PresenceState.Available;
+                    mapped = true;
                 }
+            }
+            else if (!string.Equals(node.Tag, "chatstate", StringComparison.Ordinal))
+            {
+                // Wire semantics: a presence notification without a type is available.
+                state = PresenceState.Available;
+                mapped = true;
             }
 
             BinaryNode? chatStateNode = FirstChild(node, "chatstate") ?? (string.Equals(node.Tag, "chatstate", StringComparison.Ordinal) ? node : null);
             if (chatStateNode is not null)
             {
-                if (chatStateNode.Children?.Any(c => c.Tag == "composing") == true) state = PresenceState.Composing;
-                else if (chatStateNode.Children?.Any(c => c.Tag == "recording") == true) state = PresenceState.Recording;
-                else if (chatStateNode.Children?.Any(c => c.Tag == "paused") == true) state = PresenceState.Paused;
+                if (chatStateNode.Children?.Any(c => c.Tag == "composing") == true) { state = PresenceState.Composing; mapped = true; }
+                else if (chatStateNode.Children?.Any(c => c.Tag == "recording") == true) { state = PresenceState.Recording; mapped = true; }
+                else if (chatStateNode.Children?.Any(c => c.Tag == "paused") == true) { state = PresenceState.Paused; mapped = true; }
+            }
+
+            if (!mapped)
+            {
+                return; // unmapped presence/chatstate shape: no synthetic update
             }
 
             Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
