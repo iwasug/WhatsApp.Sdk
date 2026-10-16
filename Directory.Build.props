@@ -17,6 +17,7 @@
     -->
     <RepositoryUrl>https://github.com/iwasug/WhatsApp.Sdk</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/iwasug/WhatsApp.Sdk</PackageProjectUrl>
     <PackageTags>whatsapp;sdk;e2ee;signal-protocol;multi-device</PackageTags>
   </PropertyGroup>
 

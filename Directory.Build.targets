@@ -21,14 +21,29 @@
     -->
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--
+      Release-readiness (plan 09-01 Task 3): symbols ship as sibling .snupkg
+      files, the package carries an icon, and SourceLink inputs are enabled.
+      ContinuousIntegrationBuild stays a workflow-time property
+      (-p:ContinuousIntegrationBuild=true in release.yml, plan 09-04): a
+      repo-wide default here would also rewrite local Debug builds.
+    -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <!--
-    The repo-root README doubles as the NuGet package readme. Paths in imported
-    files resolve against the importing project directory, so ../../README.md
-    reaches the repo root from both src/* packable projects.
+    The repo-root README doubles as the NuGet package readme; LICENSE and the
+    package icon ride along in the same content set. Paths in imported files
+    resolve against the importing project directory, so ../../ reaches the repo
+    root from both src/* packable projects.
   -->
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="../../README.md" Pack="true" PackagePath="\" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="\" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
