@@ -526,13 +526,10 @@ public sealed class Messenger : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(recipients);
         ArgumentNullException.ThrowIfNull(messageFactory);
 
-        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
-
-        var result = new List<BroadcastRecipientOutcome>();
+        // Enumerate recipients exactly once and de-duplicate by ordinal JID string
+        // comparison without invoking messageFactory.
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        bool first = true;
-        TimeSpan delay = options?.InterRecipientDelay ?? TimeSpan.Zero;
-
+        var ordered = new List<Jid>();
         foreach (Jid recipient in recipients)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -540,16 +537,34 @@ public sealed class Messenger : IAsyncDisposable
             {
                 throw new ArgumentNullException(nameof(recipients));
             }
-            if (!seen.Add(recipient.ToString()))
+            if (seen.Add(recipient.ToString()))
             {
-                continue;
+                ordered.Add(recipient);
             }
+        }
+
+        var result = new List<BroadcastRecipientOutcome>(ordered.Count);
+        if (ordered.Count == 0)
+        {
+            return result;
+        }
+
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        TimeSpan delay = options?.InterRecipientDelay ?? TimeSpan.Zero;
+        bool first = true;
+        foreach (Jid recipient in ordered)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!first && delay > TimeSpan.Zero)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await Task.Delay(delay, _connection.Clock, cancellationToken).ConfigureAwait(false);
             }
 
+            // messageFactory is invoked lazily, per recipient, only after the
+            // cancellation check above.
             string text = messageFactory(recipient);
             SendOutcome outcome = await _safety.ExecuteSendAsync(
                 new SendContext(recipient, IsReply: false),
