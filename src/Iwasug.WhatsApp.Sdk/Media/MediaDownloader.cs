@@ -102,6 +102,14 @@ internal sealed class MediaDownloader
 
     internal static string BuildDownloadUrl(string host, string directPath, byte[] fileEncSha256, MediaKind kind)
     {
+        if (string.IsNullOrWhiteSpace(host) || !host.EndsWith(".whatsapp.net", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SdkFormatException("Untrusted media host.");
+        }
+        if (directPath.Contains('&') || directPath.Contains('#') || directPath.Contains('?'))
+        {
+            throw new SdkFormatException("Unexpected media direct path shape.");
+        }
         string mmsType = kind switch
         {
             MediaKind.Image => "image",
