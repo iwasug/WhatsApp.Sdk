@@ -120,6 +120,12 @@ internal sealed class MessageDispatcher
             case "receipt":
                 await HandleReceipt(node, cancellationToken).ConfigureAwait(false);
                 break;
+            case "presence":
+                await HandlePresenceAsync(node, cancellationToken).ConfigureAwait(false);
+                break;
+            case "chatstate":
+                await HandleChatStateAsync(node, cancellationToken).ConfigureAwait(false);
+                break;
         }
     }
 
@@ -927,6 +933,62 @@ internal sealed class MessageDispatcher
     /// the receive path. A receipt carrying an <c>&lt;rmr&gt;</c> child short-circuits
     /// ALL of the above (D-66b routing contract).
     /// </summary>
+    private async Task HandlePresenceAsync(BinaryNode node, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!node.Attrs.TryGetValue("from", out string? fromAttr)
+                || !Jid.TryParse(fromAttr, out Jid? from)
+                || from is null)
+            {
+                return;
+            }
+
+            PresenceState state = PresenceState.Available;
+            if (node.Attrs.TryGetValue("type", out string? type))
+            {
+                if (string.Equals(type, "unavailable", StringComparison.Ordinal))
+                {
+                    state = PresenceState.Unavailable;
+                }
+                else if (string.Equals(type, "available", StringComparison.Ordinal))
+                {
+                    state = PresenceState.Available;
+                }
+            }
+
+            BinaryNode? chatStateNode = FirstChild(node, "chatstate") ?? (string.Equals(node.Tag, "chatstate", StringComparison.Ordinal) ? node : null);
+            if (chatStateNode is not null)
+            {
+                if (chatStateNode.Children?.Any(c => c.Tag == "composing") == true) state = PresenceState.Composing;
+                else if (chatStateNode.Children?.Any(c => c.Tag == "recording") == true) state = PresenceState.Recording;
+                else if (chatStateNode.Children?.Any(c => c.Tag == "paused") == true) state = PresenceState.Paused;
+            }
+
+            Jid chat = Jid.Parse($"{DeviceDirectory.BaseUser(from)}@{from.Server}");
+            DateTimeOffset timestamp = ParseTimestamp(node) ?? _owner.Clock.GetUtcNow();
+            await _owner.RaisePresenceUpdatedAsync(
+                new PresenceUpdatedEventArgs(chat, from, state, timestamp),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Parse failures log-and-continue and never block receive.
+        }
+    }
+
+    private async Task HandleChatStateAsync(BinaryNode node, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await HandlePresenceAsync(node, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort: never block receive.
+        }
+    }
+
     private async Task HandleReceipt(BinaryNode node, CancellationToken cancellationToken)
     {
         // Media-retry routing is PRESENCE-based (D-66b / 06-RESEARCH.md:235-236/245):
