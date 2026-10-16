@@ -59,8 +59,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **EXT-01**: Durable per-account outbox: enqueue → rate-limit → send → backoff → dead-letter, queue storage via the store abstraction
 - [x] **EXT-02**: Presence API: send/observe `available`/`unavailable`/`composing`/`recording`/`paused` and peer presence
-- [ ] **EXT-03**: Host can send, receive, and remove reactions
-- [ ] **EXT-04**: Host can edit own messages and delete messages for everyone
+- [x] **EXT-03**: Host can send, receive, and remove reactions
+- [x] **EXT-04**: Host can edit own messages and delete messages for everyone
 
 ### Delivery
 
@@ -140,8 +140,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BCT-01 | Phase 8 | Complete |
 | EXT-01 | Phase 8 | Complete |
 | EXT-02 | Phase 8 | Complete |
-| EXT-03 | Phase 8 | Pending |
-| EXT-04 | Phase 8 | Pending |
+| EXT-03 | Phase 8 | Complete |
+| EXT-04 | Phase 8 | Complete |
 | OPS-01 | Phase 9 | Pending |
 | OPS-02 | Phase 9 | Pending |
 
