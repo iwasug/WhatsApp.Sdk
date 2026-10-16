@@ -306,6 +306,7 @@ Rules:
 **What goes wrong:** empty emoji rejected as empty-message text.
 **Why it happens:** reusing text-validation path.
 **How to avoid:** reaction emoji goes in the reaction branch, not `Message.conversation`; empty is a valid removal.
+**Warning signs:** refusals on intended removal calls.
 
 ## Code Examples
 
@@ -340,8 +341,6 @@ public async Task<IReadOnlyList<BroadcastRecipientOutcome>> SendBroadcastAsync(
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            // Classification of threw transport/safety failures is explicit;
-            // no synthetic success; rethrow permanent direction errors per planner decision.
             throw;
         }
 
@@ -439,7 +438,15 @@ if (message.ExtendedTextMessage?.ContextInfo is not null && /* protocol edit/rev
 | A7 | Presence inbound parser failures never block receive (graceful degradation) | Pattern 3 | Low — consistent with D-20 |
 | A8 | Phase 6 media dispatcher/media-retry branches remain importable and unchanged by this phase | Architecture | Low — avoids coupling with unfinished media plans |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolution summary (Phase 8 planning):
+1. Outbox media payloads resolve to upload-descriptor variants only; media bytes never enter outbox records, and text-first outbox remains the v1 primary scope.
+2. `SendBroadcastAsync` resolves to ordered `IReadOnlyList<BroadcastRecipientOutcome>` output; cancellation is the host's abort control and no async stream is added in v1.
+3. Presence scope resolves to one account-level `PresenceUpdated` stream tagged with chat; no explicit subscribe command is added in v1.
+4. Reaction removal resolves to an empty-emoji `ReactionReceived` fact; hosts infer removal from empty `Emoji` and do not get a separate removal contract in v1.
+5. Edit idempotency resolves to non-idempotent sends: each edit/delete call creates a new send with a new message id, consistent with MSG-03.
+6. Live-device UAT resolves to deferred/not verified in CI; loopback and doctrinal tests plus live UAT notes remain the closeout evidence.
 
 1. **Outbox media payloads (blocker for a concrete store schema).**  
    - What we know: upload descriptors are small and durable; raw bytes are not.  
@@ -474,7 +481,7 @@ if (message.ExtendedTextMessage?.ContextInfo is not null && /* protocol edit/rev
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
-|------------|------------|-----------|---------|----------|
+|------------|-------------|----------|---------|----------|
 | .NET SDK | build/test | yes | 10.0.401 (repo global.json) | — |
 | .NET runtime | execution | yes | 10.0.12 | — |
 | xunit.v3 + MTP runner | tests | yes | 4.0.1 / SDK-mode (global.json) | — |
@@ -494,6 +501,7 @@ Nyquist is enabled (`workflow.nyquist_validation: true` [VERIFIED: .planning/con
 | Config file | repo-root `global.json` (MTP mode) — unchanged |
 | Quick run command | `dotnet test --filter "FullyQualifiedName~Broadcast\|Outbox\|Presence\|Reaction\|Edit\|Delete"` |
 | Full suite command | `dotnet test Iwasug.WhatsApp.Sdk.sln` |
+| Estimated runtime | ~120 seconds |
 
 ### Phase Requirements → Test Map
 
@@ -517,6 +525,7 @@ Nyquist is enabled (`workflow.nyquist_validation: true` [VERIFIED: .planning/con
 - **Per task commit:** `dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~Broadcast\|Outbox\|Presence\|Reaction\|Edit\|Delete"`
 - **Per wave merge:** full suite + NOTICE provenance-row audit (mirror Phase-3/4)
 - **Phase gate:** full suite green before `/gsd-verify-work`; live UAT documented NOT VERIFIED if no device
+- **Feedback latency:** 120 seconds max.
 
 ### Wave 0 Gaps
 
@@ -538,7 +547,7 @@ Nyquist is enabled (`workflow.nyquist_validation: true` [VERIFIED: .planning/con
 ### Applicable ASVS Categories
 
 | ASVS Category | Applies | Standard Control |
-|---------------|---------|-----------------|
+|---------------|---------|------------------|
 | V2 Authentication | no | pairing + Signal unchanged |
 | V3 Session Management | yes | outbox durability under existing store seam; no new session token handling |
 | V4 Access Control | yes (host-facing) | outbox read/delete should be host-authorized; SDK never auto-accepts host edits |
