@@ -237,7 +237,7 @@ Plans:
   3. Host sends and observes presence (`available`/`unavailable`/`composing`/`recording`/`paused`) and receives peer presence updates.
   4. Host sends, receives, and removes reactions, edits own messages, and deletes messages for everyone, with peers seeing each change.
 
-**Plans**: TBD
+**Plans**: 7 plans
 
 ### Phase 9: Ship
 
