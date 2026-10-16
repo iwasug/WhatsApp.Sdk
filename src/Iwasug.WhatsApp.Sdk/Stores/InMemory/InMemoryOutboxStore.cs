@@ -15,17 +15,25 @@ internal sealed class OutboxRow
 }
 
 /// <summary>In-memory reference implementation of <see cref="IOutboxStore"/> (EXT-01).</summary>
+/// <remarks>
+/// <para>WR-03: due-row filtering consults an injected <see cref="TimeProvider"/>
+/// (default <see cref="TimeProvider.System"/>) instead of wall-clock time, so a host or
+/// test that supplies a non-system provider keeps the store's queue due-ness in step
+/// with the <c>OutboxPump</c> clock that schedules retries.</para>
+/// </remarks>
 internal sealed class InMemoryOutboxStore : IOutboxStore
 {
     private readonly OutboxRow _row;
+    private readonly TimeProvider _clock;
 
-    public InMemoryOutboxStore() : this(new OutboxRow())
+    public InMemoryOutboxStore() : this(new OutboxRow(), null)
     {
     }
 
-    public InMemoryOutboxStore(OutboxRow row)
+    public InMemoryOutboxStore(OutboxRow row, TimeProvider? clock = null)
     {
         _row = row ?? throw new ArgumentNullException(nameof(row));
+        _clock = clock ?? TimeProvider.System;
     }
 
     public async Task<OutboxEntry> EnqueueAsync(OutboxEntry entry, CancellationToken cancellationToken)
@@ -51,7 +59,9 @@ internal sealed class InMemoryOutboxStore : IOutboxStore
         List<OutboxEntry> due;
         lock (_row.Gate)
         {
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            // WR-03: injected clock, never DateTimeOffset.UtcNow, so queued rows become
+            // due in step with the pump's TimeProvider.
+            DateTimeOffset now = _clock.GetUtcNow();
             due = _row.Entries.Values
                 .Where(e =>
                     e.State is OutboxState.Pending or OutboxState.RetryScheduled

@@ -856,6 +856,7 @@ Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory
 Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
 Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.DisposeAsync() -> System.Threading.Tasks.ValueTask
 Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.InMemoryStoreFactory() -> void
+Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.InMemoryStoreFactory(System.TimeProvider? clock) -> void
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.DeadLetterAsync(string! id, string? reason, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.EnqueueAsync(Iwasug.WhatsApp.Sdk.Stores.OutboxEntry! entry, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.OutboxEntry!>!

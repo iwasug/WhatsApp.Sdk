@@ -52,6 +52,28 @@ public sealed class InMemoryStoreFactory
     private const string OutboxCapability = "outbox";
     private readonly ConcurrentDictionary<(string Capability, AccountId Account), object> _state = new();
 
+    // WR-03: the clock the in-memory outbox store filters due rows against. Injectable
+    // so a host or test provider (e.g. FakeTimeProvider) drives outbox due-ness the same
+    // way it drives the OutboxPump's retry scheduling, instead of the store silently
+    // falling back to wall-clock time.
+    private readonly TimeProvider _clock;
+
+    /// <summary>Creates a factory whose outbox due-rows filter against wall-clock time.</summary>
+    public InMemoryStoreFactory()
+    {
+    }
+
+    /// <summary>
+    /// Creates a factory whose in-memory outbox store filters due rows against
+    /// <paramref name="clock"/> (WR-03) — pass a test provider (e.g.
+    /// <c>FakeTimeProvider</c>) to keep store due-ness in step with the
+    /// <c>OutboxPump</c>. Defaults to the system provider.
+    /// </summary>
+    public InMemoryStoreFactory(TimeProvider? clock)
+    {
+        _clock = clock ?? TimeProvider.System;
+    }
+
     // 0 = live, 1 = disposed: belt-and-braces (WR-01) so a CreateAsync that
     // races factory disposal can never mint a fresh session against cleared
     // state. StoreRegistry additionally guards its side of the seam.
@@ -116,7 +138,8 @@ public sealed class InMemoryStoreFactory
 
         object state = GetOrAdd(accountId, OutboxCapability, () => new OutboxRow());
 
-        return ValueTask.FromResult<IOutboxStore>(new InMemoryOutboxStore((OutboxRow)state));
+        // WR-03: the account-scoped outbox view inherits the factory's injected clock.
+        return ValueTask.FromResult<IOutboxStore>(new InMemoryOutboxStore((OutboxRow)state, _clock));
     }
 
     /// <inheritdoc />
