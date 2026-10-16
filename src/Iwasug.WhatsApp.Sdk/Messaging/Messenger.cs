@@ -655,6 +655,18 @@ public sealed class Messenger : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(recipients);
         ArgumentNullException.ThrowIfNull(messageFactory);
 
+        // IN-03: resolve and validate the inter-recipient delay at the boundary. A
+        // negative delay is an options error — reject it here instead of letting it
+        // surface as an ArgumentOutOfRange from Task.Delay mid-fan-out.
+        TimeSpan delay = options?.InterRecipientDelay ?? TimeSpan.Zero;
+        if (delay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options!.InterRecipientDelay,
+                "Inter-recipient delay must be zero or positive.");
+        }
+
         // Enumerate recipients exactly once and de-duplicate by ordinal JID string
         // comparison without invoking messageFactory.
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -680,7 +692,6 @@ public sealed class Messenger : IAsyncDisposable
 
         await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
 
-        TimeSpan delay = options?.InterRecipientDelay ?? TimeSpan.Zero;
         bool first = true;
         foreach (Jid recipient in ordered)
         {
