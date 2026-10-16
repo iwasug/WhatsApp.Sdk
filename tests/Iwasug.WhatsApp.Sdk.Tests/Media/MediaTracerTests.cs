@@ -90,7 +90,7 @@ public class MediaTracerTests
         {
             var r = new HttpResponseMessage(HttpStatusCode.OK);
             r.Content = new ByteArrayContent(downloadBlob!);
-            r.Content.Headers.ContentLength = (downloadBlob?.Length > 0 ? 5 : 0); // allow mismatch check
+            r.Content.Headers.ContentLength = (downloadBlob?.Length ?? 0);
             return r;
         });
         using var downloadHttp = new HttpClient(downloadHandler);

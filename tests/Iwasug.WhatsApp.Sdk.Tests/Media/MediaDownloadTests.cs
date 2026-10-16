@@ -86,7 +86,7 @@ public class MediaDownloadTests
         {
             var r = new HttpResponseMessage(HttpStatusCode.OK);
             r.Content = new ByteArrayContent(blob);
-            r.Content.Headers.ContentLength = upload.FileLength;
+            r.Content.Headers.ContentLength = blob.Length; // real-server invariant: Content-Length is the body length
             return r;
         });        var downloadHttp = new HttpClient(downloadHandler);
         var downloader = new MediaDownloader(downloadHttp);
