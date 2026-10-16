@@ -25,7 +25,8 @@ public sealed class ScratchStoreFactory
       IRecentMessageCacheStoreFactory,
       ISafetyStateStoreFactory,
       ICredentialStoreFactory,
-      IRecipientContactStoreFactory
+      IRecipientContactStoreFactory,
+      IOutboxStoreFactory
 {
     // One gate for ALL state on this factory instance — the deliberate anti-pattern
     // (vs. per-account concurrent maps) that proves the contract kit is impl-agnostic.
@@ -46,6 +47,7 @@ public sealed class ScratchStoreFactory
 
     private readonly Dictionary<(AccountId Account, string Key), bool> _recipientContacts = new();
 
+    private readonly Dictionary<(AccountId Account, string Id), OutboxEntry> _outboxEntries = new();
     /// <inheritdoc />
     public ValueTask<ISignalSessionStore> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
     {
@@ -97,6 +99,13 @@ public sealed class ScratchStoreFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult<IRecipientContactStore>(new RecipientView(this, accountId));
+    }
+
+    /// <inheritdoc />
+    ValueTask<IOutboxStore> IOutboxStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<IOutboxStore>(new OutboxView(this, accountId));
     }
 
     private sealed class SignalSessionView(ScratchStoreFactory factory, AccountId account) : ISignalSessionStore
@@ -449,6 +458,107 @@ public sealed class ScratchStoreFactory
             }
 
             return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class OutboxView(ScratchStoreFactory factory, AccountId account) : IOutboxStore
+    {
+        public Task<OutboxEntry> EnqueueAsync(OutboxEntry entry, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(entry);
+            lock (factory._gate)
+            {
+                factory._outboxEntries[(account, entry.Id)] = entry;
+                return Task.FromResult(factory._outboxEntries[(account, entry.Id)]);
+            }
+        }
+
+        public Task<IReadOnlyList<OutboxEntry>> GetDueAsync(int max, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (max <= 0)
+            {
+                return Task.FromResult<IReadOnlyList<OutboxEntry>>(Array.Empty<OutboxEntry>());
+            }
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            lock (factory._gate)
+            {
+                List<OutboxEntry> due = factory._outboxEntries
+                    .Where(kv => kv.Key.Account.Equals(account))
+                    .Select(kv => kv.Value)
+                    .Where(e => (e.State == OutboxState.Pending || e.State == OutboxState.RetryScheduled)
+                        && (e.NextAttemptUtc is null || e.NextAttemptUtc <= now))
+                    .OrderBy(e => e.EnqueuedUtc)
+                    .Take(max)
+                    .ToList();
+                return Task.FromResult<IReadOnlyList<OutboxEntry>>(due);
+            }
+        }
+
+        public Task MarkSentAsync(string id, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                if (factory._outboxEntries.TryGetValue((account, id), out OutboxEntry? existing))
+                {
+                    factory._outboxEntries[(account, id)] = existing with { State = OutboxState.Sent, NextAttemptUtc = null };
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task ScheduleRetryAsync(string id, int attempt, DateTimeOffset nextAttemptUtc, string? ruleName, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                if (factory._outboxEntries.TryGetValue((account, id), out OutboxEntry? existing))
+                {
+                    factory._outboxEntries[(account, id)] = existing with
+                    {
+                        Attempt = attempt,
+                        State = OutboxState.RetryScheduled,
+                        NextAttemptUtc = nextAttemptUtc,
+                        LastErrorRuleName = ruleName,
+                    };
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task DeadLetterAsync(string id, string? reason, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                if (factory._outboxEntries.TryGetValue((account, id), out OutboxEntry? existing))
+                {
+                    factory._outboxEntries[(account, id)] = existing with
+                    {
+                        State = OutboxState.DeadLettered,
+                        LastErrorRuleName = reason,
+                        NextAttemptUtc = null,
+                    };
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> TryRemoveAsync(string id, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (factory._gate)
+            {
+                return Task.FromResult(factory._outboxEntries.Remove((account, id)));
+            }
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

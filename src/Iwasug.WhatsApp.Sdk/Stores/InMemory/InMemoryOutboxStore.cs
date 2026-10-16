@@ -6,31 +6,37 @@ using Iwasug.WhatsApp.Sdk.Stores;
 
 namespace Iwasug.WhatsApp.Sdk.Stores.InMemory;
 
+/// <summary>Shared backing row for <see cref="InMemoryOutboxStore"/> (D-06 durability: a second
+/// view created from the same factory for the same account observes the same rows).</summary>
+internal sealed class OutboxRow
+{
+    internal readonly object Gate = new();
+    internal readonly Dictionary<string, OutboxEntry> Entries = new(StringComparer.Ordinal);
+}
+
 /// <summary>In-memory reference implementation of <see cref="IOutboxStore"/> (EXT-01).</summary>
 internal sealed class InMemoryOutboxStore : IOutboxStore
 {
-    private readonly ConcurrentDictionary<string, OutboxEntry> _entries = new();
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly OutboxRow _row;
 
-    public InMemoryOutboxStore()
+    public InMemoryOutboxStore() : this(new OutboxRow())
     {
+    }
+
+    public InMemoryOutboxStore(OutboxRow row)
+    {
+        _row = row ?? throw new ArgumentNullException(nameof(row));
     }
 
     public async Task<OutboxEntry> EnqueueAsync(OutboxEntry entry, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(entry);
         cancellationToken.ThrowIfCancellationRequested();
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        await Task.CompletedTask;
+        lock (_row.Gate)
         {
-            _entries[entry.Id] = entry;
-            // Store-side durability (D-06): an independent read observes the row
-            // before this task completes; in-memory that is immediate.
-            return _entries[entry.Id];
-        }
-        finally
-        {
-            _gate.Release();
+            _row.Entries[entry.Id] = entry;
+            return _row.Entries[entry.Id];
         }
     }
 
@@ -42,51 +48,43 @@ internal sealed class InMemoryOutboxStore : IOutboxStore
             return Array.Empty<OutboxEntry>();
         }
 
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        List<OutboxEntry> due;
+        lock (_row.Gate)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            List<OutboxEntry> due = _entries.Values
+            due = _row.Entries.Values
                 .Where(e =>
                     e.State is OutboxState.Pending or OutboxState.RetryScheduled
                     && (e.NextAttemptUtc is null || e.NextAttemptUtc <= now))
                 .OrderBy(e => e.EnqueuedUtc)
                 .Take(max)
                 .ToList();
-            return due;
         }
-        finally
-        {
-            _gate.Release();
-        }
+        await Task.CompletedTask;
+        return due;
     }
 
     public async Task MarkSentAsync(string id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        lock (_row.Gate)
         {
-            if (_entries.TryGetValue(id, out OutboxEntry? existing))
+            if (_row.Entries.TryGetValue(id, out OutboxEntry? existing))
             {
-                _entries[id] = existing with { State = OutboxState.Sent, NextAttemptUtc = null };
+                _row.Entries[id] = existing with { State = OutboxState.Sent, NextAttemptUtc = null };
             }
         }
-        finally
-        {
-            _gate.Release();
-        }
+        await Task.CompletedTask;
     }
 
     public async Task ScheduleRetryAsync(string id, int attempt, DateTimeOffset nextAttemptUtc, string? ruleName, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        lock (_row.Gate)
         {
-            if (_entries.TryGetValue(id, out OutboxEntry? existing))
+            if (_row.Entries.TryGetValue(id, out OutboxEntry? existing))
             {
-                _entries[id] = existing with
+                _row.Entries[id] = existing with
                 {
                     Attempt = attempt,
                     State = OutboxState.RetryScheduled,
@@ -95,21 +93,17 @@ internal sealed class InMemoryOutboxStore : IOutboxStore
                 };
             }
         }
-        finally
-        {
-            _gate.Release();
-        }
+        await Task.CompletedTask;
     }
 
     public async Task DeadLetterAsync(string id, string? reason, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        lock (_row.Gate)
         {
-            if (_entries.TryGetValue(id, out OutboxEntry? existing))
+            if (_row.Entries.TryGetValue(id, out OutboxEntry? existing))
             {
-                _entries[id] = existing with
+                _row.Entries[id] = existing with
                 {
                     State = OutboxState.DeadLettered,
                     LastErrorRuleName = reason,
@@ -117,23 +111,15 @@ internal sealed class InMemoryOutboxStore : IOutboxStore
                 };
             }
         }
-        finally
-        {
-            _gate.Release();
-        }
+        await Task.CompletedTask;
     }
 
     public async Task<bool> TryRemoveAsync(string id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        lock (_row.Gate)
         {
-            return _entries.TryRemove(id, out _);
-        }
-        finally
-        {
-            _gate.Release();
+            return _row.Entries.Remove(id);
         }
     }
 

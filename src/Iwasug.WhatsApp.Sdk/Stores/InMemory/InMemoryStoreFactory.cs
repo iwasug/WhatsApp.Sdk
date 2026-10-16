@@ -49,7 +49,7 @@ public sealed class InMemoryStoreFactory
     private const string SafetyStateCapability = "safety-state";
     private const string CredentialCapability = "credential";
     private const string RecipientContactCapability = "recipient-contact";
-
+    private const string OutboxCapability = "outbox";
     private readonly ConcurrentDictionary<(string Capability, AccountId Account), object> _state = new();
 
     // 0 = live, 1 = disposed: belt-and-braces (WR-01) so a CreateAsync that
@@ -114,7 +114,9 @@ public sealed class InMemoryStoreFactory
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        return ValueTask.FromResult<IOutboxStore>(new InMemoryOutboxStore());
+        object state = GetOrAdd(accountId, OutboxCapability, () => new OutboxRow());
+
+        return ValueTask.FromResult<IOutboxStore>(new InMemoryOutboxStore((OutboxRow)state));
     }
 
     /// <inheritdoc />
