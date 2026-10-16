@@ -197,7 +197,7 @@ internal static class MessageBuilder
     /// <summary>
     /// Builds the serialized plaintext for an image message using an upload result.
     /// </summary>
-    internal static byte[] BuildImageMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string? caption, int? width = null, int? height = null, byte[]? thumbnail = null)
+    internal static byte[] BuildImageMessage(Iwasug.WhatsApp.Sdk.Media.MediaUploadResult upload, string? caption, int? width = null, int? height = null, byte[]? thumbnail = null, string? mimetype = null)
     {
         ArgumentNullException.ThrowIfNull(upload);
         ValidateUpload(upload);
@@ -208,7 +208,7 @@ internal static class MessageBuilder
         var image = new ImageMessage
         {
             Url = upload.Url,
-            Mimetype = "image/jpeg",
+            Mimetype = string.IsNullOrEmpty(mimetype) ? "image/jpeg" : mimetype,
             FileSha256 = ByteString.CopyFrom(upload.FileSha256),
             FileLength = upload.FileLength,
             MediaKey = ByteString.CopyFrom(upload.MediaKey),

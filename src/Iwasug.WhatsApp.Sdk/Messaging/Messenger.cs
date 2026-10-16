@@ -265,7 +265,7 @@ public sealed class Messenger : IAsyncDisposable
             async ct =>
             {
                 var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image, content, null, ct).ConfigureAwait(false);
-                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail);
+                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail, mimetype);
                 return await _sender.SendMediaAsync(chat, plaintext, caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image), ct).ConfigureAwait(false);
             }).ConfigureAwait(false);
     }
@@ -322,7 +322,7 @@ public sealed class Messenger : IAsyncDisposable
             async ct =>
             {
                 var upload = await _uploader.UploadAsync(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image, content, null, ct).ConfigureAwait(false);
-                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail);
+                byte[] plaintext = MessageBuilder.BuildImageMessage(upload, caption, width, height, thumbnail, mimetype);
                 return await _sender.SendGroupMediaAsync(group, plaintext, caption ?? string.Empty, Iwasug.WhatsApp.Sdk.Media.MediaKindInfo.MediaType(Iwasug.WhatsApp.Sdk.Media.MediaKind.Image), ct).ConfigureAwait(false);
             }).ConfigureAwait(false);
     }
