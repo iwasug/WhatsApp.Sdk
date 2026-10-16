@@ -367,6 +367,62 @@ public sealed class InteropProbeTests
             "a mute peer is a classified timeout, never a stuck process");
     }
 
+    // ------------------------------------------------------------------
+    // Task 3: the process contract — one option with a frozen default and a
+    // validated 1..900 range; everything else throws the typed options
+    // exception (the entry point maps it to stderr + exit 2).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Options_default_to_120_seconds_when_no_arguments_are_given()
+    {
+        ProbeOptions options = ProbeOptions.Parse([]);
+
+        options.TimeoutSeconds.Should().Be(120);
+        options.Timeout.Should().Be(TimeSpan.FromSeconds(120));
+        ProbeOptions.DefaultTimeoutSeconds.Should().Be(120, "the frozen default the live workflow relies on");
+    }
+
+    [Fact]
+    public void Options_parse_explicit_values_and_both_boundaries()
+    {
+        ProbeOptions explicitValue = ProbeOptions.Parse(["--timeout-seconds", "45"]);
+        explicitValue.TimeoutSeconds.Should().Be(45);
+        explicitValue.Timeout.Should().Be(TimeSpan.FromSeconds(45));
+
+        ProbeOptions.MinTimeoutSeconds.Should().Be(1);
+        ProbeOptions.MaxTimeoutSeconds.Should().Be(900);
+        ProbeOptions.Parse(["--timeout-seconds", "1"]).TimeoutSeconds.Should().Be(1);
+        ProbeOptions.Parse(["--timeout-seconds", "900"]).TimeoutSeconds.Should().Be(900);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("901")]
+    [InlineData("abc")]
+    [InlineData("")]
+    [InlineData("12.5")]
+    public void Options_reject_values_outside_the_contract(string raw)
+    {
+        Action parse = () => ProbeOptions.Parse(["--timeout-seconds", raw]);
+
+        parse.Should().Throw<ProbeOptionsException>();
+    }
+
+    [Fact]
+    public void Options_reject_missing_values_unknown_arguments_and_bare_tokens()
+    {
+        Action missingValue = () => ProbeOptions.Parse(["--timeout-seconds"]);
+        missingValue.Should().Throw<ProbeOptionsException>();
+
+        Action unknownArgument = () => ProbeOptions.Parse(["--verbose"]);
+        unknownArgument.Should().Throw<ProbeOptionsException>();
+
+        Action bareToken = () => ProbeOptions.Parse(["120"]);
+        bareToken.Should().Throw<ProbeOptionsException>();
+    }
+
     /// <summary>Fails every transport operation so the connect path faults immediately.</summary>
     private sealed class RefusingTransport : IFrameTransport
     {

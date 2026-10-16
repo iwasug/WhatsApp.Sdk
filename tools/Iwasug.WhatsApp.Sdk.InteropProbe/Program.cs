@@ -7,20 +7,30 @@ namespace Iwasug.WhatsApp.Sdk.InteropProbe;
 /// Thin entry point for the interop drift probe (OPS-02): one fresh-registration
 /// connect against the live server, one classified exit code, and exactly one
 /// final <c>PROBE_RESULT exit=&lt;n&gt; detail=&lt;text&gt;</c> stdout line the
-/// live-interop workflow log-greps (09-04).
+/// live-interop workflow log-greps (09-04). An argument-contract failure writes
+/// one stderr message and exits 2 — disjoint from the outcome vocabulary.
 /// </summary>
 internal static class Program
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(120);
-
-    private static async Task<int> Main()
+    private static async Task<int> Main(string[] args)
     {
+        ProbeOptions options;
+        try
+        {
+            options = ProbeOptions.Parse(args);
+        }
+        catch (ProbeOptionsException ex)
+        {
+            Console.Error.WriteLine($"interop-probe: {ex.Message}");
+            return 2;
+        }
+
         // One throwaway identity per run: the probe never uses stored credentials.
         AccountId accountId = AccountId.Create("probe-" + Guid.NewGuid().ToString("N")[..8]);
         var runner = new ProbeRunner(
             accountId,
             () => new WebSocketFrameTransport(new Uri("wss://web.whatsapp.com/ws/chat")),
-            DefaultTimeout);
+            options.Timeout);
 
         ProbeOutcome outcome;
         try
