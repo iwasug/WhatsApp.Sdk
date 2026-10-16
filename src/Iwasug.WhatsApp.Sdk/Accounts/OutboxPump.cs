@@ -28,6 +28,7 @@ internal sealed class OutboxPump : IAsyncDisposable
     private readonly CancellationTokenSource _ownedCts = new();
     private int _disposed;
     private Task? _runTask;
+    private CancellationTokenSource? _runCts;
 
     /// <summary>The durable store this pump drains.</summary>
     public IOutboxStore Store => _store;
@@ -394,6 +395,11 @@ internal sealed class OutboxPump : IAsyncDisposable
     public Task RunLoopAsync(CancellationToken cancellationToken = default) => RunAsync(cancellationToken);
 
     /// <summary>Alias: starts the pump loop as a background task owned by this pump.</summary>
+    /// <remarks>
+    /// CR-01/WR-06: the loop observes a token linked from BOTH the caller's token and the
+    /// pump's owned stop token, so <see cref="StopAsync"/> and <see cref="DisposeAsync"/>
+    /// can always stop a background loop even when the caller's token never fires.
+    /// </remarks>
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_runTask is { IsCompleted: false })
@@ -401,16 +407,24 @@ internal sealed class OutboxPump : IAsyncDisposable
             return _runTask;
         }
 
-        _runTask = Task.Run(() => RunAsync(cancellationToken), CancellationToken.None);
+        _runCts?.Dispose();
+        CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _ownedCts.Token);
+        _runCts = runCts;
+        _runTask = Task.Run(() => RunAsync(runCts.Token), CancellationToken.None);
         return _runTask;
     }
 
     /// <summary>Signals a background loop started via <see cref="StartAsync"/> to stop.</summary>
+    /// <remarks>
+    /// Cancels the linked run token created by <see cref="StartAsync"/> (CR-01) so the loop
+    /// stops even when the token passed to <see cref="StartAsync"/> never fires. The owned
+    /// stop token is left intact so the pump can be started again afterwards.
+    /// </remarks>
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            _ownedCts.Cancel();
+            _runCts?.Cancel();
         }
         catch
         {
@@ -431,6 +445,18 @@ internal sealed class OutboxPump : IAsyncDisposable
         try
         {
             _ownedCts.Cancel();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        // CR-01: the run loop observes only the linked token StartAsync created.
+        // Cancelling the owned CTS already propagates through it; cancel the linked
+        // source directly too so a stop is never missed.
+        try
+        {
+            _runCts?.Cancel();
         }
         catch
         {
@@ -464,6 +490,7 @@ internal sealed class OutboxPump : IAsyncDisposable
 
         _gate.Dispose();
         _ownedCts.Dispose();
+        _runCts?.Dispose();
     }
 }
 
