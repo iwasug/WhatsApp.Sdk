@@ -237,10 +237,10 @@ Plans:
   3. Host sends and observes presence (`available`/`unavailable`/`composing`/`recording`/`paused`) and receives peer presence updates.
   4. Host sends, receives, and removes reactions, edits own messages, and deletes messages for everyone, with peers seeing each change.
 
-**Plans**: 2/7 plans executed
+**Plans**: 3/7 plans executed
 - [x] 08-01-PLAN.md
 - [x] 08-02-PLAN.md
-- [ ] 08-03-PLAN.md
+- [x] 08-03-PLAN.md
 - [ ] 08-04-PLAN.md
 - [ ] 08-05-PLAN.md
 - [ ] 08-06-PLAN.md
@@ -273,5 +273,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Ban-Safety Layer | 6/6 | Complete    | 2026-10-14 |
 | 6. Media Pipeline | 4/6 | In Progress | - |
 | 7. Multi-Account Orchestration | 4/4 | Complete    | 2026-10-15 |
-| 8. Broadcast & Extended Messaging | 2/7 | In Progress | - |
+| 8. Broadcast & Extended Messaging | 3/7 | In Progress | - |
 | 9. Ship | 0/TBD | Not started | - |
