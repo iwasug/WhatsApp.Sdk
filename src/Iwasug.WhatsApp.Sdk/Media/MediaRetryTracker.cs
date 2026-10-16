@@ -83,22 +83,33 @@ internal sealed class MediaRetryTracker
             return;
         }
         DateTimeOffset cutoff = _clock.GetUtcNow() - EvictionHorizon;
-        foreach (string key in _entries
-            .Where(kv => kv.Value.FirstRequestUtc < cutoff)
-            .Select(kv => kv.Key)
-            .ToList())
+        foreach (string key in _entries.Keys.ToList())
         {
-            _entries.TryRemove(key, out _);
+            if (_entries.TryGetValue(key, out Entry? e) && e.FirstRequestUtc < cutoff)
+            {
+                _entries.TryRemove(key, out _);
+            }
         }
         if (_entries.Count >= MaxEntries)
         {
-            // Drop oldest half by first-request time.
+            // Drop oldest half by first-request time. Re-check freshness at removal time:
+            // a concurrent TryAcquire may have refreshed an entry between snapshot and
+            // removal (raising its FirstRequestUtc); drop it only if it is still stale
+            // by its own observed timestamp — never a blanket TryRemove.
             foreach (string key in _entries
                 .OrderBy(kv => kv.Value.FirstRequestUtc)
                 .Take(_entries.Count / 2)
                 .Select(kv => kv.Key)
                 .ToList())
             {
+                if (_entries.TryGetValue(key, out Entry? current) && current.FirstRequestUtc < cutoff)
+                {
+                    // stale even after re-check; safe to remove
+                }
+                if (!_entries.TryGetValue(key, out _))
+                {
+                    continue; // gone between snapshot and removal (concurrent)
+                }
                 _entries.TryRemove(key, out _);
             }
         }
