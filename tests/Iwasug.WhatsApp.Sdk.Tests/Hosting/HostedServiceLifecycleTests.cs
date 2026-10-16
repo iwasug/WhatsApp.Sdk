@@ -23,7 +23,7 @@ public class HostedServiceLifecycleTests
             AutoConnect = false, // unit test: never open real sockets
         };
 
-        var service = new WhatsAppHostedService(Options.Create(opts), manager);
+        var service = new WhatsAppHostedService(Microsoft.Extensions.Options.Options.Create(opts), manager);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         await service.StartAsync(cts.Token);
 
@@ -48,7 +48,7 @@ public class HostedServiceLifecycleTests
             AutoConnect = false, // unit test: never open real sockets
         };
 
-        var service = new WhatsAppHostedService(Options.Create(opts), manager);
+        var service = new WhatsAppHostedService(Microsoft.Extensions.Options.Options.Create(opts), manager);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         var act = async () => await service.StartAsync(cts.Token);
         await act.Should().NotThrowAsync();

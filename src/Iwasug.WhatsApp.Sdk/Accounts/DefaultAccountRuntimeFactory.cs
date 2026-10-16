@@ -29,6 +29,7 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
     private readonly Func<AccountId, IFrameTransport>? _transportFactory;
     private readonly Func<AccountId, INoiseHandshakePayloads>? _handshakePayloadsFactory;
     private readonly RegistrationDefaults? _registrationDefaults;
+    private readonly Iwasug.WhatsApp.Sdk.Options.OutboxOptions? _outboxOptions;
 
     public DefaultAccountRuntimeFactory(
         StoreRegistry? registry = null,
@@ -42,7 +43,8 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
         Uri? endpoint = null,
         Func<AccountId, IFrameTransport>? transportFactory = null,
         Func<AccountId, INoiseHandshakePayloads>? handshakePayloadsFactory = null,
-        RegistrationDefaults? registrationDefaults = null)
+        RegistrationDefaults? registrationDefaults = null,
+        Iwasug.WhatsApp.Sdk.Options.OutboxOptions? outboxOptions = null)
     {
         _registry = registry;
         _loggerFactory = loggerFactory;
@@ -56,6 +58,7 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
         _transportFactory = transportFactory;
         _handshakePayloadsFactory = handshakePayloadsFactory;
         _registrationDefaults = registrationDefaults;
+         _outboxOptions = outboxOptions;
     }
 
     public ValueTask<AccountRuntime> CreateAsync(AccountId accountId, CancellationToken cancellationToken = default)
@@ -121,6 +124,12 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
 
             var cts = new CancellationTokenSource();
 
+            var outboxPump = new OutboxPump(
+                session.Outbox,
+                messenger,
+                _timeProvider,
+                _outboxOptions);
+
             var runtime = new AccountRuntime(
                 accountId,
                 session,
@@ -134,7 +143,8 @@ internal sealed class DefaultAccountRuntimeFactory : IAccountRuntimeFactory
                 connection,
                 safety,
                 _timeProvider,
-                ownsRegistry ? registry : null);
+                ownsRegistry ? registry : null,
+                outboxPump);
 
             return runtime;
         }

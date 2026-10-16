@@ -32,7 +32,8 @@ internal sealed class AccountRuntime : IAsyncDisposable
         ConnectionOptions? connectionOptions = null,
         SafetyOptions? safetyOptions = null,
         TimeProvider? timeProvider = null,
-        StoreRegistry? ownedStoreRegistry = null)
+        StoreRegistry? ownedStoreRegistry = null,
+        OutboxPump? outboxPump = null)
     {
         AccountId = accountId;
         StoreSession = storeSession;
@@ -44,6 +45,7 @@ internal sealed class AccountRuntime : IAsyncDisposable
         Logger = logger;
         LinkedCts = linkedCts;
         OwnedStoreRegistry = ownedStoreRegistry;
+        OutboxPump = outboxPump;
         ConnectionOptions = connectionOptions ?? connection.Options;
         SafetyOptions = safetyOptions ?? (safetyGate as Safety.SafetyGate)?.Options;
         _timeProvider = timeProvider ?? TimeProvider.System;
@@ -93,6 +95,12 @@ internal sealed class AccountRuntime : IAsyncDisposable
     /// therefore host-owned.
     /// </summary>
     public StoreRegistry? OwnedStoreRegistry { get; }
+
+    /// <summary>Optional durable per-account outbox pump (EXT-01); null until wired by the factory.</summary>
+    public OutboxPump? OutboxPump { get; }
+
+    /// <summary>Compatibility alias for <see cref="OutboxPump"/>.</summary>
+    public OutboxPump? Pump => OutboxPump;
 
     public Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions ConnectionOptions { get; }
     public Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? SafetyOptions { get; }
@@ -158,6 +166,10 @@ internal sealed class AccountRuntime : IAsyncDisposable
             gate.AccountRestricted -= OnAccountRestricted;
         }
         try { LinkedCts.Cancel(); } catch { }
+        if (OutboxPump is not null)
+        {
+            try { await OutboxPump.DisposeAsync().ConfigureAwait(false); } catch { }
+        }
         try { await Connection.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await StoreSession.DisposeAsync().ConfigureAwait(false); } catch { }
         if (OwnedStoreRegistry is not null)
