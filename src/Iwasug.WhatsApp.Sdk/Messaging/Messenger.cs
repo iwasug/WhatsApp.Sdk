@@ -773,7 +773,19 @@ public sealed class Messenger : IAsyncDisposable
     /// </summary>
     internal async ValueTask RaiseMessageReceivedAsync(MessageReceivedEventArgs args, CancellationToken cancellationToken)
     {
-        MessageReceived?.Invoke(this, args);
+        // WR-05: handler exceptions are logged-and-swallowed by the dispatcher contract
+        // (same guarantee the Phase-8 raise methods give); isolating the invoke keeps a
+        // throwing host handler from aborting the stream write below or skipping the
+        // dispatcher work that depends on this raise completing.
+        try
+        {
+            MessageReceived?.Invoke(this, args);
+        }
+        catch
+        {
+            // Best-effort by design (dispatcher contract).
+        }
+
         await PublishAsync(
             new MessageReceivedEvent(args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Text, args.QuotedMessageId),
             cancellationToken).ConfigureAwait(false);
