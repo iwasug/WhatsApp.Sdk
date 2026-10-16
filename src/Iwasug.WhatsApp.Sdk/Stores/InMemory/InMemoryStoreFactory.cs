@@ -39,6 +39,7 @@ public sealed class InMemoryStoreFactory
       ISafetyStateStoreFactory,
       ICredentialStoreFactory,
       IRecipientContactStoreFactory,
+      IOutboxStoreFactory,
       IAsyncDisposable
 {
     private const string SignalSessionCapability = "signal-session";
@@ -105,6 +106,15 @@ public sealed class InMemoryStoreFactory
         object state = GetOrAdd(accountId, RecentMessageCacheCapability, () => new RecentMessageCacheState());
 
         return ValueTask.FromResult<IRecentMessageCacheStore>(new InMemoryRecentMessageCacheStore((RecentMessageCacheState)state));
+    }
+
+    /// <inheritdoc />
+    ValueTask<IOutboxStore> IOutboxStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfDisposed();
+
+        return ValueTask.FromResult<IOutboxStore>(new InMemoryOutboxStore());
     }
 
     /// <inheritdoc />
