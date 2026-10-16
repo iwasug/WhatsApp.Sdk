@@ -4,14 +4,14 @@ current_phase: 8
 current_phase_name: Broadcast & Extended Messaging
 current_plan: 7
 status: executing
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-10-16T10:26:26.296Z"
-state_head: fe7b3fb4434035d9133f0e4a166fe36592efde9f
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-10-16T10:44:04.987Z"
+state_head: 35d0d9f5f33d9f8433d206a451c7749a3832a852
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 48
-  completed_plans: 44
+  completed_plans: 45
   percent: 67
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -80,6 +80,7 @@ Progress: [███████░░░] 67%
 | Phase 08 P01 | tracer | 3 tasks | 17 files |
 | Phase 8 P02 | 30 | 3 tasks | 2 files |
 | Phase 08 P03 | 30m | 3 tasks | 12 files |
+| Phase 08 P04 | 08-04 | 1 tasks | 7 files |
 
 ## Per-Plan Metrics:
 
@@ -165,6 +166,7 @@ Recent decisions affecting current work:
 - [Phase 7]: Isolation suite gates static state, concurrent two-account runs, and per-account safety independence.
 - [Phase 7]: Phase 07-04: tagged manager event fusion, per-account scoped logger, cancellation end-to-end, health snapshot
 - [Phase 8]: Broadcast fan-out remains enumeration over gated 1:1 sends with ordinal JID dedup and cancellation pass-through
+- [Phase 08]: 08-04 durable outbox pump lives store-backed per account with retry/backoff and dead-letter
 
 ### Pending Todos
 
@@ -178,6 +180,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-16T10:26:20.675Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-10-16T10:43:48.649Z
+Stopped at: Completed 08-04-PLAN.md
 Resume file: None
