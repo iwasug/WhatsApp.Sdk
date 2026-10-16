@@ -5,6 +5,15 @@
     <Nullable>enable</Nullable>
     <AssemblyName>Iwasug.WhatsApp.Sdk.PairingSample</AssemblyName>
     <OutputType>Exe</OutputType>
+    <!--
+      D-12 invariant: the solution contains exactly two packable projects
+      (Iwasug.WhatsApp.Sdk and Iwasug.WhatsApp.Sdk.Testing). Without this line a
+      fresh `dotnet pack Iwasug.WhatsApp.Sdk.sln` also emits
+      Iwasug.WhatsApp.Sdk.PairingSample.<version>.nupkg (with a missing-readme
+      warning) - the sample is a host, not a package. scripts/verify-pack.ps1 is
+      the regression net.
+    -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
