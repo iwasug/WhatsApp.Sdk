@@ -64,8 +64,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Delivery
 
-- [ ] **OPS-01**: Ship as a NuGet package with docs (README lead message, risk ledger, store-implementation guide, webhook recipe)
-- [ ] **OPS-02**: CI with unit/golden-fixture tests, isolation suite, and a gated live-interop job that detects protocol drift (405)
+- [x] **OPS-01**: Ship as a NuGet package with docs (README lead message, risk ledger, store-implementation guide, webhook recipe)
+- [x] **OPS-02**: CI with unit/golden-fixture tests, isolation suite, and a gated live-interop job that detects protocol drift (405)
 
 ## v2 Requirements
 
@@ -142,8 +142,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-02 | Phase 8 | Complete |
 | EXT-03 | Phase 8 | Complete |
 | EXT-04 | Phase 8 | Complete |
-| OPS-01 | Phase 9 | Pending |
-| OPS-02 | Phase 9 | Pending |
+| OPS-01 | Phase 9 | Complete |
+| OPS-02 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 33 total

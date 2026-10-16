@@ -1,17 +1,17 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 9
-current_phase_name: ship
-current_plan: 6
+current_phase: 09
+current_phase_name: Ship
+current_plan: 2
 status: executing
-stopped_at: Phase 08 complete, ready to verify Phase 6
-last_updated: "2026-10-16T22:29:26.954Z"
-state_head: 751c97475674d119806d4b3c5090780f5c10694d
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-10-16T23:10:58.316Z"
+state_head: 50a124f81b0099c4b8ef058f970a904e62752179
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 48
+  completed_plans: 49
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 
 **Core value:** Reliably send and receive messages through a linked WhatsApp account — across many accounts at once, without getting those accounts banned.
 
-**Current focus:** Phase 06 — Media Pipeline
+**Current focus:** Phase 09 — Ship
 
 ## Current Position
 
-Phase: 9 (ship) — READY TO EXECUTE
-Current Plan: 6
+Phase: 09 (Ship) — EXECUTING
+Current Plan: 2
 Total Plans in Phase: 9
 Status: Ready to execute
 
@@ -84,6 +84,7 @@ Progress: [████████░░] 78%
 | Phase 8 P05 | executed | 3 tasks | 1 files |
 | Phase 08 P06 | executed | 4 tasks | 9 files |
 | Phase 08 P07 | 20m | 1 tasks | 1 files |
+| Phase 09 P01 | 45m | 3 tasks | 7 files |
 
 ## Per-Plan Metrics:
 
@@ -173,6 +174,10 @@ Recent decisions affecting current work:
 - [Phase 8]: PresenceManager remains account-scoped with no static state (Pitfall 6).
 - [Phase 8]: SendComposingAsync best-effort swallows node failures except cancellation.
 - [Phase 8]: Inbound presence parse failures are swallowed and never block receive.
+- [Phase 09]: 09-01: the four PairingLifecycleTests failures were a test-recorder aliasing bug (RecordingRandomness kept live buffers the PairingCoordinator owns and zeroizes on attempt unwind) - repaired by cloning recorded buffers; no assertion weakened, no quarantine
+- [Phase 09]: 09-01: packaging switches live in the IsPackable-conditioned group in Directory.Build.targets; PackageProjectUrl is the only .props packaging addition; ContinuousIntegrationBuild stays workflow-time (09-04)
+- [Phase 09]: 09-01: verify-pack.ps1 is fail-closed by construction - proven against five seeded negative cases (stray package, missing README, empty dir, missing snupkg, stripped LICENSE) before landing
+- [Phase 09]: 09-01: pre-existing MessagingLoopbackTests flake (peer-assignment race at line 873) deferred to deferred-items.md + broken-windows ledger, not repaired - out of scope
 
 ### Pending Todos
 
@@ -186,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-16T11:29:26.937Z
-Stopped at: Phase 08 complete, ready to verify Phase 6
+Last session: 2026-10-16T23:10:57.612Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
