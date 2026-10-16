@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 current_phase: 8
-current_phase_name: Broadcast & Extended Messaging
 current_plan: 7
 status: executing
-stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-10-16T10:44:04.987Z"
-state_head: 35d0d9f5f33d9f8433d206a451c7749a3832a852
+stopped_at: Completed 08-05-PLAN.md
+last_updated: "2026-10-16T10:55:03.872Z"
+state_head: f3c7dd89e11a12bca1b182421aae13d6b0ef1f84
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 48
-  completed_plans: 45
+  completed_plans: 46
   percent: 67
 last_activity: 2026-10-11
+current_phase_name: Broadcast & Extended Messaging
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
 ---
 
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 
 ## Current Position
 
-Phase: 8 (Broadcast & Extended Messaging) — READY TO EXECUTE
+Phase: 8 — COMPLETE
 Current Plan: 7
 Total Plans in Phase: 7
-Status: Ready to execute
+Status: Phase 8 complete
 
 Progress: [███████░░░] 67%
 
@@ -81,6 +81,7 @@ Progress: [███████░░░] 67%
 | Phase 8 P02 | 30 | 3 tasks | 2 files |
 | Phase 08 P03 | 30m | 3 tasks | 12 files |
 | Phase 08 P04 | 08-04 | 1 tasks | 7 files |
+| Phase 8 P05 | executed | 3 tasks | 1 files |
 
 ## Per-Plan Metrics:
 
@@ -167,6 +168,9 @@ Recent decisions affecting current work:
 - [Phase 7]: Phase 07-04: tagged manager event fusion, per-account scoped logger, cancellation end-to-end, health snapshot
 - [Phase 8]: Broadcast fan-out remains enumeration over gated 1:1 sends with ordinal JID dedup and cancellation pass-through
 - [Phase 08]: 08-04 durable outbox pump lives store-backed per account with retry/backoff and dead-letter
+- [Phase 8]: PresenceManager remains account-scoped with no static state (Pitfall 6).
+- [Phase 8]: SendComposingAsync best-effort swallows node failures except cancellation.
+- [Phase 8]: Inbound presence parse failures are swallowed and never block receive.
 
 ### Pending Todos
 
@@ -180,6 +184,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-16T10:43:48.649Z
-Stopped at: Completed 08-04-PLAN.md
+Last session: 2026-10-16T10:54:30.292Z
+Stopped at: Completed 08-05-PLAN.md
 Resume file: None
