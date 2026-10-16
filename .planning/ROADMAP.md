@@ -257,7 +257,18 @@ Plans:
   2. CI runs unit/golden-fixture tests plus the isolation suite on every change, and a gated live-interop job detects protocol drift by failing loudly on 405.
   3. The release passes a provenance audit: NOTICE/LICENSE complete, no MPL-2.0 contamination, and the public API surface is frozen by an analyzer gate.
 
-**Plans**: TBD
+**Plans**: 9 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — packaging truth + suite-green gate (tracer: exactly two packages via verify-pack; repair the 4 PairingLifecycleTests)
+- [ ] 09-02-PLAN.md — public API freeze + provenance audit (NOTICE Phase 7/9 rows)
+- [ ] 09-03-PLAN.md — interop probe with classified exit contract (tracer; scripted-peer drift/infra tests)
+- [ ] 09-04-PLAN.md — version.json tag refspec + ci.yml, release.yml, live-interop.yml
+- [ ] 09-05-PLAN.md — risk-ledger relocation + README rewrite (repack gate)
+- [ ] 09-06-PLAN.md — store-implementation guide, webhook recipe, tests README corrections
+- [ ] 09-07-PLAN.md — push master, first remote CI run, probe calibration, 09-CI-EVIDENCE.md
+- [ ] 09-08-PLAN.md — nuget.org policy + visibility election → go/no-go → tag & publish
+- [ ] 09-09-PLAN.md — UAT authoring + traceability & honesty section
 
 ## Progress
 
@@ -274,4 +285,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Media Pipeline | 4/6 | In Progress | - |
 | 7. Multi-Account Orchestration | 4/4 | Complete    | 2026-10-15 |
 | 8. Broadcast & Extended Messaging | 7/7 | Complete    | 2026-10-16 |
-| 9. Ship | 0/TBD | Not started | - |
+| 9. Ship | 0/9 | Not started | - |

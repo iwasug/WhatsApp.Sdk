@@ -36,23 +36,36 @@ created: "2026-10-17"
 
 ## Per-Task Verification Map
 
-Filled in by the planner wave assignments; Wave 0 gaps tracked below. Initial rough map (from `09-RESEARCH.md` → Validation Architecture):
+Authoritative map — planner-filled from the executed plan set (`09-NN-TT` = plan `09-NN`, task `TT`). **File Exists** records the planning-time state of each task's deliverable.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| W0 | TBD | 0 | OPS-02 | — | full suite green as a CI gate (fix/quarantine 4 `PairingLifecycleTests`) | unit+integration | `dotnet test Iwasug.WhatsApp.Sdk.sln` | ❌ 4 failures | ⬜ pending |
-| W0 | TBD | 0 | OPS-02 | T-09-probe | drift classifier maps status → exit codes (0 ok / 10 drift / 20 infra) | unit (scripted peer) | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter FullyQualifiedName~InteropProbe` | ❌ Wave 0 | ⬜ pending |
-| W0 | TBD | 0 | OPS-01 | artifact tampering | pack-verify asserts exactly 2 nupkgs + snupkgs, no sample package, README/LICENSE/icon present | script | `pwsh scripts/verify-pack.ps1 artifacts` | ❌ Wave 0 | ⬜ pending |
-| A | TBD | 1 | OPS-01 | — | sample un-packable; packaging switches (icon/LICENSE/snupkg/CI-build) applied | build + pack | `dotnet pack Iwasug.WhatsApp.Sdk.sln -o artifacts` → verify-pack | partial | ⬜ pending |
-| A | TBD | 1 | OPS-01 | — | public API frozen; analyzer gate enforced (RS0016/RS0017/RS0041) | build | `dotnet build Iwasug.WhatsApp.Sdk.sln --nologo` | ✅ analyzer wired | ⬜ pending |
-| A | TBD | 1 | OPS-01 | — | provenance audit: NOTICE/LICENSE complete, no MPL-2.0 contamination | audit (grep + review) | NOTICE audit checklist / provenance rows | ✅ NOTICE exists | ⬜ pending |
-| B | TBD | 1–2 | OPS-02 | supply chain | `ci.yml` runs build + full suite + isolation on push/PR | integration (CI) | `.github/workflows/ci.yml` on push | ❌ Wave 0 | ⬜ pending |
-| B | TBD | 2 | OPS-01 | credential theft | `release.yml`: OIDC Trusted Publishing, environment gate, `contents: read` + `id-token: write` publish-job-only | integration (CI) | tag `v*` push / dispatch | ❌ Wave 0 | ⬜ pending |
-| B | TBD | 2 | OPS-02 | infra vs drift | `live-interop.yml` scheduled probe; 405 → exit 10 DRIFT fails loudly | integration (live) | `dotnet run --project tools/Iwasug.WhatsApp.Sdk.InteropProbe` | ❌ Wave 0 | ⬜ pending |
-| C | TBD | 1–2 | OPS-01 | — | README lead message + absolute links; `docs/` guides; risk ledger honest (incl. cannot-mitigate list) | review + doc checks | human review against UAT checklist | ❌ Wave 0 | ⬜ pending |
-| C | TBD | 2 | OPS-01 | trust (repudiation) | reach-first-send UAT checklist executed honestly (CONN-01..03 status kept) | manual UAT (phone) | end-of-phase checklist | ❌ Wave 0 | ⬜ pending |
+| 09-01-T1 | 09-01 | 1 | OPS-01, OPS-02 | T-9-01, T-9-02 | pack output is exactly the two intended packages; sample un-packable | pack + script | `dotnet pack Iwasug.WhatsApp.Sdk.sln --nologo -o artifacts` → `pwsh -NoProfile -File scripts/verify-pack.ps1 -ArtifactsPath artifacts` | ❌ `scripts/verify-pack.ps1` (created here) | ⬜ pending |
+| 09-01-T2 | 09-01 | 1 | OPS-01, OPS-02 | T-9-03 | CI can gate on a green suite; no silent skips (fix-first, quarantine only with visible reason) | unit+integration | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~PairingLifecycleTests" -x` | ✅ tests exist — 4 failing at baseline | ⬜ pending |
+| 09-01-T3 | 09-01 | 1 | OPS-01, OPS-02 | T-9-02 | nupkg contents complete (icon/LICENSE/README/XML/snupkg) and asserted pretag | pack + script | fresh pack → `verify-pack.ps1` (stronger content assertions) | ❌ `assets/icon.png` etc. | ⬜ pending |
+| 09-02-T1 | 09-02 | 2 | OPS-01 | T-9-04 | frozen public surface; analyzer gate (RS0016/RS0017/RS0041) blocks drift | build (analyzer) | `dotnet build Iwasug.WhatsApp.Sdk.sln --nologo`; Unshipped files hold no live entries | ✅ files exist (1354/182 lines) | ⬜ pending |
+| 09-02-T2 | 09-02 | 2 | OPS-01 | T-9-05 | provenance audit rows for Phase 7 + Phase 9 recorded | doc audit (scripted) | `Select-String NOTICE.md -Pattern 'Phase 7 audit'` / `'Phase 9 audit'` | ✅ NOTICE.md exists | ⬜ pending |
+| 09-03-T1 | 09-03 | 1 | OPS-02 | T-9-06 | probe runs on a fresh in-memory store, zero material; classified outcome end-to-end | unit (scripted peer, tracer) | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~InteropProbe" -x` | ❌ probe project (created here) | ⬜ pending |
+| 09-03-T2 | 09-03 | 1 | OPS-02 | T-9-07 | 405 → exit 10 drift; silence/timeout → exit 20 infra | unit (TDD, scripted peer) | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~InteropProbe" -x` | ❌ | ⬜ pending |
+| 09-03-T3 | 09-03 | 1 | OPS-02 | T-9-07 | `--timeout-seconds` bounds every wait; `PROBE_RESULT exit=<n>` evidence line | unit | `dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~InteropProbe" -x` | ❌ | ⬜ pending |
+| 09-04-T1 | 09-04 | 2 | OPS-01, OPS-02 | T-9-08, T-9-10 | v* tags are public-release refs; ci.yml pins + isolation gate, no `--nologo` on tests | scripted content check | version.json refspec + ci.yml pattern set | ❌ `ci.yml` (version.json ✅) | ⬜ pending |
+| 09-04-T2 | 09-04 | 2 | OPS-01, OPS-02 | T-9-09, T-9-10 | publish only on trusted refs; OIDC + environment; exactly one push step | scripted content check | release.yml pattern set incl. verify-pack → login → push order | ❌ | ⬜ pending |
+| 09-04-T3 | 09-04 | 2 | OPS-01, OPS-02 | T-9-10 | probe job carries no secrets/OIDC; DRIFT/INFRA annotations loud | scripted content check | live-interop.yml pattern set | ❌ | ⬜ pending |
+| 09-05-T1 | 09-05 | 1 | OPS-01 | T-9-11 | cannot-mitigate list + RegistrationDefaults caveat + CONN statuses relocated verbatim | doc checks | risk-ledger token set + README absolute ledger link | ❌ `docs/risk-ledger.md` | ⬜ pending |
+| 09-05-T2 | 09-05 | 1 | OPS-01 | T-9-11 | README truthful status + install quickstart; all-absolute links; repack gate | doc checks + pack | README link/quickstart checks → repack + verify-pack | ✅ README.md exists (stale) | ⬜ pending |
+| 09-06-T1 | 09-06 | 1 | OPS-01 | T-9-12 | all 8 store interfaces + 8 kit contracts documented accurately | doc checks | store-guide token set (interfaces, contracts, registry, factory) | ❌ `docs/store-implementation.md` | ⬜ pending |
+| 09-06-T2 | 09-06 | 1 | OPS-01 | T-9-12 | stale filter claim + "five interfaces" corrected to empirical behavior | doc checks | tests README: stale claims absent, `eight store interfaces` present | ✅ exists (stale) | ⬜ pending |
+| 09-06-T3 | 09-06 | 1 | OPS-01 | T-9-13 | webhook recipe: redaction + no-HTTP-server boundary; no key material in events | doc checks | webhook-recipe token set + redaction guidance | ❌ `docs/webhook-recipe.md` | ⬜ pending |
+| 09-07-T1 | 09-07 | 3 | OPS-02 | T-9-14 | fast-forward-only push; first remote ci run green for the pushed head | integration (CI) | guarded `git fetch/rev-list/rev-parse` → `gh run list` poll → conclusion success | ❌ remote run | ⬜ pending |
+| 09-07-T2 | 09-07 | 3 | OPS-02 | T-9-14 | calibration reads the workflow evidence line, never run-watch exit status | integration (live) | evidence file: calibration section + ≥2 run URLs + classified probe exit | ❌ | ⬜ pending |
+| 09-07-T3 | 09-07 | 3 | OPS-02 | T-9-14 | every evidence claim cites an actions/runs/ URL; committed before the publish decision | doc checks | evidence sections + ≥3 run URLs + `git status` clean | ❌ `09-CI-EVIDENCE.md` | ⬜ pending |
+| 09-08-T1 | 09-08 | 4 | OPS-01 | T-9-15 | policy binds owner/repo/workflow-file exactly; profile name only, never a key | checkpoint:human-action | — (user console; resume with profile name + policy + visibility election) | n/a (external console) | ⬜ pending |
+| 09-08-T2 | 09-08 | 4 | OPS-01 | T-9-15 | one-way publish preceded by a recorded go/no-go decision | checkpoint:decision | — (resume with `publish-now` or `hold: <reason>`) | n/a | ⬜ pending |
+| 09-08-T3 | 09-08 | 4 | OPS-01 | T-9-15 | version from the artifact filename; tag push publishes once; both IDs claimed | integration (CI + registry) | packed version → tag exists → release run success → flatcontainer both IDs → publish evidence | ❌ tag v0.1.N | ⬜ pending |
+| 09-09-T1 | 09-09 | 5 | OPS-01 | T-9-16 | UAT results bound to evidence or marked NOT VERIFIED; CONN statuses carried | doc checks | 09-UAT.md row tokens (expected/result/source) + `CONN-01` | ❌ `09-UAT.md` | ⬜ pending |
+| 09-09-T2 | 09-09 | 5 | OPS-01 | T-9-16 | Phase 6 lag + assumption states surfaced honestly (A2–A5) | doc checks | traceability token set incl. `MED-01`/`06-05`/`06-06` + 09-CI-EVIDENCE cross-ref | ❌ | ⬜ pending |
 
-*Note: W0/A/B/C markers are the research workstreams — the planner replaces them with real task IDs (`09-NN-TT`) once plans exist.*
+*Note: the former W0/A/B/C research-workstream markers are replaced by real task IDs. Wave 0 deliverables map to: `scripts/verify-pack.ps1` → 09-01-T1/T3; suite-green gate → 09-01-T2; probe + classifier tests → 09-03-T1..T3; the three workflows + version.json → 09-04-T1..T3; docs set → 09-05/09-06; user actions → 09-08-T1.*
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
