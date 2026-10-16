@@ -634,6 +634,7 @@ internal sealed class MessageDispatcher
                     return; // the request faulted: no pending (recovery cannot be requested again)
                 }
 
+                SweepPendingRecoveries();
                 _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
                     chat, from, isFromMe, kind, key, timestamp,
                     mediaKey, fileSha, fileEnc, fileLength, mimetype, caption, fileName, seconds, ptt, width, height, directPath);
@@ -766,6 +767,7 @@ internal sealed class MessageDispatcher
                     return; // the request faulted: no pending
                 }
 
+                SweepPendingRecoveries();
                 _pendingMediaRecoveries[key.Id] = new PendingRecoveryContext(
                     chat, participant, false, kind, key, timestamp,
                     mediaKey, fileSha, fileEnc, fileLength, mimetype, caption, fileName, seconds, ptt, width, height, directPath);
@@ -1235,6 +1237,36 @@ internal sealed class MessageDispatcher
         int? Width,
         int? Height,
         string? DirectPath = null);
+
+    private const int MaxPendingRecoveries = 4096;
+    private static readonly TimeSpan PendingRecoveryHorizon = TimeSpan.FromHours(1);
+
+    private void SweepPendingRecoveries()
+    {
+        if (_pendingMediaRecoveries.Count < MaxPendingRecoveries)
+        {
+            return;
+        }
+        DateTimeOffset cutoff = _owner.Clock.GetUtcNow() - PendingRecoveryHorizon;
+        foreach (string key in _pendingMediaRecoveries
+            .Where(kv => kv.Value.Timestamp < cutoff)
+            .Select(kv => kv.Key)
+            .ToList())
+        {
+            _pendingMediaRecoveries.TryRemove(key, out _);
+        }
+        if (_pendingMediaRecoveries.Count >= MaxPendingRecoveries)
+        {
+            foreach (string key in _pendingMediaRecoveries
+                .OrderBy(kv => kv.Value.Timestamp)
+                .Take(_pendingMediaRecoveries.Count / 2)
+                .Select(kv => kv.Key)
+                .ToList())
+            {
+                _pendingMediaRecoveries.TryRemove(key, out _);
+            }
+        }
+    }
 
     internal void Dispose() => Interlocked.Exchange(ref _disposed, 1);
 }
