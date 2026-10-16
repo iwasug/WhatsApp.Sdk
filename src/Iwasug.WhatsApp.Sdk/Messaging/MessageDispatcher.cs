@@ -272,6 +272,63 @@ internal sealed class MessageDispatcher
                 return;
             }
 
+            // Reaction branch (EXT-03): ack first, then typed event, then cache.
+            if (message.ReactionMessage is not null)
+            {
+                await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+                string targetId = string.IsNullOrEmpty(message.ReactionMessage.Key?.Id)
+                    ? messageId
+                    : message.ReactionMessage.Key!.Id;
+                await _owner.RaiseReactionReceivedAsync(
+                    new ReactionReceivedEventArgs(chat, targetId, from, message.ReactionMessage.Text, timestamp),
+                    cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await stores.RecentMessages.PutAsync(
+                        new RecentMessageEntry(messageId, chat.ToString(), timestamp, message.ReactionMessage.Text, from.ToString(), decrypted.Plaintext),
+                        cancellationToken).ConfigureAwait(false);
+                }
+                catch { }
+                return;
+            }
+
+            // Protocol branches (EXT-04): edit / revoke. Ack first, then typed event, then cache.
+            if (message.ProtocolMessage is not null)
+            {
+                await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
+                int pType = message.ProtocolMessage.Type;
+                if (pType == MessageBuilder.ProtocolTypeMessageEdit)
+                {
+                    string editedId = string.IsNullOrEmpty(message.ProtocolMessage.Key?.Id)
+                        ? messageId
+                        : message.ProtocolMessage.Key!.Id;
+                    string? newText = message.ProtocolMessage.EditedMessage is null
+                        ? null
+                        : (string.IsNullOrEmpty(message.ProtocolMessage.EditedMessage.Conversation)
+                            ? null : message.ProtocolMessage.EditedMessage.Conversation);
+                    await _owner.RaiseMessageEditedAsync(
+                        new MessageEditedEventArgs(chat, editedId, newText, timestamp),
+                        cancellationToken).ConfigureAwait(false);
+                }
+                else if (pType == MessageBuilder.ProtocolTypeRevoke)
+                {
+                    string targetId = string.IsNullOrEmpty(message.ProtocolMessage.Key?.Id)
+                        ? messageId
+                        : message.ProtocolMessage.Key!.Id;
+                    await _owner.RaiseMessageDeletedAsync(
+                        new MessageDeletedEventArgs(chat, new[] { targetId }, from, timestamp),
+                        cancellationToken).ConfigureAwait(false);
+                }
+                try
+                {
+                    await stores.RecentMessages.PutAsync(
+                        new RecentMessageEntry(messageId, chat.ToString(), timestamp, null, from.ToString(), decrypted.Plaintext),
+                        cancellationToken).ConfigureAwait(false);
+                }
+                catch { }
+                return;
+            }
+
             await SendAckAsync(messageId, from, cancellationToken).ConfigureAwait(false);
 
             string? text = message.Conversation.Length == 0 ? null : message.Conversation;
@@ -479,6 +536,42 @@ internal sealed class MessageDispatcher
                 await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.VoiceNote, audio: message.AudioMessage, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
+        }
+
+        // Reaction branch (EXT-03) for groups.
+        if (message.ReactionMessage is not null)
+        {
+            await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);
+            string targetId = string.IsNullOrEmpty(message.ReactionMessage.Key?.Id) ? messageId : message.ReactionMessage.Key!.Id;
+            await _owner.RaiseReactionReceivedAsync(
+                new ReactionReceivedEventArgs(chat, targetId, participant, message.ReactionMessage.Text, timestamp),
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        // Protocol branches (EXT-04) for groups.
+        if (message.ProtocolMessage is not null)
+        {
+            await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);
+            int pType = message.ProtocolMessage.Type;
+            if (pType == MessageBuilder.ProtocolTypeMessageEdit)
+            {
+                string editedId = string.IsNullOrEmpty(message.ProtocolMessage.Key?.Id) ? messageId : message.ProtocolMessage.Key!.Id;
+                string? newText = message.ProtocolMessage.EditedMessage is null
+                    ? null
+                    : (string.IsNullOrEmpty(message.ProtocolMessage.EditedMessage.Conversation)
+                        ? null : message.ProtocolMessage.EditedMessage.Conversation);
+                await _owner.RaiseMessageEditedAsync(
+                    new MessageEditedEventArgs(chat, editedId, newText, timestamp),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else if (pType == MessageBuilder.ProtocolTypeRevoke)
+            {
+                string targetId = string.IsNullOrEmpty(message.ProtocolMessage.Key?.Id) ? messageId : message.ProtocolMessage.Key!.Id;
+                await _owner.RaiseMessageDeletedAsync(
+                    new MessageDeletedEventArgs(chat, new[] { targetId }, participant, timestamp),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            return;
         }
 
         await SendAckAsync(messageId, from, cancellationToken, participant).ConfigureAwait(false);

@@ -75,6 +75,18 @@ internal static class MessageBuilder
     /// <summary>Protobuf field number of <c>Message.audioMessage</c> (Baileys WAProto role).</summary>
     internal const int AudioMessageFieldNumber = 8;
 
+    /// <summary>Protobuf field number of <c>Message.protocolMessage</c> (Baileys WAProto role, Phase 8).</summary>
+    internal const int ProtocolMessageFieldNumber = 12;
+
+    /// <summary>Protobuf field number of <c>Message.reactionMessage</c> (Baileys WAProto role, Phase 8).</summary>
+    internal const int ReactionMessageFieldNumber = 46;
+
+    /// <summary>ProtocolMessage.Type value for delete-for-everyone (Baileys WAProto role).</summary>
+    internal const int ProtocolTypeRevoke = 0;
+
+    /// <summary>ProtocolMessage.Type value for edit (Baileys WAProto role).</summary>
+    internal const int ProtocolTypeMessageEdit = 14;
+
     internal const string MediaTypeImage = "image";
     internal const string MediaTypeDocument = "document";
     internal const string MediaTypeAudio = "audio";
@@ -304,6 +316,72 @@ internal static class MessageBuilder
         if (string.IsNullOrEmpty(upload.DirectPath) || !upload.DirectPath.StartsWith('/')) throw new SdkFormatException("Media direct paths must start with '/'.");
         if (upload.FileLength <= 0) throw new SdkFormatException("Media file length must be positive.");
         if (string.IsNullOrEmpty(upload.Url)) throw new SdkFormatException("Media urls must not be empty.");
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for a reaction (EXT-03): a <c>Message</c>
+    /// carrying a <c>ReactionMessage</c> branch. An empty <paramref name="emoji"/>
+    /// is a valid removal and is preserved verbatim.
+    /// </summary>
+    internal static byte[] BuildReaction(string? targetMessageId, string? emoji, string? remoteJid = null, string? participant = null)
+    {
+        var reaction = new ReactionMessage
+        {
+            Text = emoji ?? string.Empty,
+        };
+        if (!string.IsNullOrEmpty(targetMessageId))
+        {
+            reaction.Key = new MessageKey { Id = targetMessageId };
+            if (!string.IsNullOrEmpty(remoteJid)) reaction.Key.RemoteJid = remoteJid;
+            if (!string.IsNullOrEmpty(participant)) reaction.Key.Participant = participant;
+        }
+        return new Message { ReactionMessage = reaction }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for an edit (EXT-04): a <c>Message</c>
+    /// carrying a <c>ProtocolMessage</c> with type MESSAGE_EDIT and the new
+    /// body in <c>editedMessage</c>.
+    /// </summary>
+    internal static byte[] BuildProtocolEdit(string? originalMessageId, string newText, string? remoteJid = null, string? participant = null)
+    {
+        if (string.IsNullOrEmpty(newText))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        var protocol = new ProtocolMessage
+        {
+            Type = ProtocolTypeMessageEdit,
+            EditedMessage = new Message { Conversation = newText },
+        };
+        if (!string.IsNullOrEmpty(originalMessageId))
+        {
+            protocol.Key = new MessageKey { Id = originalMessageId };
+            if (!string.IsNullOrEmpty(remoteJid)) protocol.Key.RemoteJid = remoteJid;
+            if (!string.IsNullOrEmpty(participant)) protocol.Key.Participant = participant;
+        }
+        return new Message { ProtocolMessage = protocol }.ToByteArray();
+    }
+
+    /// <summary>
+    /// Builds the serialized plaintext for a delete-for-everyone (EXT-04): a
+    /// <c>Message</c> carrying a <c>ProtocolMessage</c> with type REVOKE keying
+    /// the target message.
+    /// </summary>
+    internal static byte[] BuildProtocolRevoke(string? targetMessageId, string? remoteJid = null, string? participant = null)
+    {
+        var protocol = new ProtocolMessage
+        {
+            Type = ProtocolTypeRevoke,
+        };
+        if (!string.IsNullOrEmpty(targetMessageId))
+        {
+            protocol.Key = new MessageKey { Id = targetMessageId };
+            if (!string.IsNullOrEmpty(remoteJid)) protocol.Key.RemoteJid = remoteJid;
+            if (!string.IsNullOrEmpty(participant)) protocol.Key.Participant = participant;
+        }
+        return new Message { ProtocolMessage = protocol }.ToByteArray();
     }
 
     /// <summary>

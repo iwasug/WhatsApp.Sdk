@@ -28,10 +28,16 @@
 //   - Quoting semantics (plain text rides Message.conversation; quote-carrying
 //     replies ride Message.extendedTextMessage with ContextInfo) follow the
 //     same Baileys read (04-RESEARCH Assumption A2).
+//   - ReactionMessage branch = field 46 of Message (ReactionMessage.key=1,
+//     text=2, groupingKey=3, senderTimestampMs=4) — clean-room Baileys
+//     WAProto/WAProto.proto @ 0af2386 read for Phase 8; empty text removes.
+//   - ProtocolMessage branch = field 12 of Message (ProtocolMessage.key=1,
+//     type=2, editedMessage=14, timestampMs=15), Type.REVOKE=0,
+//     Type.MESSAGE_EDIT=14 — clean-room Baileys read for Phase 8 EXT-04.
 //
-// SCOPE (06-01): Phase-6 media branches. Media, payment, reaction and other
-// Message oneof branches are only the image/document/audio subset here; the
-// pinned numbers above must stay stable.
+// SCOPE (08-06): Phase-8 extended message branches reactionMessage=46 and
+// protocolMessage=12. Only these two protocol branches are added; all prior
+// pinned numbers remain stable.
 
 syntax = "proto3";
 
@@ -116,6 +122,21 @@ message AudioMessage {
   repeated int32 waveform = 19;
 }
 
+message ProtocolMessage {
+  MessageKey key = 1;
+  int32 type = 2;
+  Message editedMessage = 14;
+  int64 timestampMs = 15;
+  // Type values: REVOKE = 0, MESSAGE_EDIT = 14.
+}
+
+message ReactionMessage {
+  MessageKey key = 1;
+  string text = 2;
+  string groupingKey = 3;
+  int64 senderTimestampMs = 4;
+}
+
 message ServerErrorReceipt {
   string stanzaId = 1;
 }
@@ -133,5 +154,7 @@ message Message {
   ExtendedTextMessage extendedTextMessage = 6;
   DocumentMessage documentMessage = 7;
   AudioMessage audioMessage = 8;
+  ProtocolMessage protocolMessage = 12;
   MessageContextInfo messageContextInfo = 35;
+  ReactionMessage reactionMessage = 46;
 }

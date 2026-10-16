@@ -1,3 +1,4 @@
+
 #nullable enable
 ~override Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(object obj) -> bool
 abstract Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
@@ -12,6 +13,42 @@ Iwasug.WhatsApp.Sdk.Accounts.AccountId.AccountId() -> void
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.CompareTo(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> int
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountId other) -> bool
 Iwasug.WhatsApp.Sdk.Accounts.AccountId.Value.get -> string!
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.<Clone>$() -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, int QueuedOutbound, int RecentFailures, System.DateTimeOffset? LastConnectedAt, System.DateTimeOffset? LastActivityAt, string? LastErrorRuleName) -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.get -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, out Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, out int QueuedOutbound, out int RecentFailures, out System.DateTimeOffset? LastConnectedAt, out System.DateTimeOffset? LastActivityAt, out string? LastErrorRuleName) -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? other) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.get -> System.DateTimeOffset?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.get -> System.DateTimeOffset?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.get -> string?
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.get -> int
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.get -> int
+Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.init -> void
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor! descriptor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId) -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus?
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatuses() -> System.Collections.Generic.IReadOnlyCollection<Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!>!
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetConnection(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Connection.WaConnection? connection) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetMessenger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Messaging.Messenger? messenger) -> bool
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Closed = 0 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.HalfOpen = 2 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
+Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Open = 1 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
 Iwasug.WhatsApp.Sdk.Codec.BinaryNode
 Iwasug.WhatsApp.Sdk.Codec.BinaryNode.<Clone>$() -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
 Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Attrs.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
@@ -192,6 +229,134 @@ Iwasug.WhatsApp.Sdk.Errors.SdkStoreException
 Iwasug.WhatsApp.Sdk.Errors.SdkStoreException.SdkStoreException(string! message, System.Exception? inner = null) -> void
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException
 Iwasug.WhatsApp.Sdk.Errors.SdkTransportException.SdkTransportException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException
+Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException.SdkUnknownAccountException(string! message, System.Exception? inner = null) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountDescriptor() -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.get -> string!
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.get -> string?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions?
+Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountEvent(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.init -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.get -> Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!
+Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.init -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILogger<T>! innerLogger) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILoggerFactory! factory) -> void
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.BeginScope<TState>(TState state) -> System.IDisposable?
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) -> bool
+Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.get -> System.Collections.Generic.List<Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor!>!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.get -> bool
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.get -> bool
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.get -> System.Uri?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads!>?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.get -> Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.get -> int
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.get -> Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions!
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Transport.IFrameTransport!>?
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.set -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.WhatsAppSdkOptions() -> void
+Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions
+Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.Document = 1 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.Image = 0 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote = 2 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountRestrictedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountRestrictedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions!
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.BroadcastOptions(System.TimeSpan? InterRecipientDelay = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.Deconstruct(out System.TimeSpan? InterRecipientDelay) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.Equals(Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.InterRecipientDelay.get -> System.TimeSpan?
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.InterRecipientDelay.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome!
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.BroadcastRecipientOutcome(Iwasug.WhatsApp.Sdk.Domain.Jid! Recipient, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome! Result) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Recipient, out Iwasug.WhatsApp.Sdk.Messaging.SendOutcome! Result) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Equals(Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Recipient.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Recipient.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Result.get -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!
+Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Result.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.BudgetExhaustedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.BudgetExhaustedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent
 Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Chat.init -> void
@@ -232,6 +397,75 @@ Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.MessageId.get -> string!
 Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.MessageId.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ReceivedPhash.get -> string!
 Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ReceivedPhash.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MediaDownloadFailedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! key, Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string? messageId = null, string? reason = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.get -> System.IO.Stream?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.get -> long
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.MediaReceivedEvent(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.get -> int?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.get -> System.IO.Stream?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.get -> long
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.MediaReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.get -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.get -> int?
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Chat.init -> void
@@ -248,6 +482,32 @@ Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Status.get -> Iwasug.WhatsApp.Sd
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Status.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.T.get -> string?
 Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.T.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out System.Collections.Generic.IReadOnlyList<string!>! MessageIds, out Iwasug.WhatsApp.Sdk.Domain.Jid! Remover, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.MessageDeletedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, System.Collections.Generic.IReadOnlyList<string!>! MessageIds, Iwasug.WhatsApp.Sdk.Domain.Jid! Remover, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.MessageIds.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.MessageIds.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Remover.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Remover.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Timestamp.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out string! MessageId, out string? NewText, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.MessageEditedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, string! MessageId, string? NewText, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.MessageId.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.MessageId.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.NewText.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.NewText.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Timestamp.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Chat.init -> void
@@ -284,24 +544,85 @@ Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Text.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
 Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Timestamp.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.Messenger
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.AccountRestricted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.BudgetExhausted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.DecryptionFailed -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.DeleteForEveryoneAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! targetMessageId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.DeviceSetChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.EditOwnMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! originalMessageId, string! newText, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.IsDeliveryReceiptsEnabled(Iwasug.WhatsApp.Sdk.Domain.Jid! chat) -> bool
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.MarkReadAsync(System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!>! keys, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaDownloadFailed -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MessageDeleted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.MessageEdited -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.MessageReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceApplied -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceUpdated -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReactionReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReceiptReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs!>?
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.ReplyAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! quotedMessageId, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendBroadcastAsync(System.Collections.Generic.IEnumerable<Iwasug.WhatsApp.Sdk.Domain.Jid!>! recipients, System.Func<Iwasug.WhatsApp.Sdk.Domain.Jid!, string!>! messageFactory, Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome!>!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, string! mimetype, string! fileName, string? title = null, string? caption = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupDocumentAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, string! mimetype, string! fileName, string? title = null, string? caption = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendGroupVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! group, System.IO.Stream! content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendImageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, string! mimetype, string? caption = null, int? width = null, int? height = null, byte[]? thumbnail = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendMessageAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendPresenceAsync(Iwasug.WhatsApp.Sdk.Messaging.PresenceState state, Iwasug.WhatsApp.Sdk.Domain.Jid? chat = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendReactionAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string! targetMessageId, string? emoji, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendVoiceNoteAsync(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, System.IO.Stream! content, int seconds, byte[]? waveform = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Messaging.Messenger.SetDeliveryReceipts(Iwasug.WhatsApp.Sdk.Domain.Jid! chat, bool enabled) -> void
+Iwasug.WhatsApp.Sdk.Messaging.Messenger.ThrottleEngaged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!>?
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid?
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, out Iwasug.WhatsApp.Sdk.Domain.Jid? Chat, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.PresenceAppliedEventArgs(Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, Iwasug.WhatsApp.Sdk.Domain.Jid? Chat, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.State.get -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.State.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Timestamp.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Available = 0 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Composing = 2 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Paused = 4 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Recording = 3 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Unavailable = 1 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.PresenceUpdatedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.State.get -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.State.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Timestamp.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Chat.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out string! TargetMessageId, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out string? Emoji, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Emoji.get -> string?
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Emoji.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.ReactionReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, string! TargetMessageId, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, string? Emoji, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.TargetMessageId.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.TargetMessageId.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Timestamp.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind
 Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind.Delivery = 0 -> Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind
 Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind.Inactive = 4 -> Iwasug.WhatsApp.Sdk.Messaging.ReceiptKind
@@ -355,6 +676,31 @@ Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.Sent = 0 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.ServerError = 1 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
 Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus.TimedOut = 2 -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcomeStatus
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ThrottleEngagedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? other) -> bool
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.get -> int
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.init -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ThrottleEngagedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.get -> string!
+Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.init -> void
 Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent
 Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Deconstruct(out System.DateTimeOffset Timestamp) -> void
 Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Timestamp.get -> System.DateTimeOffset
@@ -431,392 +777,6 @@ Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeySignature.get -> by
 Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeySignature.init -> void
 Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyValue.get -> byte[]!
 Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.SignedPreKeyValue.init -> void
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStore
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.GetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.CredentialRecord?>!
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord! credentials, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!>
-Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore
-Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore.HasContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore.MarkContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore!>
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.RemoveAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IIdentityStore!>
-Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
-Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.InMemoryStoreFactory() -> void
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.GetBundleAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle?>!
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.GetPreKeyAsync(int preKeyId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry?>!
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.PutBundleAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle! bundle, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.PutPreKeyAsync(int preKeyId, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry! key, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.RemovePreKeyAsync(int preKeyId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore!>
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.GetAsync(string! messageKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry?>!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.GetRecentAsync(string! chatJid, int limit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry!>!>!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.PurgeExpiredAsync(System.DateTimeOffset cutoffUtc, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.PutAsync(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry! entry, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.RemoveAsync(string! messageKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.TrimOldestAsync(int count, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore!>
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.GetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord?>!
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord! state, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!>
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord?>!
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord! session, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.RemoveAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory
-Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry!
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ChatJid.get -> string!
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ChatJid.init -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Deconstruct(out string! MessageKey, out string! ChatJid, out System.DateTimeOffset TimestampUtc, out string? Text, out string? Sender, out byte[]? ResendPayload) -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Equals(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? other) -> bool
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.MessageKey.get -> string!
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.MessageKey.init -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.RecentMessageEntry(string! MessageKey, string! ChatJid, System.DateTimeOffset TimestampUtc, string? Text = null, string? Sender = null, byte[]? ResendPayload = null) -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ResendPayload.get -> byte[]?
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ResendPayload.init -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Sender.get -> string?
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Sender.init -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Text.get -> string?
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Text.init -> void
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.init -> void
-Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy
-Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.DurableWriteRetryPolicy(Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions? options = null, System.TimeProvider? timeProvider = null) -> void
-Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.ExecuteAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! operation, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<T>!
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.get -> int
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.init -> void
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.get -> int
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.init -> void
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.get -> int
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.init -> void
-Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.RetryOptions() -> void
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord!
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Address.get -> string!
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Address.init -> void
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Deconstruct(out string! Address, out byte[]! SessionState) -> void
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Equals(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? other) -> bool
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SessionState.get -> byte[]!
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SessionState.init -> void
-Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SignalSessionRecord(string! Address, byte[]! SessionState) -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistry
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.CreateSessionAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.StoreSession!>
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.StoreRegistry(Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions! options, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Stores.StoreRegistry!>? logger = null) -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecipientContactFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecipientContactFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.OutboxFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IOutboxStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.OutboxFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.PreKeyFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.PreKeyFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecentMessageCacheFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecentMessageCacheFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SafetyStateFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SafetyStateFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory?
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.set -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.StoreRegistryOptions() -> void
-Iwasug.WhatsApp.Sdk.Stores.StoreSession
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.Credentials.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.Recipients.get -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.Outbox.get -> Iwasug.WhatsApp.Sdk.Stores.IOutboxStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.Identity.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.PreKeys.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.RecentMessages.get -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.SafetyState.get -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!
-Iwasug.WhatsApp.Sdk.Stores.StoreSession.SignalSessions.get -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!
-Iwasug.WhatsApp.Sdk.Transport.IFrameTransport
-Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseStatusCode.get -> int?
-Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
-Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseStatusCode.get -> int?
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.WebSocketFrameTransport(System.Uri! endpoint, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport!>? logger = null) -> void
-override Iwasug.WhatsApp.Sdk.Accounts.AccountId.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Accounts.AccountId.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.Jid.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.Jid.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.Jid.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.ToString() -> string!
-override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-static Iwasug.WhatsApp.Sdk.Accounts.AccountId.Create(string! value) -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
-static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
-static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Create(string! tag, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromBytes(string! tag, System.ReadOnlySpan<byte> data, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromChildren(string! tag, System.Collections.Generic.IEnumerable<Iwasug.WhatsApp.Sdk.Codec.BinaryNode!>! children, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromText(string! tag, string! text, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator !=(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator ==(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Decode(System.ReadOnlySpan<byte> data) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Encode(Iwasug.WhatsApp.Sdk.Codec.BinaryNode! node) -> byte[]!
-static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.TryDecode(System.ReadOnlySpan<byte> data, out Iwasug.WhatsApp.Sdk.Codec.BinaryNode? node) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
-static Iwasug.WhatsApp.Sdk.Connection.ReconnectPolicy.Decide(int statusCode, int attempt, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null) -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
-static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.Jid.operator !=(Iwasug.WhatsApp.Sdk.Domain.Jid? left, Iwasug.WhatsApp.Sdk.Domain.Jid? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.Jid.operator ==(Iwasug.WhatsApp.Sdk.Domain.Jid? left, Iwasug.WhatsApp.Sdk.Domain.Jid? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.Jid.Parse(string! value) -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-static Iwasug.WhatsApp.Sdk.Domain.Jid.TryParse(string! value, out Iwasug.WhatsApp.Sdk.Domain.Jid? jid) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? left, Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? left, Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.operator !=(Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.operator ==(Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator !=(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator ==(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.operator !=(Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.operator ==(Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? left, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? left, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptExpired(System.DateTimeOffset attemptStartedAt, System.DateTimeOffset now) -> bool
-static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.Build(string! pairingRef, System.ReadOnlySpan<byte> noisePublic, System.ReadOnlySpan<byte> identityPublic, System.ReadOnlySpan<byte> advSecret, string! platformId) -> string!
-static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.CodeExpiry(System.DateTimeOffset issuedAt, int codeIndex) -> System.DateTimeOffset
-static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationFor(int codeIndex) -> System.TimeSpan
-static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator !=(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
-static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator ==(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
-static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator !=(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool
-static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator ==(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool
-static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator !=(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
-static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator ==(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
-static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptTimeout -> System.TimeSpan
-static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.FirstCodeLifetime -> System.TimeSpan
-static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationInterval -> System.TimeSpan
-virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.EqualityContract.get -> System.Type!
-virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
-virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.PrintMembers(System.Text.StringBuilder! builder) -> bool
-virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.EqualityContract.get -> System.Type!
-virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.AccountRestrictedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Trigger.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.AccountRestrictedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Trigger.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.BudgetExhaustedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Trigger.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.BudgetExhaustedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Trigger.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.AccountRestricted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.BudgetExhausted -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.ThrottleEngaged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage, out System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ThrottleEngagedEvent(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage, System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Trigger.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.AccountKey.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Deconstruct(out string! AccountKey, out string! Trigger, out System.DateTimeOffset NextAllowedUtc, out int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.NextAllowedUtc.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.get -> int
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.SafetyStage.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ThrottleEngagedEventArgs(string! AccountKey, string! Trigger, System.DateTimeOffset NextAllowedUtc, int SafetyStage) -> void
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Trigger.init -> void
 Iwasug.WhatsApp.Sdk.Safety.ISafetyGate
 Iwasug.WhatsApp.Sdk.Safety.ISafetyGate.ExecuteSendAsync(Iwasug.WhatsApp.Sdk.Safety.SendContext! context, System.Threading.CancellationToken cancellationToken, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!>! innerSend) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!>!
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions
@@ -838,31 +798,31 @@ Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.get -> double
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioBegin.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioEnd.get -> double
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.JitterRatioEnd.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxColdOutreachPerDay.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxColdOutreachPerDay.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.get -> long
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerDay.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerDay.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerHour.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxMessagesPerMinute.init -> void
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.get -> int
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.init -> void
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.get -> long
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxImageBytes.init -> void
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.get -> long
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxDocumentBytes.init -> void
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.get -> long
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxAudioBytes.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxThumbnailBytes.get -> long
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.MaxThumbnailBytes.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.get -> int
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMaxMs.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.get -> int
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.PacingPresenceMinMs.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.QueueDuringInactiveHours.init -> void
+Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafetyOptions() -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ThrottleNoticeThreshold.get -> System.TimeSpan
 Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ThrottleNoticeThreshold.init -> void
-Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafetyOptions() -> void
 Iwasug.WhatsApp.Sdk.Safety.SafetyRule
 Iwasug.WhatsApp.Sdk.Safety.SafetyRule.CircuitOpen = 3 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
 Iwasug.WhatsApp.Sdk.Safety.SafetyRule.ColdOutreach = 2 -> Iwasug.WhatsApp.Sdk.Safety.SafetyRule
@@ -880,301 +840,22 @@ Iwasug.WhatsApp.Sdk.Safety.SendContext.Equals(Iwasug.WhatsApp.Sdk.Safety.SendCon
 Iwasug.WhatsApp.Sdk.Safety.SendContext.IsReply.get -> bool
 Iwasug.WhatsApp.Sdk.Safety.SendContext.IsReply.init -> void
 Iwasug.WhatsApp.Sdk.Safety.SendContext.SendContext(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, bool IsReply) -> void
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Safety.SendContext.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Safety.SendContext.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Safety.SendContext.ToString() -> string!
-override sealed Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-override sealed Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator !=(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
-static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator ==(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
-static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
-static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator !=(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
-static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator ==(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
-Iwasug.WhatsApp.Sdk.Media.MediaKind
-Iwasug.WhatsApp.Sdk.Media.MediaKind.Document = 1 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
-Iwasug.WhatsApp.Sdk.Media.MediaKind.Image = 0 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
-Iwasug.WhatsApp.Sdk.Media.MediaKind.VoiceNote = 2 -> Iwasug.WhatsApp.Sdk.Media.MediaKind
-
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Caption.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.get -> System.IO.Stream?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Content.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.get -> long
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileLength.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.FileName.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.get -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.IsFromMe.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Key.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Kind.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.MediaReceivedEvent(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Mimetype.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.get -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Ptt.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.get -> int?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Seconds.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Sender.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Caption.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.get -> System.IO.Stream?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Content.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out bool IsFromMe, out System.DateTimeOffset Timestamp, out Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, out string! Mimetype, out long FileLength, out string? Caption, out string? FileName, out int? Seconds, out bool Ptt, out System.IO.Stream? Content) -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.get -> long
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileLength.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.FileName.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.get -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.IsFromMe.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Key.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.get -> Iwasug.WhatsApp.Sdk.Media.MediaKind
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Kind.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.MediaReceivedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! Key, Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, bool IsFromMe, System.DateTimeOffset Timestamp, Iwasug.WhatsApp.Sdk.Media.MediaKind Kind, string! Mimetype, long FileLength, string? Caption = null, string? FileName = null, int? Seconds = null, bool Ptt = false, System.IO.Stream? Content = null) -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.get -> string!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Mimetype.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.get -> bool
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Ptt.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.get -> int?
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Seconds.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Sender.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Timestamp.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaReceived -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs!>?
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent!
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.ToString() -> string!
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.ToString() -> string!
-override sealed Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
-static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
-
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.<Clone>$() -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountId.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.AccountStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, int QueuedOutbound, int RecentFailures, System.DateTimeOffset? LastConnectedAt, System.DateTimeOffset? LastActivityAt, string? LastErrorRuleName) -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.get -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.CircuitState.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionState
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ConnectionState.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Connection.ConnectionState ConnectionState, out Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState CircuitState, out int QueuedOutbound, out int RecentFailures, out System.DateTimeOffset? LastConnectedAt, out System.DateTimeOffset? LastActivityAt, out string? LastErrorRuleName) -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? other) -> bool
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.get -> System.DateTimeOffset?
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastActivityAt.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.get -> System.DateTimeOffset?
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastConnectedAt.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.get -> string?
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.LastErrorRuleName.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.get -> int
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.QueuedOutbound.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.get -> int
-Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.RecentFailures.init -> void
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatus(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId) -> Iwasug.WhatsApp.Sdk.Accounts.AccountStatus?
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.GetStatuses() -> System.Collections.Generic.IReadOnlyCollection<Iwasug.WhatsApp.Sdk.Accounts.AccountStatus!>!
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadAccountEventsAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!>!
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RemoveAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.RestartAccountAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetConnection(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Connection.WaConnection? connection) -> bool
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.TryGetMessenger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, out Iwasug.WhatsApp.Sdk.Messaging.Messenger? messenger) -> bool
-Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
-Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Closed = 0 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
-Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.HalfOpen = 2 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
-Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState.Open = 1 -> Iwasug.WhatsApp.Sdk.Accounts.SafetyCircuitState
-Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException
-Iwasug.WhatsApp.Sdk.Errors.SdkUnknownAccountException.SdkUnknownAccountException(string! message, System.Exception? inner = null) -> void
-override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ToString() -> string!
-static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
-static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.AddAccountAsync(Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor! descriptor, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountDescriptor() -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.get -> string!
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.AccountId.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.get -> string?
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Name.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions?
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Connection.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions?
-Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor.Safety.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.WhatsAppSdkOptions() -> void
-static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.get -> System.Collections.Generic.List<Iwasug.WhatsApp.Sdk.Hosting.AccountDescriptor!>!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Accounts.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.get -> Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultConnection.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.DefaultSafety.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.get -> Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StoreFactories.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.get -> int
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.StartupJitterMs.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.get -> int
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.ShutdownDrainTimeoutMs.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.get -> bool
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoStartAccounts.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.get -> int
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.OutboundQueueCapacity.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.get -> int
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.EventChannelCapacity.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.get -> System.Uri?
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Endpoint.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Transport.IFrameTransport!>?
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.TransportFactory.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.get -> System.Func<Iwasug.WhatsApp.Sdk.Accounts.AccountId, Iwasug.WhatsApp.Sdk.Noise.INoiseHandshakePayloads!>?
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.HandshakePayloadsFactory.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.get -> Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults?
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.RegistrationDefaults.set -> void
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.get -> bool
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.AutoConnect.set -> void
-static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Validate(Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions? options) -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
-Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions
-static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "WhatsApp") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
-Iwasug.WhatsApp.Sdk.Accounts.IWhatsAppSessionManager.ReadEventsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!>!
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Hosting.AccountEvent!
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountEvent(Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.get -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.AccountId.init -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Deconstruct(out Iwasug.WhatsApp.Sdk.Accounts.AccountId AccountId, out Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent! Event) -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? other) -> bool
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.get -> Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent!
-Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Event.init -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILogger<T>! innerLogger) -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.AccountScopedLogger(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, Microsoft.Extensions.Logging.ILoggerFactory! factory) -> void
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.BeginScope<TState>(TState state) -> System.IDisposable?
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) -> bool
-Iwasug.WhatsApp.Sdk.Hosting.AccountScopedLogger<T>.Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, System.Exception? exception, System.Func<TState, System.Exception?, string!>! formatter) -> void
-override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(object? obj) -> bool
-override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.GetHashCode() -> int
-override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.ToString() -> string!
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.get -> Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord!
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Key.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MediaDownloadFailedEventArgs(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord! key, Iwasug.WhatsApp.Sdk.Domain.Jid! chat, string? messageId = null, string? reason = null) -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.MessageId.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.get -> string?
-Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs.Reason.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.MediaDownloadFailed -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.MediaDownloadFailedEventArgs!>?
-static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator !=(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
-static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator ==(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions!
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.BroadcastOptions(System.TimeSpan? InterRecipientDelay = null) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.Deconstruct(out System.TimeSpan? InterRecipientDelay) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.Equals(Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.InterRecipientDelay.get -> System.TimeSpan?
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.InterRecipientDelay.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome!
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.BroadcastRecipientOutcome(Iwasug.WhatsApp.Sdk.Domain.Jid! Recipient, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome! Result) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Recipient, out Iwasug.WhatsApp.Sdk.Messaging.SendOutcome! Result) -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Equals(Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Recipient.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Recipient.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Result.get -> Iwasug.WhatsApp.Sdk.Messaging.SendOutcome!
-Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Result.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceApplied -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceChanged -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.PresenceUpdated -> System.EventHandler<Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs!>?
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendBroadcastAsync(System.Collections.Generic.IEnumerable<Iwasug.WhatsApp.Sdk.Domain.Jid!>! recipients, System.Func<Iwasug.WhatsApp.Sdk.Domain.Jid!, string!>! messageFactory, Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome!>!>!
-Iwasug.WhatsApp.Sdk.Messaging.Messenger.SendPresenceAsync(Iwasug.WhatsApp.Sdk.Messaging.PresenceState state, Iwasug.WhatsApp.Sdk.Domain.Jid? chat = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid?
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, out Iwasug.WhatsApp.Sdk.Domain.Jid? Chat, out System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.PresenceAppliedEventArgs(Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, Iwasug.WhatsApp.Sdk.Domain.Jid? Chat, System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.State.get -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.State.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Timestamp.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Timestamp.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Available = 0 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Composing = 2 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Paused = 4 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Recording = 3 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceState.Unavailable = 1 -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs!
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Chat.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Chat.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Deconstruct(out Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, out Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, out Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, out System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Equals(Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? other) -> bool
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.PresenceUpdatedEventArgs(Iwasug.WhatsApp.Sdk.Domain.Jid! Chat, Iwasug.WhatsApp.Sdk.Domain.Jid! Sender, Iwasug.WhatsApp.Sdk.Messaging.PresenceState State, System.DateTimeOffset Timestamp) -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Sender.get -> Iwasug.WhatsApp.Sdk.Domain.Jid!
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Sender.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.State.get -> Iwasug.WhatsApp.Sdk.Messaging.PresenceState
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.State.init -> void
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Timestamp.get -> System.DateTimeOffset
-Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Timestamp.init -> void
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.GetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.CredentialRecord?>!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord! credentials, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!>
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStore
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord?>!
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord! identity, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStore.RemoveAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IIdentityStore!>
+Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
+Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Stores.InMemory.InMemoryStoreFactory.InMemoryStoreFactory() -> void
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.DeadLetterAsync(string! id, string? reason, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.EnqueueAsync(Iwasug.WhatsApp.Sdk.Stores.OutboxEntry! entry, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.OutboxEntry!>!
@@ -1184,6 +865,40 @@ Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.ScheduleRetryAsync(string! id, int attem
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStore.TryRemoveAsync(string! id, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStoreFactory
 Iwasug.WhatsApp.Sdk.Stores.IOutboxStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IOutboxStore!>
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.GetBundleAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle?>!
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.GetPreKeyAsync(int preKeyId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry?>!
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.PutBundleAsync(string! address, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle! bundle, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.PutPreKeyAsync(int preKeyId, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry! key, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore.RemovePreKeyAsync(int preKeyId, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore!>
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.GetAsync(string! messageKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry?>!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.GetRecentAsync(string! chatJid, int limit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry!>!>!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.PurgeExpiredAsync(System.DateTimeOffset cutoffUtc, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.PutAsync(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry! entry, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.RemoveAsync(string! messageKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore.TrimOldestAsync(int count, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore!>
+Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore
+Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore.HasContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore.MarkContactedAsync(string! recipientKey, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore!>
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.GetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord?>!
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.PutAsync(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord! state, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore.RemoveAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!>
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.GetAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord?>!
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.PutAsync(string! address, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord! session, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore.RemoveAsync(string! address, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory
+Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory.CreateAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!>
 Iwasug.WhatsApp.Sdk.Stores.OutboxEntry
 Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.OutboxEntry!
 Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.Attempt.get -> int
@@ -1254,18 +969,230 @@ Iwasug.WhatsApp.Sdk.Stores.OutboxState.InFlight = 1 -> Iwasug.WhatsApp.Sdk.Store
 Iwasug.WhatsApp.Sdk.Stores.OutboxState.Pending = 0 -> Iwasug.WhatsApp.Sdk.Stores.OutboxState
 Iwasug.WhatsApp.Sdk.Stores.OutboxState.RetryScheduled = 3 -> Iwasug.WhatsApp.Sdk.Stores.OutboxState
 Iwasug.WhatsApp.Sdk.Stores.OutboxState.Sent = 2 -> Iwasug.WhatsApp.Sdk.Stores.OutboxState
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry!
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ChatJid.get -> string!
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ChatJid.init -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Deconstruct(out string! MessageKey, out string! ChatJid, out System.DateTimeOffset TimestampUtc, out string? Text, out string? Sender, out byte[]? ResendPayload) -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Equals(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? other) -> bool
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.MessageKey.get -> string!
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.MessageKey.init -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.RecentMessageEntry(string! MessageKey, string! ChatJid, System.DateTimeOffset TimestampUtc, string? Text = null, string? Sender = null, byte[]? ResendPayload = null) -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ResendPayload.get -> byte[]?
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ResendPayload.init -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Sender.get -> string?
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Sender.init -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Text.get -> string?
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Text.init -> void
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.get -> System.DateTimeOffset
+Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.TimestampUtc.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.DurableWriteRetryPolicy(Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions? options = null, System.TimeProvider? timeProvider = null) -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.DurableWriteRetryPolicy.ExecuteAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! operation, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<T>!
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.BaseDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxAttempts.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.get -> int
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.MaxDelayMs.init -> void
+Iwasug.WhatsApp.Sdk.Stores.Runtime.RetryOptions.RetryOptions() -> void
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.<Clone>$() -> Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord!
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Address.get -> string!
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Address.init -> void
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Deconstruct(out string! Address, out byte[]! SessionState) -> void
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Equals(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? other) -> bool
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SessionState.get -> byte[]!
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SessionState.init -> void
+Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.SignalSessionRecord(string! Address, byte[]! SessionState) -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistry
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.CreateSessionAsync(Iwasug.WhatsApp.Sdk.Accounts.AccountId accountId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Iwasug.WhatsApp.Sdk.Stores.StoreSession!>
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistry.StoreRegistry(Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions! options, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Stores.StoreRegistry!>? logger = null) -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.CredentialFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.IdentityFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.OutboxFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IOutboxStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.OutboxFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.PreKeyFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.PreKeyFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecentMessageCacheFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecentMessageCacheFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecipientContactFactory.get -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.RecipientContactFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SafetyStateFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SafetyStateFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.get -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory?
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.SignalSessionFactory.set -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreRegistryOptions.StoreRegistryOptions() -> void
+Iwasug.WhatsApp.Sdk.Stores.StoreSession
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.Credentials.get -> Iwasug.WhatsApp.Sdk.Stores.ICredentialStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.Identity.get -> Iwasug.WhatsApp.Sdk.Stores.IIdentityStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.Outbox.get -> Iwasug.WhatsApp.Sdk.Stores.IOutboxStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.PreKeys.get -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.RecentMessages.get -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.Recipients.get -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.SafetyState.get -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStore!
+Iwasug.WhatsApp.Sdk.Stores.StoreSession.SignalSessions.get -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStore!
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.CloseStatusCode.get -> int?
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
+Iwasug.WhatsApp.Sdk.Transport.IFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseAsync(int statusCode, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.CloseStatusCode.get -> int?
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.ReceiveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>?>
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.SendAsync(System.ReadOnlyMemory<byte> frame, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport.WebSocketFrameTransport(System.Uri! endpoint, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null, Microsoft.Extensions.Logging.ILogger<Iwasug.WhatsApp.Sdk.Transport.WebSocketFrameTransport!>? logger = null) -> void
+override Iwasug.WhatsApp.Sdk.Accounts.AccountId.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Accounts.AccountId.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Codec.BinaryNode.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.<Clone>$() -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.Jid.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.Jid.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.Jid.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.<Clone>$() -> Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Safety.SendContext.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.ToString() -> string!
@@ -1275,17 +1202,151 @@ override Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor.ToString() -> string!
 override Iwasug.WhatsApp.Sdk.Stores.OutboxPayload.Equals(object? obj) -> bool
 override Iwasug.WhatsApp.Sdk.Stores.OutboxPayload.GetHashCode() -> int
 override Iwasug.WhatsApp.Sdk.Stores.OutboxPayload.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.ToString() -> string!
+override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.Equals(object? obj) -> bool
+override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.GetHashCode() -> int
+override Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.ToString() -> string!
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+override sealed Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+static Iwasug.WhatsApp.Sdk.Accounts.AccountId.Create(string! value) -> Iwasug.WhatsApp.Sdk.Accounts.AccountId
+static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
+static Iwasug.WhatsApp.Sdk.Accounts.AccountId.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountId left, Iwasug.WhatsApp.Sdk.Accounts.AccountId right) -> bool
+static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator !=(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
+static Iwasug.WhatsApp.Sdk.Accounts.AccountStatus.operator ==(Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? left, Iwasug.WhatsApp.Sdk.Accounts.AccountStatus? right) -> bool
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.Create(string! tag, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromBytes(string! tag, System.ReadOnlySpan<byte> data, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromChildren(string! tag, System.Collections.Generic.IEnumerable<Iwasug.WhatsApp.Sdk.Codec.BinaryNode!>! children, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.FromText(string! tag, string! text, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? attrs = null) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator !=(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNode.operator ==(Iwasug.WhatsApp.Sdk.Codec.BinaryNode? left, Iwasug.WhatsApp.Sdk.Codec.BinaryNode? right) -> bool
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Decode(System.ReadOnlySpan<byte> data) -> Iwasug.WhatsApp.Sdk.Codec.BinaryNode!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.Encode(Iwasug.WhatsApp.Sdk.Codec.BinaryNode! node) -> byte[]!
+static Iwasug.WhatsApp.Sdk.Codec.BinaryNodeCodec.TryDecode(System.ReadOnlySpan<byte> data, out Iwasug.WhatsApp.Sdk.Codec.BinaryNode? node) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RestartImmediate? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.RetryAfter? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.SurfaceAndStop? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.Instance.get -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal!
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator !=(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal.operator ==(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? left, Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Terminal? right) -> bool
+static Iwasug.WhatsApp.Sdk.Connection.ReconnectPolicy.Decide(int statusCode, int attempt, Iwasug.WhatsApp.Sdk.Connection.ConnectionOptions? options = null) -> Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision!
+static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.CredentialRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? left, Iwasug.WhatsApp.Sdk.Domain.CredentialRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.Jid.operator !=(Iwasug.WhatsApp.Sdk.Domain.Jid? left, Iwasug.WhatsApp.Sdk.Domain.Jid? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.Jid.operator ==(Iwasug.WhatsApp.Sdk.Domain.Jid? left, Iwasug.WhatsApp.Sdk.Domain.Jid? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.Jid.Parse(string! value) -> Iwasug.WhatsApp.Sdk.Domain.Jid!
+static Iwasug.WhatsApp.Sdk.Domain.Jid.TryParse(string! value, out Iwasug.WhatsApp.Sdk.Domain.Jid? jid) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? left, Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? left, Iwasug.WhatsApp.Sdk.Domain.MessageKeyRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.operator !=(Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle.operator ==(Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyBundle? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator !=(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry.operator ==(Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? left, Iwasug.WhatsApp.Sdk.Domain.PreKeyRecordEntry? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? left, Iwasug.WhatsApp.Sdk.Domain.SafetyStateRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator !=(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord.operator ==(Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? left, Iwasug.WhatsApp.Sdk.Domain.SignalIdentityRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator !=(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Hosting.AccountEvent.operator ==(Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? left, Iwasug.WhatsApp.Sdk.Hosting.AccountEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions.Validate(Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions? options) -> Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, Microsoft.Extensions.Configuration.IConfiguration! configuration, string! sectionName = "WhatsApp") -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkServiceCollectionExtensions.AddWhatsAppSdk(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Iwasug.WhatsApp.Sdk.Hosting.WhatsAppSdkOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.AccountRestrictedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? left, Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? left, Iwasug.WhatsApp.Sdk.Messaging.BroadcastOptions? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.BroadcastRecipientOutcome? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.BudgetExhaustedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DecryptionFailedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.DeviceSetChangedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MediaReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageAckedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageDeletedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageEditedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.MessageReceivedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.PresenceAppliedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? right) -> bool
 static Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.PresenceUpdatedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReactionReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ReceiptReceivedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.operator !=(Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.SendOutcome.operator ==(Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? left, Iwasug.WhatsApp.Sdk.Messaging.SendOutcome? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator !=(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs.operator ==(Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? left, Iwasug.WhatsApp.Sdk.Messaging.ThrottleEngagedEventArgs? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.operator !=(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? left, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.operator ==(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? left, Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? right) -> bool
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptExpired(System.DateTimeOffset attemptStartedAt, System.DateTimeOffset now) -> bool
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.Build(string! pairingRef, System.ReadOnlySpan<byte> noisePublic, System.ReadOnlySpan<byte> identityPublic, System.ReadOnlySpan<byte> advSecret, string! platformId) -> string!
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.CodeExpiry(System.DateTimeOffset issuedAt, int codeIndex) -> System.DateTimeOffset
+static Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationFor(int codeIndex) -> System.TimeSpan
+static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator !=(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
+static Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults.operator ==(Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? left, Iwasug.WhatsApp.Sdk.Pairing.RegistrationDefaults? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator !=(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.operator ==(Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? left, Iwasug.WhatsApp.Sdk.Safety.SafetyOptions? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SafetyOptions.SafeDefaults.get -> Iwasug.WhatsApp.Sdk.Safety.SafetyOptions!
+static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator !=(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
+static Iwasug.WhatsApp.Sdk.Safety.SendContext.operator ==(Iwasug.WhatsApp.Sdk.Safety.SendContext? left, Iwasug.WhatsApp.Sdk.Safety.SendContext? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.operator !=(Iwasug.WhatsApp.Sdk.Stores.OutboxEntry? left, Iwasug.WhatsApp.Sdk.Stores.OutboxEntry? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxEntry.operator ==(Iwasug.WhatsApp.Sdk.Stores.OutboxEntry? left, Iwasug.WhatsApp.Sdk.Stores.OutboxEntry? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor.operator !=(Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor? left, Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor.operator ==(Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor? left, Iwasug.WhatsApp.Sdk.Stores.OutboxMediaDescriptor? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxPayload.operator !=(Iwasug.WhatsApp.Sdk.Stores.OutboxPayload? left, Iwasug.WhatsApp.Sdk.Stores.OutboxPayload? right) -> bool
 static Iwasug.WhatsApp.Sdk.Stores.OutboxPayload.operator ==(Iwasug.WhatsApp.Sdk.Stores.OutboxPayload? left, Iwasug.WhatsApp.Sdk.Stores.OutboxPayload? right) -> bool
+static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator !=(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool
+static Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry.operator ==(Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? left, Iwasug.WhatsApp.Sdk.Stores.RecentMessageEntry? right) -> bool
+static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator !=(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
+static Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord.operator ==(Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? left, Iwasug.WhatsApp.Sdk.Stores.SignalSessionRecord? right) -> bool
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.AttemptTimeout -> System.TimeSpan
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.FirstCodeLifetime -> System.TimeSpan
+static readonly Iwasug.WhatsApp.Sdk.Pairing.PairingQrPayload.RotationInterval -> System.TimeSpan
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.EqualityContract.get -> System.Type!
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.Equals(Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision? other) -> bool
+virtual Iwasug.WhatsApp.Sdk.Connection.ReconnectDecision.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.EqualityContract.get -> System.Type!
+virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.Equals(Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent? other) -> bool
+virtual Iwasug.WhatsApp.Sdk.Messaging.WhatsAppEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool

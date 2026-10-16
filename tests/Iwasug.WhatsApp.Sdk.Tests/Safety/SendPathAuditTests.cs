@@ -114,6 +114,9 @@ public sealed class SendPathAuditTests
             "SendGroupVoiceNoteAsync",
             "SendBroadcastAsync",
             "SendPresenceAsync",
+            "SendReactionAsync",
+            "EditOwnMessageAsync",
+            "DeleteForEveryoneAsync",
         };
 
         foreach (string methodName in mediaSends)

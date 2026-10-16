@@ -284,3 +284,25 @@ public sealed record PresenceAppliedEventArgs(
     PresenceState State,
     Domain.Jid? Chat,
     DateTimeOffset Timestamp);
+
+/// <summary>Event arguments for one inbound reaction fact (EXT-03).</summary>
+public sealed record ReactionReceivedEventArgs(
+    Domain.Jid Chat,
+    string TargetMessageId,
+    Domain.Jid Sender,
+    string? Emoji,
+    DateTimeOffset Timestamp);
+
+/// <summary>Event arguments for one inbound edited message fact (EXT-04).</summary>
+public sealed record MessageEditedEventArgs(
+    Domain.Jid Chat,
+    string MessageId,
+    string? NewText,
+    DateTimeOffset Timestamp);
+
+/// <summary>Event arguments for one inbound delete-for-everyone fact (EXT-04).</summary>
+public sealed record MessageDeletedEventArgs(
+    Domain.Jid Chat,
+    IReadOnlyList<string> MessageIds,
+    Domain.Jid Remover,
+    DateTimeOffset Timestamp);

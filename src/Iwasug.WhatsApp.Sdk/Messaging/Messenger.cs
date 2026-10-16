@@ -142,6 +142,15 @@ public sealed class Messenger : IAsyncDisposable
     /// </summary>
     public event EventHandler<ReceiptReceivedEventArgs>? ReceiptReceived;
 
+    /// <summary>Raised (on the dispatcher's async path) for an inbound reaction (EXT-03).</summary>
+    public event EventHandler<ReactionReceivedEventArgs>? ReactionReceived;
+
+    /// <summary>Raised (on the dispatcher's async path) for an inbound edited message (EXT-04).</summary>
+    public event EventHandler<MessageEditedEventArgs>? MessageEdited;
+
+    /// <summary>Raised (on the dispatcher's async path) for an inbound delete-for-everyone (EXT-04).</summary>
+    public event EventHandler<MessageDeletedEventArgs>? MessageDeleted;
+
     /// <summary>
     /// Raised (on the dispatcher's async path) when an inbound message fails to decrypt
     /// (04-04, MSG-06): on every failure, with the 1-based per-(sender, message id)
@@ -441,6 +450,126 @@ public sealed class Messenger : IAsyncDisposable
     }
 
     /// <summary>
+    /// Sends a reaction to <paramref name="targetMessageId"/> in <paramref name="chat"/>
+    /// (EXT-03): an ordinary gated E2EE send whose plaintext is a
+    /// <c>Message { ReactionMessage { key, text } }</c>. A null or empty
+    /// <paramref name="emoji"/> removes the reaction and is still a real gated send.
+    /// </summary>
+    public async Task<SendOutcome> SendReactionAsync(Jid chat, string targetMessageId, string? emoji, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        if (string.IsNullOrWhiteSpace(targetMessageId))
+        {
+            throw new SdkFormatException("The target message id must not be null, empty, or whitespace.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        string safeEmoji = emoji ?? string.Empty;
+        byte[] payload = MessageBuilder.BuildReaction(targetMessageId, safeEmoji, chat.ToString(), null);
+        string displayText = string.IsNullOrEmpty(safeEmoji) ? "reaction" : safeEmoji;
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            ct => _sender.SendPayloadAsync(chat, displayText, payload, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Edits a message originally sent by this account (EXT-04): a protocol message
+    /// (type MESSAGE_EDIT) riding the same gated E2EE send path. Ownership and
+    /// target presence are validated against the recent-message cache BEFORE node
+    /// assembly; mismatched ownership throws <see cref="SdkFormatException"/>.
+    /// </summary>
+    public async Task<SendOutcome> EditOwnMessageAsync(Jid chat, string originalMessageId, string newText, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        if (string.IsNullOrWhiteSpace(originalMessageId))
+        {
+            throw new SdkFormatException("The original message id must not be null, empty, or whitespace.");
+        }
+        if (string.IsNullOrEmpty(newText))
+        {
+            throw new SdkFormatException("Message text must not be null or empty.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        StoreSession stores = await ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        RecentMessageEntry? entry = await stores.RecentMessages.GetAsync(originalMessageId, cancellationToken).ConfigureAwait(false);
+        if (entry is null)
+        {
+            throw new SdkFormatException("The target message id is not in the recent-message cache: the edit was not sent.");
+        }
+        if (!string.Equals(entry.ChatJid, chat.ToString(), StringComparison.Ordinal))
+        {
+            throw new SdkFormatException("The target message does not belong to this chat: the edit was not sent.");
+        }
+        if (!string.IsNullOrEmpty(entry.Sender))
+        {
+            CredentialRecord? cred = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+            string? paired = cred?.PairedUser;
+            if (!string.Equals(entry.Sender, paired, StringComparison.Ordinal))
+            {
+                throw new SdkFormatException("Cannot edit a message sent by another account: the edit was not sent.");
+            }
+        }
+
+        byte[] payload = MessageBuilder.BuildProtocolEdit(originalMessageId, newText, chat.ToString(), null);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            ct => _sender.SendPayloadAsync(chat, newText, payload, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes a message for everyone (EXT-04): a protocol message (type REVOKE)
+    /// riding the same gated E2EE send path. Ownership and target presence are
+    /// validated against the recent-message cache BEFORE node assembly.
+    /// </summary>
+    public async Task<SendOutcome> DeleteForEveryoneAsync(Jid chat, string targetMessageId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(chat);
+        if (string.IsNullOrWhiteSpace(targetMessageId))
+        {
+            throw new SdkFormatException("The target message id must not be null, empty, or whitespace.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        StoreSession stores = await ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+        RecentMessageEntry? entry = await stores.RecentMessages.GetAsync(targetMessageId, cancellationToken).ConfigureAwait(false);
+        if (entry is null)
+        {
+            throw new SdkFormatException("The target message id is not in the recent-message cache: the delete was not sent.");
+        }
+        if (!string.Equals(entry.ChatJid, chat.ToString(), StringComparison.Ordinal))
+        {
+            throw new SdkFormatException("The target message does not belong to this chat: the delete was not sent.");
+        }
+        if (!string.IsNullOrEmpty(entry.Sender))
+        {
+            CredentialRecord? cred = await stores.Credentials.GetAsync(cancellationToken).ConfigureAwait(false);
+            string? paired = cred?.PairedUser;
+            if (!string.Equals(entry.Sender, paired, StringComparison.Ordinal))
+            {
+                throw new SdkFormatException("Cannot delete a message sent by another account: the delete was not sent.");
+            }
+        }
+
+        byte[] payload = MessageBuilder.BuildProtocolRevoke(targetMessageId, chat.ToString(), null);
+        return await _safety.ExecuteSendAsync(
+            new SendContext(chat, IsReply: false),
+            cancellationToken,
+            ct => _sender.SendPayloadAsync(chat, "delete", payload, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Opts in (or out) to sending delivery receipts for <paramref name="chat"/> (04-04
     /// MSG-04, Open Question 4): when enabled, every successfully decrypted inbound
     /// message in that chat triggers one wire-exact <c>&lt;receipt type="delivery"&gt;</c>
@@ -641,6 +770,24 @@ public sealed class Messenger : IAsyncDisposable
             // Best-effort: handler exceptions are swallowed (dispatcher contract).
         }
 
+        return ValueTask.CompletedTask;
+    }
+
+    internal ValueTask RaiseReactionReceivedAsync(ReactionReceivedEventArgs args, CancellationToken cancellationToken)
+    {
+        try { ReactionReceived?.Invoke(this, args); } catch { }
+        return ValueTask.CompletedTask;
+    }
+
+    internal ValueTask RaiseMessageEditedAsync(MessageEditedEventArgs args, CancellationToken cancellationToken)
+    {
+        try { MessageEdited?.Invoke(this, args); } catch { }
+        return ValueTask.CompletedTask;
+    }
+
+    internal ValueTask RaiseMessageDeletedAsync(MessageDeletedEventArgs args, CancellationToken cancellationToken)
+    {
+        try { MessageDeleted?.Invoke(this, args); } catch { }
         return ValueTask.CompletedTask;
     }
 
