@@ -246,7 +246,7 @@ internal sealed class MessageDispatcher
             {
                 await HandleInboundMediaAsync(
                     chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
-                    timestamp, Media.MediaKind.Image, image: message.ImageMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    timestamp, Media.MediaKind.Image, image: message.ImageMessage, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
             if (message.DocumentMessage is not null)
@@ -254,7 +254,7 @@ internal sealed class MessageDispatcher
                 var doc = message.DocumentMessage;
                 await HandleInboundMediaAsync(
                     chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
-                    timestamp, Media.MediaKind.Document, document: doc, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    timestamp, Media.MediaKind.Document, document: doc, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
             if (message.AudioMessage is not null)
@@ -262,7 +262,7 @@ internal sealed class MessageDispatcher
                 var aud = message.AudioMessage;
                 await HandleInboundMediaAsync(
                     chat, from, isFromMe, key: new MessageKeyRecord(chat, isFromMe, messageId, string.Empty),
-                    timestamp, Media.MediaKind.VoiceNote, audio: aud, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    timestamp, Media.MediaKind.VoiceNote, audio: aud, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -460,17 +460,17 @@ internal sealed class MessageDispatcher
             var mgKey = new MessageKeyRecord(chat, FromMe: false, messageId, participant.ToString());
             if (message.ImageMessage is not null)
             {
-                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Image, image: message.ImageMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Image, image: message.ImageMessage, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
             if (message.DocumentMessage is not null)
             {
-                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Document, document: message.DocumentMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.Document, document: message.DocumentMessage, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
             if (message.AudioMessage is not null)
             {
-                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.VoiceNote, audio: message.AudioMessage, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await HandleInboundGroupMediaAsync(chat, participant, mgKey, timestamp, MediaKind.VoiceNote, audio: message.AudioMessage, rawPlaintext: decrypted.Plaintext, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
         }
@@ -527,6 +527,7 @@ internal sealed class MessageDispatcher
         ImageMessage? image = null,
         DocumentMessage? document = null,
         AudioMessage? audio = null,
+        byte[]? rawPlaintext = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -647,6 +648,22 @@ internal sealed class MessageDispatcher
 
             var args = new MediaReceivedEventArgs(key, chat, from, isFromMe, timestamp, kind, mimetype, fileLength, caption, safeFileName, seconds, ptt, content);
             await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
+
+            if (rawPlaintext is not null)
+            {
+                try
+                {
+                    StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+                    await stores.RecentMessages.PutAsync(
+                        new RecentMessageEntry(key.Id, chat.ToString(), timestamp, caption, from.ToString(), rawPlaintext),
+                        cancellationToken).ConfigureAwait(false);
+                    await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // D-20 log-and-continue: store failures never break receive path.
+                }
+            }
         }
         catch
         {
@@ -663,6 +680,7 @@ internal sealed class MessageDispatcher
         ImageMessage? image = null,
         DocumentMessage? document = null,
         AudioMessage? audio = null,
+        byte[]? rawPlaintext = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -780,6 +798,22 @@ internal sealed class MessageDispatcher
 
             var args = new MediaReceivedEventArgs(key, chat, participant, IsFromMe: false, timestamp, kind, mimetype, fileLength, caption, safeFileName, seconds, ptt, content);
             await _owner.RaiseMediaReceivedAsync(args, cancellationToken).ConfigureAwait(false);
+
+            if (rawPlaintext is not null)
+            {
+                try
+                {
+                    StoreSession stores = await _owner.ResolveStoresAsync(cancellationToken).ConfigureAwait(false);
+                    await stores.RecentMessages.PutAsync(
+                        new RecentMessageEntry(key.Id, chat.ToString(), timestamp, caption, participant.ToString(), (byte[])rawPlaintext.Clone()),
+                        cancellationToken).ConfigureAwait(false);
+                    await stores.RecentMessages.PurgeExpiredAsync(timestamp - RetentionHorizon, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // D-20 log-and-continue.
+                }
+            }
         }
         catch
         {
