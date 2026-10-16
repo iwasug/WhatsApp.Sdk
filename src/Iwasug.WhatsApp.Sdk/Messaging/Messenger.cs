@@ -51,6 +51,7 @@ public sealed class Messenger : IAsyncDisposable
     private readonly SenderKeyRepository _senderKeys;
     private readonly SafetyGate _safety;
     private readonly MessageSender _sender;
+    private readonly PresenceManager _presence;
     private Media.MediaUploader _uploader;
     private Media.MediaDownloader _downloader;
     private readonly MessageDispatcher _dispatcher;
@@ -88,12 +89,14 @@ public sealed class Messenger : IAsyncDisposable
             connection.Clock);
         _dispatcher = new MessageDispatcher(this, _senderKeys, _downloader);
         _receipts = new ReceiptHandler(this);
+        _presence = new PresenceManager(_connection);
         _safety = new SafetyGate(
             connection.Clock,
             SafetyOptions.Validate(connection.SafetyPolicy),
             logger: connection.SafetyLogger,
             ct => ResolveStoresAsync(ct),
-            (evt, ct) => PublishAsync(evt, ct));
+            (evt, ct) => PublishAsync(evt, ct),
+            _presence);
         _safety.BudgetExhausted += (_, args) => _ = RaiseBudgetExhaustedAsync(args, CancellationToken.None);
         _safety.ThrottleEngaged += (_, args) => _ = RaiseThrottleEngagedAsync(args, CancellationToken.None);
         _safety.AccountRestricted += (_, args) => _ = RaiseAccountRestrictedAsync(args, CancellationToken.None);
@@ -104,6 +107,15 @@ public sealed class Messenger : IAsyncDisposable
     /// message, after the durable session write and the ack have completed (D-06).
     /// </summary>
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
+
+    /// <summary>Raised for inbound peer presence updates (EXT-02).</summary>
+    public event EventHandler<PresenceUpdatedEventArgs>? PresenceUpdated;
+
+    /// <summary>Raised after an outbound presence state is applied (EXT-02).</summary>
+    public event EventHandler<PresenceAppliedEventArgs>? PresenceChanged;
+
+    /// <summary>Alias for <see cref="PresenceChanged"/> (applied state).</summary>
+    public event EventHandler<PresenceAppliedEventArgs>? PresenceApplied;
 
     /// <summary>
     /// Raised (on the dispatcher's async path) once per successfully verified inbound
@@ -498,6 +510,84 @@ public sealed class Messenger : IAsyncDisposable
         return _events.Writer.TryWrite(evt);
     }
 
+    /// <summary>
+    /// Sends one text payload to multiple recipients as independent, safety-gated 1:1
+    /// sends (BCT-01). Returns a per-recipient outcome report in host order; cancellation
+    /// stops the loop without synthesizing outcomes for remaining recipients.
+    /// </summary>
+    public async Task<IReadOnlyList<BroadcastRecipientOutcome>> SendBroadcastAsync(
+        IEnumerable<Jid> recipients,
+        Func<Jid, string> messageFactory,
+        BroadcastOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+        ArgumentNullException.ThrowIfNull(recipients);
+        ArgumentNullException.ThrowIfNull(messageFactory);
+
+        await EnsureOwnPrekeysAsync(cancellationToken).ConfigureAwait(false);
+
+        var result = new List<BroadcastRecipientOutcome>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        bool first = true;
+        TimeSpan delay = options?.InterRecipientDelay ?? TimeSpan.Zero;
+
+        foreach (Jid recipient in recipients)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (recipient is null)
+            {
+                throw new ArgumentNullException(nameof(recipients));
+            }
+            if (!seen.Add(recipient.ToString()))
+            {
+                continue;
+            }
+
+            if (!first && delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, _connection.Clock, cancellationToken).ConfigureAwait(false);
+            }
+
+            string text = messageFactory(recipient);
+            SendOutcome outcome = await _safety.ExecuteSendAsync(
+                new SendContext(recipient, IsReply: false),
+                cancellationToken,
+                ct => _sender.SendAsync(recipient, text, ct)).ConfigureAwait(false);
+            result.Add(new BroadcastRecipientOutcome(recipient, outcome));
+            first = false;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Sends one presence state (EXT-02). Account-level states are targeted at the
+    /// default destination; chat states carry the chat JID. The wire node is one-way,
+    /// so no ack is awaited; explicit host calls fail closed through the safety gate.
+    /// </summary>
+    public async Task SendPresenceAsync(PresenceState state, Jid? chat = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+
+        Jid destination = chat ?? Jid.Parse("presence@s.whatsapp.net");
+
+        await _safety.ExecuteSendAsync(
+            new SendContext(destination, IsReply: false),
+            cancellationToken,
+            async ct =>
+            {
+                await _presence.SendAsync(state, chat, ct).ConfigureAwait(false);
+                return new SendOutcome(Guid.NewGuid().ToString("N").ToUpperInvariant(), SendOutcomeStatus.Sent);
+            }).ConfigureAwait(false);
+
+        var applied = new PresenceAppliedEventArgs(state, chat, _connection.Clock.GetUtcNow());
+        PresenceChanged?.Invoke(this, applied);
+        PresenceApplied?.Invoke(this, applied);
+    }
+
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
@@ -523,6 +613,20 @@ public sealed class Messenger : IAsyncDisposable
         await PublishAsync(
             new MessageReceivedEvent(args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Text, args.QuotedMessageId),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    internal ValueTask RaisePresenceUpdatedAsync(PresenceUpdatedEventArgs args, CancellationToken cancellationToken)
+    {
+        try
+        {
+            PresenceUpdated?.Invoke(this, args);
+        }
+        catch
+        {
+            // Best-effort: handler exceptions are swallowed (dispatcher contract).
+        }
+
+        return ValueTask.CompletedTask;
     }
 
     internal async ValueTask RaiseMediaReceivedAsync(MediaReceivedEventArgs args, CancellationToken cancellationToken)

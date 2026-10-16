@@ -58,6 +58,7 @@ public sealed class SendPathAuditTests
             ("ReceiptHandler", "SendMediaRetryReceiptAsync"),
             ("MessageSender", "AwaitAckAsync"),
             ("MessageSender", "ResendForRetryReceiptAsync"),
+            ("PresenceManager", "SendAsync"),
         };
 
         var unexpected = found

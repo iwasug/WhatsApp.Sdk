@@ -36,7 +36,8 @@ internal sealed class SafetyGate : ISafetyGate
         SafetyOptions options,
         ILogger<SafetyGate>? logger,
         Func<CancellationToken, ValueTask<StoreSession>> resolveStores,
-        Func<WhatsAppEvent, CancellationToken, ValueTask> publish)
+        Func<WhatsAppEvent, CancellationToken, ValueTask> publish,
+        IPacingPresence? presence = null)
     {
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _options = SafetyOptions.Validate(options);
@@ -48,7 +49,7 @@ internal sealed class SafetyGate : ISafetyGate
         _coldOutreach = new ColdOutreachBudget(_clock, _options);
         _breaker = new CircuitBreaker(_clock);
     
-        _pacing = new HumanPacing(_clock, _options);
+        _pacing = new HumanPacing(_clock, _options, presence);
     }
 
     internal Safety.CircuitState CircuitState => _breaker.State;

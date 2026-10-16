@@ -1,3 +1,4 @@
+#pragma warning disable CS1591
 namespace Iwasug.WhatsApp.Sdk.Messaging;
 
 /// <summary>
@@ -270,3 +271,16 @@ public sealed record DecryptionFailedEvent(
     string MessageId,
     int RetryCount,
     DateTimeOffset Timestamp) : WhatsAppEvent(Timestamp);
+
+/// <summary>Event args for an inbound peer presence update (EXT-02).</summary>
+public sealed record PresenceUpdatedEventArgs(
+    Domain.Jid Chat,
+    Domain.Jid Sender,
+    PresenceState State,
+    DateTimeOffset Timestamp);
+
+/// <summary>Event args raised after an outbound presence state is applied (EXT-02).</summary>
+public sealed record PresenceAppliedEventArgs(
+    PresenceState State,
+    Domain.Jid? Chat,
+    DateTimeOffset Timestamp);
