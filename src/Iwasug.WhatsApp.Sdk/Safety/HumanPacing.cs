@@ -13,7 +13,7 @@ internal interface IPacingPresence
     /// <summary>Sends one composing/recording presence signal, best-effort when <paramref name="bestEffort"/> is set.</summary>
     /// <param name="bestEffort">When <c>true</c>, the implementation must never fail the send promise.</param>
     /// <param name="cancellationToken">Caller cancellation (unwrapped).</param>
-    Task SendComposingAsync(bool bestEffort, CancellationToken cancellationToken);
+    Task SendComposingAsync(bool bestEffort, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

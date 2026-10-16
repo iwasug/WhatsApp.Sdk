@@ -25,7 +25,7 @@ internal sealed class PresenceManager : IPacingPresence
     /// failures (fail-closed). Does not require an ack — the wire node is
     /// one-way, so a server reply <c>ack</c> is not awaited.
     /// </summary>
-    public async Task SendAsync(PresenceState state, Jid? chat, CancellationToken cancellationToken)
+    public async Task SendAsync(PresenceState state, Jid? chat, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         BinaryNode node = BuildNode(state, chat);
@@ -33,8 +33,7 @@ internal sealed class PresenceManager : IPacingPresence
     }
 
     /// <inheritdoc />
-    public Task SendComposingAsync(bool bestEffort, CancellationToken cancellationToken)
-    {
+    public Task SendComposingAsync(bool bestEffort, CancellationToken cancellationToken = default)    {
         if (!bestEffort)
         {
             return SendAsync(PresenceState.Composing, null, cancellationToken);
