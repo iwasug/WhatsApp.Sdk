@@ -56,6 +56,7 @@ abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.IdentityStoreContractTests.Cr
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.PreKeyStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IPreKeyStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecentMessageCacheStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IRecentMessageCacheStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.RecipientContactStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IRecipientContactStoreFactory!
+abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.IOutboxStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SafetyStateStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISafetyStateStoreFactory!
 abstract Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.CreateFactory() -> Iwasug.WhatsApp.Sdk.Stores.ISignalSessionStoreFactory!
 virtual Iwasug.WhatsApp.Sdk.Testing.ComplianceTestBase.GetConcreteSubclasses(System.Type! contractBase) -> System.Collections.Generic.IReadOnlyCollection<System.Type!>!
@@ -157,3 +158,16 @@ Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.FailRe
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Faulting_factory_Mode_None_absent_key_returns_null() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Parallel_interleaved_writes_and_reads_produce_no_cross_reads() -> System.Threading.Tasks.Task!
 Iwasug.WhatsApp.Sdk.Testing.StoreContract.SignalSessionStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.DeadLetterAsync_retains_entry() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.EnqueueAsync_then_GetDueAsync_round_trips_entry() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.GetDueAsync_empty_for_empty_store() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.MarkSentAsync_excludes_entry_from_GetDueAsync() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.OutboxStoreContractTests() -> void
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.Parallel_interleaved_enqueues_produce_no_cross_reads() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.ScheduleRetryAsync_future_next_attempt_excludes_entry_from_GetDueAsync() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.ScheduleRetryAsync_transitions_state_and_is_due_when_elapsed() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.TryRemoveAsync_missing_returns_false_not_throw() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.TryRemoveAsync_removes_existing_entry_and_returns_true() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.Two_accounts_isolated_same_id() -> System.Threading.Tasks.Task!
+Iwasug.WhatsApp.Sdk.Testing.StoreContract.OutboxStoreContractTests.Write_observed_by_independent_second_store_instance() -> System.Threading.Tasks.Task!
