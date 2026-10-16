@@ -44,9 +44,9 @@ public enum FaultMode
 /// created it (D-23 ownership stays with the creator).
 /// </para>
 /// <para>
-/// Binding pattern: all seven factory interfaces share the <c>CreateAsync</c> signature but
+/// Binding pattern: all eight factory interfaces share the <c>CreateAsync</c> signature but
 /// differ by return type, so only the Signal-session implementation is implicit and the
-/// other six are explicit interface implementations. Bind the decorator to the seam
+/// other seven are explicit interface implementations. Bind the decorator to the seam
 /// under test through an interface-typed variable —
 /// <c>IPreKeyStoreFactory factory = new FaultingStoreFactory(preKey: inner) { Mode = ... };</c>
 /// — and call <c>factory.CreateAsync(...)</c> so the correct store type is produced.
@@ -60,6 +60,7 @@ public sealed class FaultingStoreFactory :
     ISafetyStateStoreFactory,
     ICredentialStoreFactory,
     IRecipientContactStoreFactory,
+    IOutboxStoreFactory,
     IAsyncDisposable
 {
     private readonly ISignalSessionStoreFactory? _signalSession;
@@ -69,6 +70,7 @@ public sealed class FaultingStoreFactory :
     private readonly ISafetyStateStoreFactory? _safetyState;
     private readonly ICredentialStoreFactory? _credential;
     private readonly IRecipientContactStoreFactory? _recipientContact;
+    private readonly IOutboxStoreFactory? _outbox;
 
     /// <summary>
     /// Wraps whichever factories are supplied; a seam without an inner factory cannot
@@ -81,6 +83,7 @@ public sealed class FaultingStoreFactory :
     /// <param name="safetyState">Inner factory for the safety-state seam.</param>
     /// <param name="credential">Inner factory for the credential seam.</param>
     /// <param name="recipientContact">Inner factory for the recipient-contact ledger seam.</param>
+    /// <param name="outbox">Inner factory for the durable outbox seam (IN-04).</param>
     public FaultingStoreFactory(
         ISignalSessionStoreFactory? signalSession = null,
         IIdentityStoreFactory? identity = null,
@@ -88,7 +91,8 @@ public sealed class FaultingStoreFactory :
         IRecentMessageCacheStoreFactory? recentMessageCache = null,
         ISafetyStateStoreFactory? safetyState = null,
         ICredentialStoreFactory? credential = null,
-        IRecipientContactStoreFactory? recipientContact = null)
+        IRecipientContactStoreFactory? recipientContact = null,
+        IOutboxStoreFactory? outbox = null)
     {
         _signalSession = signalSession;
         _identity = identity;
@@ -97,6 +101,7 @@ public sealed class FaultingStoreFactory :
         _safetyState = safetyState;
         _credential = credential;
         _recipientContact = recipientContact;
+        _outbox = outbox;
     }
 
     /// <summary>
@@ -153,6 +158,13 @@ public sealed class FaultingStoreFactory :
     {
         IRecipientContactStoreFactory inner = _recipientContact ?? throw NotWired(nameof(IRecipientContactStoreFactory));
         return new FaultingRecipientContactStore(this, await inner.CreateAsync(accountId, cancellationToken));
+    }
+
+    /// <inheritdoc cref="CreateAsync(AccountId, System.Threading.CancellationToken)" />
+    async ValueTask<IOutboxStore> IOutboxStoreFactory.CreateAsync(AccountId accountId, CancellationToken cancellationToken)
+    {
+        IOutboxStoreFactory inner = _outbox ?? throw NotWired(nameof(IOutboxStoreFactory));
+        return new FaultingOutboxStore(this, await inner.CreateAsync(accountId, cancellationToken));
     }
 
     /// <summary>
@@ -499,6 +511,73 @@ public sealed class FaultingRecipientContactStore : IRecipientContactStore
     {
         FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(MarkContactedAsync));
         return _inner.MarkContactedAsync(recipientKey, cancellationToken);
+    }
+
+    /// <summary>Disposes nothing of the wrapped store (decorator lifecycle rules).</summary>
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+/// <summary>
+/// Account-scoped pass-through/faulting decorator around an <see cref="IOutboxStore"/>
+/// (IN-04: the outbox contract suite ships, so hosts writing scratch outbox stores can
+/// exercise the failure ≠ missing invariant through the same decorator as every other
+/// capability. Fault semantics as for <see cref="FaultingSignalSessionStore"/>: reads
+/// (<see cref="GetDueAsync"/>) throw under <see cref="FaultMode.FailReads"/>, all writes
+/// (enqueue, mark-sent, retry scheduling, dead-lettering, removal) throw under
+/// <see cref="FaultMode.FailWrites"/>).
+/// </summary>
+public sealed class FaultingOutboxStore : IOutboxStore
+{
+    private readonly FaultingStoreFactory _factory;
+    private readonly IOutboxStore _inner;
+
+    /// <summary>Wraps <paramref name="inner"/> with the fault control of <paramref name="factory"/>.</summary>
+    public FaultingOutboxStore(FaultingStoreFactory factory, IOutboxStore inner)
+    {
+        _factory = factory;
+        _inner = inner;
+    }
+
+    /// <inheritdoc />
+    public Task<OutboxEntry> EnqueueAsync(OutboxEntry entry, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(EnqueueAsync));
+        return _inner.EnqueueAsync(entry, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OutboxEntry>> GetDueAsync(int max, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailReads, nameof(GetDueAsync));
+        return _inner.GetDueAsync(max, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task MarkSentAsync(string id, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(MarkSentAsync));
+        return _inner.MarkSentAsync(id, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task ScheduleRetryAsync(string id, int attempt, DateTimeOffset nextAttemptUtc, string? ruleName, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(ScheduleRetryAsync));
+        return _inner.ScheduleRetryAsync(id, attempt, nextAttemptUtc, ruleName, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task DeadLetterAsync(string id, string? reason, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(DeadLetterAsync));
+        return _inner.DeadLetterAsync(id, reason, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> TryRemoveAsync(string id, CancellationToken cancellationToken)
+    {
+        FaultingStoreFactory.ThrowIfFaulted(_factory, FaultMode.FailWrites, nameof(TryRemoveAsync));
+        return _inner.TryRemoveAsync(id, cancellationToken);
     }
 
     /// <summary>Disposes nothing of the wrapped store (decorator lifecycle rules).</summary>
