@@ -16,8 +16,6 @@ namespace Iwasug.WhatsApp.Sdk.Accounts;
 /// </summary>
 internal sealed class OutboxPump : IAsyncDisposable
 {
-    private static readonly Random _jitter = new();
-
     private readonly IOutboxStore _store;
     private readonly Func<OutboxEntry, CancellationToken, Task<SendOutcome>>? _sendFactory;
     private readonly Messenger? _messenger;
@@ -381,15 +379,13 @@ internal sealed class OutboxPump : IAsyncDisposable
             computed = _options.MaxBackoff.TotalMilliseconds;
         }
 
-        // Bounded jitter, +/- 20 percent, using the attempt as a deterministic seed input.
+        // Bounded jitter, +/- 20 percent, from the attempt-derived deterministic seed
+        // (IN-01: the unused shared static field is gone; a fresh Random per call is
+        // intentional — the seed makes the factor reproducible, not contended).
         int seed = HashCode.Combine(_store.GetType(), attempt);
-        lock (_jitter)
-        {
-            // Keep Random usage deterministic-ish but not hot-contended; Random is not thread-safe.
-            var local = new Random(seed);
-            double factor = 0.8 + (local.NextDouble() * 0.4);
-            computed *= factor;
-        }
+        var local = new Random(seed);
+        double factor = 0.8 + (local.NextDouble() * 0.4);
+        computed *= factor;
 
         if (computed < 0)
         {
