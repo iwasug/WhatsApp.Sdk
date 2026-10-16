@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Broadcast
 
-- [ ] **BCT-01**: Host can trigger `SendBroadcastAsync` that fans out as individual 1:1 sends through the safety gate + warm-up budget and returns a per-recipient outcome report (no independent send loop)
+- [x] **BCT-01**: Host can trigger `SendBroadcastAsync` that fans out as individual 1:1 sends through the safety gate + warm-up budget and returns a per-recipient outcome report (no independent send loop)
 
 ### Extras
 
@@ -137,7 +137,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MUL-01 | Phase 7 | Complete |
 | MUL-02 | Phase 7 | Complete |
 | MUL-03 | Phase 7 | Complete |
-| BCT-01 | Phase 8 | Pending |
+| BCT-01 | Phase 8 | Complete |
 | EXT-01 | Phase 8 | Pending |
 | EXT-02 | Phase 8 | Pending |
 | EXT-03 | Phase 8 | Pending |
