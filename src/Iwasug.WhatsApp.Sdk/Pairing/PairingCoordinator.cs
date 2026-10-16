@@ -191,8 +191,11 @@ public sealed class PairingCoordinator
     /// <param name="logger">Optional per-account logger (Abstractions only).</param>
     /// <param name="randomBytes">
     /// Pairing-code randomness seam: returns exactly the requested byte count
-    /// (code bytes, salts, IVs, ephemeral seeds). Defaults to the platform
-    /// CSPRNG; tests inject a scripted sequence for determinism.
+    /// (code bytes, salts, IVs, ephemeral seeds) in a fresh buffer the
+    /// coordinator then OWNS — salts, IVs, and seeds are zeroized when the
+    /// attempt unwinds (secret hygiene), so an injector must not retain the
+    /// returned arrays. Defaults to the platform CSPRNG; tests inject a
+    /// scripted sequence for determinism.
     /// </param>
     /// <exception cref="SdkFormatException"><paramref name="accountId"/> is the default (uninitialized) value.</exception>
     /// <exception cref="ArgumentNullException">Any required seam is null.</exception>

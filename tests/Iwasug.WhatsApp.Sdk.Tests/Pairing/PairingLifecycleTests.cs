@@ -988,6 +988,15 @@ public sealed class PairingLifecycleTests
     /// (plan 03-03's injectable-randomness seam — the fake never supplies the
     /// code, it only pins the coordinator's own inputs).
     /// </summary>
+    /// <remarks>
+    /// The recorder keeps a defensive COPY of every buffer it hands out: the
+    /// coordinator owns what it is given and zeroizes salts/IVs/seeds when the
+    /// attempt unwinds (secret hygiene, <see cref="PairingCoordinator"/>), so a
+    /// recorded live array degenerates to zeros before the re-derivations below
+    /// run. That aliasing is why the companion-finish facts previously died in
+    /// a 20s wait: the test sealed the finish under a bundle key derived from a
+    /// zeroized salt while the coordinator held the real one.
+    /// </remarks>
     private sealed class RecordingRandomness
     {
         private readonly List<byte[]> _calls = [];
@@ -1005,7 +1014,9 @@ public sealed class PairingLifecycleTests
                 bytes[i] = (byte)(0x30 + (_calls.Count * 7) + i);
             }
 
-            _calls.Add(bytes);
+            // The caller takes ownership of the returned buffer (and may
+            // zeroize it); the record must survive that, so it is a copy.
+            _calls.Add((byte[])bytes.Clone());
             return bytes;
         }
 
