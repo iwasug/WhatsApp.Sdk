@@ -528,10 +528,16 @@ public sealed class Messenger : IAsyncDisposable
     internal async ValueTask RaiseMediaReceivedAsync(MediaReceivedEventArgs args, CancellationToken cancellationToken)
     {
         MediaReceived?.Invoke(this, args);
+        System.IO.Stream content = args.Content;
+        if (args.Content is System.IO.MemoryStream owned && owned.TryGetBuffer(out ArraySegment<byte> buf)
+            && buf.Array is not null)
+        {
+            content = new System.IO.MemoryStream(buf.Array, buf.Offset, buf.Count, writable: false);
+        }
         await PublishAsync(
             new MediaReceivedEvent(
                 args.Key, args.Chat, args.Sender, args.IsFromMe, args.Timestamp, args.Kind, args.Mimetype,
-                args.FileLength, args.Caption, args.FileName, args.Seconds, args.Ptt, args.Content),
+                args.FileLength, args.Caption, args.FileName, args.Seconds, args.Ptt, content),
             cancellationToken).ConfigureAwait(false);
     }
 
