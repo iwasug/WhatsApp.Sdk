@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 09
 current_phase_name: Ship
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-10-17T00:07:23.582Z"
-state_head: 972c26266416c85911d11545168105f20e7a83d3
+stopped_at: Completed 09-05-PLAN.md
+last_updated: "2026-10-17T00:22:13.586Z"
+state_head: 42d36e6dca9daff7468fdb0d11ac9d1a46684242
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 50
+  completed_plans: 51
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 ## Current Position
 
 Phase: 09 (Ship) — EXECUTING
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 9
 Status: Ready to execute
 
@@ -86,6 +86,7 @@ Progress: [████████░░] 78%
 | Phase 08 P07 | 20m | 1 tasks | 1 files |
 | Phase 09 P01 | 45m | 3 tasks | 7 files |
 | Phase 09 P03 | 35m | 3 tasks | 8 files |
+| Phase 09 P05 | 8m | 2 tasks | 2 files |
 
 ## Per-Plan Metrics:
 
@@ -182,6 +183,9 @@ Recent decisions affecting current work:
 - [Phase 09]: 09-03: the probe runner starts Pairing.StartAsync before awaiting ConnectAsync - the verdict vocabulary is the pairing surface, and the attempt loop gates its first send on the channel-ready pulse
 - [Phase 09]: 09-03: RED evidence uses MTP's bare --report-xunit-junit flag (record in gitignored TestResults/); the plan verify commands' -x flag is broken under the MTP runner (exit 5 zero-tests) and was dropped (broken-windows ledger id 18)
 - [Phase 09]: 09-03: the silence test is green through RED by design - the bounded wait existed from Task 1; scripted 405 -> Drift/10 and ref -> Accepted/0 were the RED targets, both failing with Infra before the pairing start path landed
+- [Phase 09]: 09-05: relocation is byte-verbatim - a mechanical block diff (pre-move README vs docs/risk-ledger.md) shows a single hunk: the dangling '(see Compliance below)' cross-reference repointed at the README Compliance section; every disclaimer byte-identical
+- [Phase 09]: 09-05: README status claims bounded by REQUIREMENTS/ROADMAP truth - media declared Phase 6 in-progress (4/6 plans) with MED-01 pending; pairing carries the CONN real-phone NOT VERIFIED caveat inline
+- [Phase 09]: 09-05: every README markdown link absolute (README packs into both nupkgs; relative links break on nuget.org); clean-dir repack + verify-pack.ps1 re-run after the edit (0.1.355, 2 packages + 2 snupkgs)
 
 ### Pending Todos
 
@@ -195,6 +199,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-17T00:07:22.923Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-10-17T00:22:12.898Z
+Stopped at: Completed 09-05-PLAN.md
 Resume file: None
