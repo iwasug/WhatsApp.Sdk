@@ -51,4 +51,4 @@ jobs:
         with:
           name: test-results
           path: TestResults/**
-          if-no-files-found: ignore
+          if-no-files-found: error
