@@ -64,7 +64,7 @@ public sealed class ProbeOptions
             }
 
             string raw = args[++i];
-            if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int seconds))
+            if (!int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds))
             {
                 throw new ProbeOptionsException(
                     $"{TimeoutOption} must be a whole number of seconds, got '{raw}'.");
