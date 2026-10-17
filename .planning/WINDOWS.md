@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 16
+open_count: 18
 waived_count: 1
 fixed_count: 0
-total_count: 17
-last_updated: 2026-10-16T23:09:52.888Z
+total_count: 19
+last_updated: 2026-10-17T00:05:22.233Z
 ---
 
 # Broken Windows Ledger
@@ -32,6 +32,8 @@ last_updated: 2026-10-16T23:09:52.888Z
 | 15 | 04 | unrun-verify | .planning/phases/04-signal-e2ee-messaging/04-VALIDATION.md |  | SC 1-5 live-device UAT (1:1/group send, receipt round trip, quoted reply rendering, retry recovery) + assumptions A2/A4 recorded NOT VERIFIED - no live phone in CI; sample messaging mode built for the end-of-phase human gate | open |  | 2026-10-11T20:12:53.861Z |  |
 | 16 | 09 | deviation | src/Iwasug.WhatsApp.Sdk/Pairing/PairingCoordinator.cs |  | 09-01 [Rule 2]: Ownership/zeroization contract documented on the randomBytes pairing seam (file not in the plan's Task 2 files list) - the invariant the repaired PairingLifecycleTests depend on | open |  | 2026-10-16T23:09:51.697Z |  |
 | 17 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessagingLoopbackTests.cs | 873 | 09-01 (pre-existing, deferred per scope boundary): decrypt_failure_no_ack_no_event_and_pump_continues is flaky - NRE at line 873 when the test continuation outruns the peer-task assignment after ConnectAsync; isolated + rerun runs green; fix direction (TaskCompletionSource handoff) in phases/09-ship/deferred-items.md | open |  | 2026-10-16T23:09:52.888Z |  |
+| 18 | 09 | unrun-verify | .planning/phases/09-ship/09-03-PLAN.md |  | 09-03: plan verify commands carry a '-x' flag that breaks the repo's MTP runner (dotnet test ... -x -> Zero tests ran, exit 5, dotnet\\/sdk#55309 family); verifies ran without -x per 08-VERIFICATION practice - SUMMARY deviation recorded | open |  | 2026-10-17T00:05:21.089Z |  |
+| 19 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessageCorrelationTests.cs | 354 | 09-03 (pre-existing, deferred per scope boundary): parallel_sends_serialize_and_settle_exactly_one_outcome_each is flaky - SdkTransportException 'unexpected nonce' surfaced via Rig.DisposeAsync/ScriptedPeer.RunAsync; isolated + rerun runs green; fix direction in phases/09-ship/deferred-items.md | open |  | 2026-10-17T00:05:22.233Z |  |
 
 ````json
 [
@@ -253,6 +255,32 @@ last_updated: 2026-10-16T23:09:52.888Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-16T23:09:52.888Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 18,
+    "kind": "unrun-verify",
+    "phase": "09",
+    "file": ".planning/phases/09-ship/09-03-PLAN.md",
+    "line": null,
+    "description": "09-03: plan verify commands carry a '-x' flag that breaks the repo's MTP runner (dotnet test ... -x -> Zero tests ran, exit 5, dotnet\\/sdk#55309 family); verifies ran without -x per 08-VERIFICATION practice - SUMMARY deviation recorded",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-17T00:05:21.089Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 19,
+    "kind": "deviation",
+    "phase": "09",
+    "file": "tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessageCorrelationTests.cs",
+    "line": 354,
+    "description": "09-03 (pre-existing, deferred per scope boundary): parallel_sends_serialize_and_settle_exactly_one_outcome_each is flaky - SdkTransportException 'unexpected nonce' surfaced via Rig.DisposeAsync/ScriptedPeer.RunAsync; isolated + rerun runs green; fix direction in phases/09-ship/deferred-items.md",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-17T00:05:22.233Z",
     "resolved_at": null,
     "milestone": null
   }

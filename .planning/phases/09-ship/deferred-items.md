@@ -10,3 +10,13 @@
 - **Not caused by 09-01:** the only 09-01 edits are in `PairingLifecycleTests.cs` and a doc comment in `PairingCoordinator.cs` — neither shares code with this test.
 - **Fix direction (future plan):** hand the peer back through a `TaskCompletionSource<ScriptedPeer>` completed alongside the return and await that before first use (or otherwise synchronize on the peer task), applied consistently across every test using the `peer = await CompletePeerHandshakeAsync` pattern (`Messaging/MessagingLoopbackTests.cs`, `Connection/*`, `Pairing/PairingQrTests.cs`).
 - **Impact if unfixed:** intermittent single-test failure in CI / the 09-04 workflow (rare — one observation across full-suite runs on 2026-10-17; the immediate rerun was green).
+
+## Out-of-scope discoveries from 09-03
+
+### Flaky: MessageCorrelationTests.parallel_sends_serialize_and_settle_exactly_one_outcome_each (pre-existing)
+
+- **File:** `tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessageCorrelationTests.cs` (fact at ~line 354; the fault surfaces through `Rig.DisposeAsync` → the shared scripted peer at `Messaging/MessagingLoopbackTests.cs:310`).
+- **Observed:** 2026-10-17, while verifying 09-03 — `SdkTransportException: Encrypted packet failed validation: unexpected nonce` raised by `MessagingLoopbackTests.ScriptedPeer.RunAsync`, surfaced via `MessageCorrelationTests.Rig.DisposeAsync` (full suite: 733 total / 1 failed / 732 passed; the isolated `FullyQualifiedName~MessageCorrelationTests` rerun failed the same fact; the single-fact rerun and the next full-suite run both passed).
+- **Diagnosis:** test-harness race in the shared scripted peer under full-suite parallelism (same family as the 09-01 discovery above), pre-existing — the only 09-03 edits are probe tooling, probe tests, the tests csproj, and the sln; none share code with the messaging rig.
+- **Fix direction (future plan):** same as the 09-01 entry — synchronize the peer hand-back on the peer task (TaskCompletionSource) rather than a captured field; cover the `Rig.DisposeAsync` teardown path in `MessageCorrelationTests`.
+- **Impact if unfixed:** intermittent single-fact failure in CI / the 09-04 workflow (observed on two consecutive runs, then green twice; teardown-shaped, not product-shaped).
