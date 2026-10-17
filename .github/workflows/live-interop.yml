@@ -1,0 +1,64 @@
+# live-interop.yml - scheduled + dispatched protocol-drift smoke detector (OPS-02).
+#
+# HONEST SCOPE: this probe detects exactly one class of drift - the
+# client-version-rejected case (the server answers 405 / ClientOutdated). It is
+# a smoke detector, not a protocol conformance suite.
+#
+# EXIT-CODE TRIAGE: 0 = the server issued a pairing ref (client version
+# accepted); 10 = PROTOCOL DRIFT (405); 20 = INFRA - transport, DNS, handshake
+# or timeout, possibly datacenter-IP throttling from hosted runners - never
+# read 20 as drift; anything else (2 = broken argument contract) is a contract
+# error.
+#
+# SELF-HOSTED FALLBACK: if hosted runs are systematically infra-blocked, switch
+# runs-on to a self-hosted label. A runner used for this probe must NEVER be
+# used for publishing (release.yml).
+#
+# SECURITY: credential-free by design - this job carries no repository
+# credentials and no OIDC permission.
+
+name: live-interop
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'      # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  interop-probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Run drift probe
+        shell: pwsh
+        run: |
+          dotnet run --project tools/Iwasug.WhatsApp.Sdk.InteropProbe -c Release -- --timeout-seconds 120
+          $code = $LASTEXITCODE
+          Write-Output "probe exit code: $code"
+          switch ($code) {
+            0 {
+              Write-Output 'accepted: the server issued a pairing ref (client version accepted).'
+              exit 0
+            }
+            10 {
+              Write-Output '::error title=PROTOCOL DRIFT (405)::The server rejected this client version (ClientOutdated / 405).'
+              exit 1
+            }
+            20 {
+              Write-Output '::error title=INTEROP INFRA::Transport, DNS, handshake or timeout failure - possibly datacenter-IP throttling. This is NOT protocol drift.'
+              exit 1
+            }
+            default {
+              Write-Output "::error title=INTEROP PROBE CONTRACT ERROR::Unexpected probe exit code $code (2 = broken argument contract; 0/10/20 are the classified outcomes)."
+              exit 1
+            }
+          }
