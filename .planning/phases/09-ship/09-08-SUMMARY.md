@@ -109,6 +109,15 @@ None — no files were created or modified that introduce new security-relevant 
 
 ## Self-Check: PASSED (hold path taken per plan contract; publish did not occur).
 
+## Self-Check (appended)
+
+- [x] 09-08-SUMMARY.md exists with hold decision, Task 1 policy values, and blocking reason.
+- [x] Task 3 not executed: no tag, no NUGET_USER secret, no visibility flip, no publish.
+- [x] OPS-01 not marked complete in REQUIREMENTS.md.
+- [x] Blocker recorded in STATE.md for the billing lock.
+- [x] Plan status set to `halted` (designed stop; Task 3 intentionally not run).
+- [x] Commit 7dfdf68 (metadata) exists and is an ancestor of HEAD.
+
 ---
 *Phase: 09-ship*
 *Plan: 08*
