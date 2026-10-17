@@ -3,15 +3,15 @@ gsd_state_version: "1.0"
 current_phase: 09
 current_phase_name: Ship
 current_plan: 8
-status: executing
-stopped_at: Completed 09-07-PLAN.md
-last_updated: "2026-10-17T07:03:06.760Z"
-state_head: 987154961261c94c129214ef6896fa46220b3bad
+status: halted
+stopped_at: "Halted 09-08-PLAN.md (hold: remote CI gate unproven due to GitHub Actions billing lock; publish not attempted)"
+last_updated: "2026-10-17T07:49:14.979Z"
+state_head: 417882e4bba38cf05540de109e18ecf19fc0a0e2
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 54
+  completed_plans: 56
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 
 ## Current Position
 
-Phase: 09 (Ship) — EXECUTING
+Phase: 09 (Ship) — HALTED
 Current Plan: 8
 Total Plans in Phase: 9
-Status: Ready to execute
+Status: Halted (09-08 hold: remote CI gate unproven due to GitHub Actions billing lock)
 
 Progress: [████████░░] 78%
 
@@ -91,6 +91,7 @@ Progress: [████████░░] 78%
 | Phase 09 P02 | 7min | 2 tasks | 5 files |
 | Phase 09 P04 | 7 min | 3 tasks | 4 files |
 | Phase 09 P07 | 15 | 3 tasks | 1 files |
+| Phase 09 P08 | 5 | 2 tasks | 1 files |
 
 ## Per-Plan Metrics:
 
@@ -202,6 +203,8 @@ Recent decisions affecting current work:
 - [Phase 09]: 09-04: release.yml has exactly one push step with --skip-duplicate; snupkg siblings ride the nupkg push; verify-pack.ps1 gates between pack and the irreversible push
 - [Phase 09]: 09-04: live-interop triage switch proven offline against mock exit codes 0/10/20/2/7; first real workflow runs land at 09-07
 - [Phase 09]: 09-04: OPS-01/OPS-02 stayed blocked by the shared-ID gate (sibling plans without SUMMARYs); REQUIREMENTS.md marking defers to the last declaring plan
+- [Phase 09]: 09-08: HELD first publish (OPS-01 not attempted). Trusted Publishing policy values recorded (owner iwasug, repo WhatsApp.Sdk, workflow file release.yml; profile name iwasug; visibility public-later). Hold reason: remote CI gate unproven due to GitHub Actions billing lock (ci.yml/live-interop.yml startup_failure before any job; A2/A3 unavailable). Plan 09-08 status: halted; 09-09 blocked until halt resolved and re-summarized as complete.
+- [Phase 09]: 09-08 HELD first publish (OPS-01 not attempted): Trusted Publishing policy values recorded (owner iwasug, repo WhatsApp.Sdk, workflow file release.yml; profile name iwasug; visibility public-later). Hold reason: remote CI gate unproven due to GitHub Actions billing lock. Plan 09-08 status: halted.
 
 ### Pending Todos
 
@@ -213,9 +216,11 @@ None yet.
 - No live phone in CI — UAT outcomes documented as NOT VERIFIED (see 03-VALIDATION.md)
 - 03-06 test `kill_restart_resume_with_drops_and_concurrency` has timeout on Phase C (428 drop wait) — separate investigation needed
 - GitHub Actions billing lock on iwasug account blocks all CI runs (startup_failure, 'account is locked due to a billing issue'). CI evidence recorded as billing-blocked; A2/A3 verdicts pending lock lift. Resolve at https://github.com/settings/billing.
+- 09-08 HOLD: publish (OPS-01) not attempted. Task 1 completed (nuget.org Trusted Publishing policy created: owner iwasug, repo WhatsApp.Sdk, workflow file release.yml; profile name iwasug; visibility public-later). Task 2 resolved as hold because the remote CI gate is unproven (billing lock). Task 3 (tag + publish) not run: no tag, no NUGET_USER secret, no visibility flip, no publish. Plan 09-08 status: halted; 09-09 blocked until halt resolved.
+- 09-08 HOLD: publish (OPS-01) not attempted. Remote CI gate unproven due to GitHub Actions billing lock on iwasug account (ci.yml/live-interop.yml startup_failure before any job). Resolve billing at https://github.com/settings/billing, re-run CI gate, then revisit publish.
 
 ## Session Continuity
 
-Last session: 2026-10-17T07:03:06.093Z
-Stopped at: Completed 09-07-PLAN.md
+Last session: 2026-10-17T07:49:04.963Z
+Stopped at: Halted 09-08-PLAN.md (hold: remote CI gate unproven due to GitHub Actions billing lock; publish not attempted)
 Resume file: None

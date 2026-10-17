@@ -46,13 +46,13 @@
     {
       "number": "9",
       "name": "Ship",
-      "status": "pending"
+      "status": "in_progress"
     }
   ],
   "next": {
     "command": "/gsd:progress --next",
     "label": "Advance to the next step",
-    "reason": "Phase 9 of 9 · 78% · executing"
+    "reason": "Phase 09 of 9 · 78% · executing"
   },
-  "updated_at": "2026-10-16T22:29:27.083Z"
+  "updated_at": "2026-10-17T07:48:13.749Z"
 }
