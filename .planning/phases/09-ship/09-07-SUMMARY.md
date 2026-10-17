@@ -95,6 +95,8 @@ None.
 - [ ] Green ci.yml run on pushed head — BLOCKED by billing lock (not a code failure).
 - [ ] Probe exit codes — BLOCKED by billing lock (no job started).
 
+## Self-Check: PASSED (with documented blockers: CI billing lock prevents remote green run and probe exit codes; all code-side checks green).
+
 ## Next Phase Readiness
 
 - Plan 09-08 (nuget.org policy + visibility election + go/no-go + tag & publish) is NOT unblocked by this plan: publishing requires a green remote gate, which requires the billing lock to be lifted first. Recommend resolving billing before attempting 09-08.
