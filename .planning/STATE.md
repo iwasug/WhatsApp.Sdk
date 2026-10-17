@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 09
 current_phase_name: Ship
-current_plan: 5
+current_plan: 6
 status: executing
-stopped_at: Completed 09-06-PLAN.md
-last_updated: "2026-10-17T00:42:19.858Z"
-state_head: 9b05ef8b0ee793d17c4f67f0642e69f8b3f5b05e
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-10-17T00:59:03.902Z"
+state_head: 970de234a75d52efd657ddbdfc85ec23e15811b0
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 52
+  completed_plans: 53
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 ## Current Position
 
 Phase: 09 (Ship) — EXECUTING
-Current Plan: 5
+Current Plan: 6
 Total Plans in Phase: 9
 Status: Ready to execute
 
@@ -88,6 +88,7 @@ Progress: [████████░░] 78%
 | Phase 09 P03 | 35m | 3 tasks | 8 files |
 | Phase 09 P05 | 8m | 2 tasks | 2 files |
 | Phase 09 P06 | 10m | 3 tasks | 3 files |
+| Phase 09 P02 | 7min | 2 tasks | 5 files |
 
 ## Per-Plan Metrics:
 
@@ -190,6 +191,10 @@ Recent decisions affecting current work:
 - [Phase 09]: 09-06: docs/store-implementation.md links the README honesty section as ../README.md (the plan text's ../../ from docs/ escapes the repo root) - Rule 1 fix; docs/ is not packed so the relative form is correct in-repo
 - [Phase 09]: 09-06: tests README's HostStyleSecondRunTests sentence now names the five capabilities it drives (session, identity, pre-key, recent-message cache, safety) - removes the 'all five' reading contradicting the corrected eight-interface count
 - [Phase 09]: 09-06: docs/webhook-recipe.md imposes no payload format and marks its queue records as host-side sketches; every SDK surface in the mapping switch is the sample host's exact public API
+- [Phase 09]: 09-02: freeze moved 1352 SDK + 181 testing-kit entries byte-for-byte with SHA-256 payload identity proof; LF written (git index canonical form - working-tree CRLF on Unshipped was autocrlf checkout conversion)
+- [Phase 09]: 09-02: RS0016 gate proven live by a seeded negative test (delete one Shipped entry -> SDK build fails "not part of the declared public API"), then entry restored byte-identically - fail-closed proof, not inference
+- [Phase 09]: 09-02: Phase 7 audit row dated 2026-10-15 and placed between Phase 6 and Phase 8 rows (chronological + phase order); Phase 9 row dated 2026-10-17 after Phase 8; NOTICE row shape follows the Phase 5 model
+- [Phase 09]: 09-02: PR checklist boxes left unchecked (plan: checklist stays as-is unless a claim fails); the walk confirmation with evidence is recorded in 09-02-SUMMARY
 
 ### Pending Todos
 
@@ -203,6 +208,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-17T00:42:19.216Z
-Stopped at: Completed 09-06-PLAN.md
+Last session: 2026-10-17T00:59:03.238Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None

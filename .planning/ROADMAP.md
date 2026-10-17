@@ -257,7 +257,7 @@ Plans:
   2. CI runs unit/golden-fixture tests plus the isolation suite on every change, and a gated live-interop job detects protocol drift by failing loudly on 405.
   3. The release passes a provenance audit: NOTICE/LICENSE complete, no MPL-2.0 contamination, and the public API surface is frozen by an analyzer gate.
 
-**Plans**: 4/9 plans executed
+**Plans**: 5/9 plans executed
 
 Plans:
 **Wave 1**
@@ -267,7 +267,7 @@ Plans:
 - [x] 09-06-PLAN.md — store-implementation guide, webhook recipe, tests README corrections
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 09-02-PLAN.md — public API freeze + provenance audit (NOTICE Phase 7/9 rows)
+- [x] 09-02-PLAN.md — public API freeze + provenance audit (NOTICE Phase 7/9 rows)
 - [ ] 09-04-PLAN.md — version.json tag refspec + ci.yml, release.yml, live-interop.yml
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -294,4 +294,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Media Pipeline | 4/6 | In Progress | - |
 | 7. Multi-Account Orchestration | 4/4 | Complete    | 2026-10-15 |
 | 8. Broadcast & Extended Messaging | 7/7 | Complete    | 2026-10-16 |
-| 9. Ship | 4/9 | In Progress | - |
+| 9. Ship | 5/9 | In Progress | - |
