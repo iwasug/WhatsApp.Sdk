@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 21
 waived_count: 1
 fixed_count: 0
-total_count: 20
-last_updated: 2026-10-17T00:23:38.876Z
+total_count: 22
+last_updated: 2026-10-17T00:43:44.397Z
 ---
 
 # Broken Windows Ledger
@@ -35,6 +35,8 @@ last_updated: 2026-10-17T00:23:38.876Z
 | 18 | 09 | unrun-verify | .planning/phases/09-ship/09-03-PLAN.md |  | 09-03: plan verify commands carry a '-x' flag that breaks the repo's MTP runner (dotnet test ... -x -> Zero tests ran, exit 5, dotnet\\/sdk#55309 family); verifies ran without -x per 08-VERIFICATION practice - SUMMARY deviation recorded | open |  | 2026-10-17T00:05:21.089Z |  |
 | 19 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessageCorrelationTests.cs | 354 | 09-03 (pre-existing, deferred per scope boundary): parallel_sends_serialize_and_settle_exactly_one_outcome_each is flaky - SdkTransportException 'unexpected nonce' surfaced via Rig.DisposeAsync/ScriptedPeer.RunAsync; isolated + rerun runs green; fix direction in phases/09-ship/deferred-items.md | open |  | 2026-10-17T00:05:22.233Z |  |
 | 20 | 09 | deviation | docs/risk-ledger.md | 38 | 09-05 [Rule 1]: relocated ledger's dangling '(see Compliance below)' cross-reference repointed at the README Compliance section - the move itself broke the pointer; all disclaimers byte-identical (mechanical block diff, single hunk) | open |  | 2026-10-17T00:23:38.876Z |  |
+| 21 | 09 | deviation | docs/store-implementation.md | 28 | 09-06 [Rule 1]: store guide's README honesty-section link corrected to ../README.md - the plan text's ../../ from docs/ escapes the repo root; docs/ is not packed so the relative form is correct in-repo | open |  | 2026-10-17T00:43:43.252Z |  |
+| 22 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/README.md | 54 | 09-06 [Rule 1]: HostStyleSecondRunTests sentence rewritten to name the five capabilities it drives (session/identity/pre-key/cache/safety) - removes the 'all five' reading that would contradict the corrected eight-interface count | open |  | 2026-10-17T00:43:44.397Z |  |
 
 ````json
 [
@@ -295,6 +297,32 @@ last_updated: 2026-10-17T00:23:38.876Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-17T00:23:38.876Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 21,
+    "kind": "deviation",
+    "phase": "09",
+    "file": "docs/store-implementation.md",
+    "line": 28,
+    "description": "09-06 [Rule 1]: store guide's README honesty-section link corrected to ../README.md - the plan text's ../../ from docs/ escapes the repo root; docs/ is not packed so the relative form is correct in-repo",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-17T00:43:43.252Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 22,
+    "kind": "deviation",
+    "phase": "09",
+    "file": "tests/Iwasug.WhatsApp.Sdk.Tests/README.md",
+    "line": 54,
+    "description": "09-06 [Rule 1]: HostStyleSecondRunTests sentence rewritten to name the five capabilities it drives (session/identity/pre-key/cache/safety) - removes the 'all five' reading that would contradict the corrected eight-interface count",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-17T00:43:44.397Z",
     "resolved_at": null,
     "milestone": null
   }
