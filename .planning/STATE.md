@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 09
 current_phase_name: Ship
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 09-05-PLAN.md
-last_updated: "2026-10-17T00:22:13.586Z"
-state_head: 42d36e6dca9daff7468fdb0d11ac9d1a46684242
+stopped_at: Completed 09-06-PLAN.md
+last_updated: "2026-10-17T00:42:19.858Z"
+state_head: 9b05ef8b0ee793d17c4f67f0642e69f8b3f5b05e
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 51
+  completed_plans: 52
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 ## Current Position
 
 Phase: 09 (Ship) — EXECUTING
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 9
 Status: Ready to execute
 
@@ -87,6 +87,7 @@ Progress: [████████░░] 78%
 | Phase 09 P01 | 45m | 3 tasks | 7 files |
 | Phase 09 P03 | 35m | 3 tasks | 8 files |
 | Phase 09 P05 | 8m | 2 tasks | 2 files |
+| Phase 09 P06 | 10m | 3 tasks | 3 files |
 
 ## Per-Plan Metrics:
 
@@ -186,6 +187,9 @@ Recent decisions affecting current work:
 - [Phase 09]: 09-05: relocation is byte-verbatim - a mechanical block diff (pre-move README vs docs/risk-ledger.md) shows a single hunk: the dangling '(see Compliance below)' cross-reference repointed at the README Compliance section; every disclaimer byte-identical
 - [Phase 09]: 09-05: README status claims bounded by REQUIREMENTS/ROADMAP truth - media declared Phase 6 in-progress (4/6 plans) with MED-01 pending; pairing carries the CONN real-phone NOT VERIFIED caveat inline
 - [Phase 09]: 09-05: every README markdown link absolute (README packs into both nupkgs; relative links break on nuget.org); clean-dir repack + verify-pack.ps1 re-run after the edit (0.1.355, 2 packages + 2 snupkgs)
+- [Phase 09]: 09-06: docs/store-implementation.md links the README honesty section as ../README.md (the plan text's ../../ from docs/ escapes the repo root) - Rule 1 fix; docs/ is not packed so the relative form is correct in-repo
+- [Phase 09]: 09-06: tests README's HostStyleSecondRunTests sentence now names the five capabilities it drives (session, identity, pre-key, recent-message cache, safety) - removes the 'all five' reading contradicting the corrected eight-interface count
+- [Phase 09]: 09-06: docs/webhook-recipe.md imposes no payload format and marks its queue records as host-side sketches; every SDK surface in the mapping switch is the sample host's exact public API
 
 ### Pending Todos
 
@@ -199,6 +203,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-17T00:22:12.898Z
-Stopped at: Completed 09-05-PLAN.md
+Last session: 2026-10-17T00:42:19.216Z
+Stopped at: Completed 09-06-PLAN.md
 Resume file: None
