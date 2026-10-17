@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: 09
 current_phase_name: Ship
-current_plan: 6
+current_plan: 7
 status: executing
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-10-17T00:59:03.902Z"
-state_head: 970de234a75d52efd657ddbdfc85ec23e15811b0
+stopped_at: Completed 09-04-PLAN.md
+last_updated: "2026-10-17T01:11:02.777Z"
+state_head: 53ef391250605b2468771df7986ee7c5de85e521
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 57
-  completed_plans: 53
+  completed_plans: 54
   percent: 78
 last_activity: 2026-10-11
 last_activity_desc: Phase 04 plan 04-01 complete - Signal crypto foundation (KAT gate, durable sessions, prekeys); 30 Signal facts green
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-14)
 ## Current Position
 
 Phase: 09 (Ship) — EXECUTING
-Current Plan: 6
+Current Plan: 7
 Total Plans in Phase: 9
 Status: Ready to execute
 
@@ -89,6 +89,7 @@ Progress: [████████░░] 78%
 | Phase 09 P05 | 8m | 2 tasks | 2 files |
 | Phase 09 P06 | 10m | 3 tasks | 3 files |
 | Phase 09 P02 | 7min | 2 tasks | 5 files |
+| Phase 09 P04 | 7 min | 3 tasks | 4 files |
 
 ## Per-Plan Metrics:
 
@@ -195,6 +196,11 @@ Recent decisions affecting current work:
 - [Phase 09]: 09-02: RS0016 gate proven live by a seeded negative test (delete one Shipped entry -> SDK build fails "not part of the declared public API"), then entry restored byte-identically - fail-closed proof, not inference
 - [Phase 09]: 09-02: Phase 7 audit row dated 2026-10-15 and placed between Phase 6 and Phase 8 rows (chronological + phase order); Phase 9 row dated 2026-10-17 after Phase 8; NOTICE row shape follows the Phase 5 model
 - [Phase 09]: 09-02: PR checklist boxes left unchecked (plan: checklist stays as-is unless a claim fails); the walk confirmation with evidence is recorded in 09-02-SUMMARY
+- [Phase 09]: 09-04: ^refs/tags/v..$ joins master/main in publicReleaseRefSpec so v* tag builds stay public releases (no -g sha suffix) - same change set as release.yml by design
+- [Phase 09]: 09-04: ci.yml never puts the no-logo flag on a test invocation (IN-10), carries no result instrumentation (A5), and pins the setup-dotnet cache key to Directory.Packages.props
+- [Phase 09]: 09-04: release.yml has exactly one push step with --skip-duplicate; snupkg siblings ride the nupkg push; verify-pack.ps1 gates between pack and the irreversible push
+- [Phase 09]: 09-04: live-interop triage switch proven offline against mock exit codes 0/10/20/2/7; first real workflow runs land at 09-07
+- [Phase 09]: 09-04: OPS-01/OPS-02 stayed blocked by the shared-ID gate (sibling plans without SUMMARYs); REQUIREMENTS.md marking defers to the last declaring plan
 
 ### Pending Todos
 
@@ -208,6 +214,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-17T00:59:03.238Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-10-17T01:11:02.195Z
+Stopped at: Completed 09-04-PLAN.md
 Resume file: None
