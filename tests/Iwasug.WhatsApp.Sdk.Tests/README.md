@@ -17,8 +17,15 @@ dotnet test
 > `dotnet build`. Always rebuild before trusting a test count — a `--no-build` run
 > against a stale `bin/Debug` payload under-reports.
 
-Filtered runs use the xunit.v3 MTP dialect (`--filter` is VSTest-only and rejected by this
-repo's runner — see the test csproj comment):
+Filtered runs use `--filter` with the `FullyQualifiedName~X` dialect — recorded green in
+this repo (isolation filter 8/8; the union form 17 passed — see 07-VERIFICATION.md):
+
+```bash
+dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~Isolation"
+dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~Isolation\|FullyQualifiedName~Hosting"
+```
+
+The `dotnet exec … -method` form is an equivalent alternative:
 
 ```bash
 dotnet exec tests/Iwasug.WhatsApp.Sdk.Tests/bin/Debug/net10.0/Iwasug.WhatsApp.Sdk.Tests.dll -method "*Host_style*"
@@ -30,10 +37,12 @@ The kit is the same mechanism EF Core uses for provider conformance: one set of 
 contract classes, one binding per implementation.
 
 1. Reference the two NuGet packages (once published): `Iwasug.WhatsApp.Sdk` (the SDK — it
-   defines the five store interfaces) and `Iwasug.WhatsApp.Sdk.Testing` (the kit).
-2. Subclass each kit contract class you want to enforce — `SignalSessionStoreContractTests`,
+   defines the eight store interfaces) and `Iwasug.WhatsApp.Sdk.Testing` (the kit).
+2. Subclass each kit contract class you want to enforce — `CredentialStoreContractTests`,
    `IdentityStoreContractTests`, `PreKeyStoreContractTests`,
-   `RecentMessageCacheStoreContractTests`, `SafetyStateStoreContractTests` — and override
+   `RecentMessageCacheStoreContractTests`, `SignalSessionStoreContractTests`,
+   `SafetyStateStoreContractTests`, `OutboxStoreContractTests`,
+   `IRecipientContactStoreContractTests` (I-prefixed as shipped) — and override
    `CreateFactory` to return YOUR factory, e.g.
    `protected override ISignalSessionStoreFactory CreateFactory() => new MyStoreFactory();`.
    xunit runs every inherited `[Fact]` against your implementation.
@@ -42,11 +51,13 @@ contract classes, one binding per implementation.
 4. Run your test project. A failing fact is a contract violation in your store — fix the
    store, never the contract class.
 
-`HostStyleSecondRunTests.cs` in this project is a worked example: it drives all five
-capabilities through one factory in a single flow, exactly as a host adoption would.
+`HostStyleSecondRunTests.cs` in this project is a worked example: it drives five of the
+capabilities (session, identity, pre-key, recent-message cache, and safety state) through
+one factory in a single flow, exactly as a host adoption would.
 
 ## Clean-room policy
 
 The SDK and the kit are clean-room implementations — see [NOTICE.md](../../NOTICE.md).
 The full store-implementation guide (per-store semantics, failure-vs-missing rules,
-indexing advice for real databases) ships with the Phase 9 documentation.
+indexing advice for real databases) is at
+[docs/store-implementation.md](../../docs/store-implementation.md).
