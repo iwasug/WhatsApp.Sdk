@@ -89,75 +89,14 @@ API surface only, as exercised by the sample host.
   `OperationCanceledException`, releases the send gate, and never touches the
   wire.
 
-### Ban-safety / risk ledger (Phase 5 — honest scope)
+### Ban-safety / risk ledger
 
-Every public send (`SendMessageAsync`, `SendGroupMessageAsync`, `ReplyAsync`)
-passes a mandatory in-process safety gate before the inner send. There is no
-bypass path in the public API; protocol-generated acks, receipts, and retry
-resends are responses, not account traffic, and stay outside the gate.
-
-**What the layer does:**
-
-- Minute/hour/day token buckets with randomized inter-send jitter on every
-  send (safe defaults: 20/min, 250/hr, 1000/day).
-- Warm-up ramp for new accounts: the daily ceiling grows with persisted
-  account age (`ISafetyStateStore` is the source of truth across restarts).
-- Hard daily cold-outreach cap (30/day) over a durable per-account recipient
-  ledger; replies to inbound messages are exempt from the cap.
-- Circuit breaker with exponential backoff on repeated send failures: trips
-  open, refuses fast while open, admits a single probe, and closes on success.
-  Typed safety events (`BudgetExhausted`, `ThrottleEngaged`,
-  `AccountRestricted`) fire on the corresponding transitions.
-- Active-hours window with typed refusal outside the window, plus best-effort
-  human-like presence pacing (bounded typing/recording pause, currently a
-  no-op wire signal until Phase 8).
-- Safe-by-default configuration: `SafetyOptions.SafeDefaults` plus startup
-  validation that rejects unsafe throughput unless the host explicitly opts in
-  (see below).
-
-**What the layer does NOT do:**
-
-- No guarantee against bans or restrictions. Raising throughput raises
-  restriction risk; no setting lowers risk.
-- No rehabilitation of already-flagged or restricted accounts.
-- No guarantee of compliance with WhatsApp Terms of Service. The host is
-  responsible for lawful, policy-compliant use (see Compliance below).
-
-**Media additions (Phase 6):**
-- Uploads are high-bandwidth account activity; upload-then-send doubles
-  observable traffic.
-- Bulk media fan-out is the fastest ban path.
-- The SDK validates labels but never transcodes or judges media semantics.
-- Expiry-recovery requests are capped protocol traffic (three per message id).
-- No visibility into server-side signals the SDK cannot observe (account age
-  reputation, contact quality, complaint rates, device reputation). Those
-  operational realities remain the host's responsibility.
-- Signed-prekey rotation is still not periodic; group read-side is still
-  deferred (GRPM-01); full presence semantics remain Phase 8.
-
-**Unsafe opt-in acknowledgment (required):**
-
-Exceeding the safe bands (above 60/min, 600/hr, or 1000/day) requires both
-`AllowUnsafeThroughput = true` **and** a non-empty
-`DeclaredUnsafeAcknowledgment` stating the host has read this ledger and
-accepts the elevated restriction risk. Without both, validation throws
-`ArgumentOutOfRangeException` before any I/O.
-
-```csharp
-using Iwasug.WhatsApp.Sdk.Safety;
-
-var options = new SafetyOptions
-{
-    AllowUnsafeThroughput = true,
-    DeclaredUnsafeAcknowledgment =
-        "We have read the Ban-Safety risk ledger and accept the elevated restriction risk.",
-    MaxMessagesPerMinute = 120,
-};
-```
-
-Byte-level protocol observations in this phase: none new. Phase 5 adds policy
-only over the existing send path and pluggable stores; no protocol code,
-schemas, or constants were copied from any source, including MPL-2.0 sources.
+Every public send passes a mandatory safety gate (rate limits, jitter, warm-up,
+cold-outreach caps, circuit breaker, pacing), but no setting guarantees against
+bans or restrictions — raising throughput raises restriction risk, and no
+setting lowers it. The full honest ledger — including what no SDK setting can
+mitigate and what is still NOT VERIFIED against a real phone — lives in
+[docs/risk-ledger.md](https://github.com/iwasug/WhatsApp.Sdk/blob/master/docs/risk-ledger.md).
 
 ### Sample messaging mode
 
