@@ -1,0 +1,69 @@
+# release.yml - publish both packages to nuget.org from a v* tag or manual
+# dispatch, using nuget.org Trusted Publishing (keyless OIDC).
+#
+# TRUST CONTRACT (do not violate):
+# 1. This FILE NAME (release.yml) is bound into the nuget.org Trusted Publishing
+#    policy for this repository. Renaming or moving this file breaks publishing
+#    with an opaque error until the policy names the new file.
+# 2. The publish path must never run on a self-hosted runner.
+# 3. Only trusted refs publish: v* tags and manual dispatch. The id-token: write
+#    permission and the NuGet credentials exist on this job and nowhere else.
+# 4. A v* tag is a public-release ref in version.json, so a tag build carries no
+#    -g<sha> suffix; verify-pack re-asserts the plain version shape before push.
+
+name: release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Approval-gate reference: activates required reviewers the moment the repo
+    # is public (inert while private on Free/Pro/Team plans).
+    environment: release
+    permissions:
+      contents: read
+      id-token: write        # OIDC issuance for NuGet/login - this job only
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0       # NBGV version height needs full history
+
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Build (Release)
+        run: dotnet build Iwasug.WhatsApp.Sdk.sln -c Release --nologo -p:ContinuousIntegrationBuild=true
+
+      - name: Test (Release)
+        run: dotnet test Iwasug.WhatsApp.Sdk.sln -c Release
+
+      - name: Pack
+        run: dotnet pack Iwasug.WhatsApp.Sdk.sln -c Release --nologo -o artifacts -p:ContinuousIntegrationBuild=true
+
+      - name: Verify package contents
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/verify-pack.ps1 -ArtifactsPath artifacts
+
+      # Login immediately precedes the push: the temp API key lives at most one
+      # hour and one OIDC token yields exactly one key.
+      - uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}   # nuget.org profile name, not an email
+
+      # One push step only: the sibling .snupkg files ride along automatically.
+      - name: Push to nuget.org
+        run: >-
+          dotnet nuget push artifacts/*.nupkg
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
