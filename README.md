@@ -25,7 +25,7 @@ guides cover the ban-safety ledger and host integration recipes.
 
 ## Status
 
-Capabilities shipped so far (phases 1–8; Phase 6 media is in progress at 4/6
+Capabilities shipped so far (phases 1-5, 7-8; Phase 6 media in progress at 4/6
 plans):
 
 - **Connection:** WhatsApp Web wire protocol with reconnect/resume and
