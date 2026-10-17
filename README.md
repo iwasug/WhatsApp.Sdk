@@ -10,24 +10,47 @@ to run many concurrent accounts safely.
 > Meta Platforms, Inc. Use of this library must respect WhatsApp's Terms of
 > Service; see the Compliance note below.
 
+## Install
+
+```bash
+dotnet add package Iwasug.WhatsApp.Sdk
+
+# store-conformance contract kit (for hosts testing their own store implementations):
+dotnet add package Iwasug.WhatsApp.Sdk.Testing
+```
+
+The [pairing sample](https://github.com/iwasug/WhatsApp.Sdk/tree/master/samples/Iwasug.WhatsApp.Sdk.PairingSample)
+exercises the public API end to end; the [docs/](https://github.com/iwasug/WhatsApp.Sdk/tree/master/docs)
+guides cover the ban-safety ledger and host integration recipes.
+
 ## Status
 
-Phases 1–5 complete: Foundation & Store Seam → Wire Protocol & Connection
-Resilience → Pairing & Session Durability → Signal E2EE & Messaging →
-Ban-Safety Layer. The
-Phase-1 walking skeleton that started it:
+Capabilities shipped so far (phases 1–8; Phase 6 media is in progress at 4/6
+plans):
 
-- Root solution with two packable projects: the SDK and a published store
-  contract test kit (`Iwasug.WhatsApp.Sdk.Testing`).
-- First store seam wired end-to-end: `AccountId` → async factory →
-  account-scoped `ISignalSessionStore` → typed `SignalSessionRecord`
-  write/read, proven by an abstract contract suite running against the
-  in-memory reference implementation.
+- **Connection:** WhatsApp Web wire protocol with reconnect/resume and
+  disconnect discrimination; per-account connection-state events.
+- **Pairing & session durability:** QR-code and 8-char pairing-code linking
+  with typed lifecycle events; sessions persist through the pluggable store and
+  survive process restart. Pairing flows are scripted-server verified —
+  real-phone UAT is still NOT VERIFIED (see the
+  [risk ledger](https://github.com/iwasug/WhatsApp.Sdk/blob/master/docs/risk-ledger.md#live-verification-status)).
+- **Messaging (Signal E2EE):** 1:1 and group text, receipts + mark-as-read,
+  quoted replies, retry-receipt recovery, typed events (see Messaging below).
+- **Ban-safety gate:** mandatory on every send — token buckets + jitter,
+  warm-up, cold-outreach cap, circuit breaker, active-hours + pacing;
+  safe-by-default (see Ban-safety / risk ledger below).
+- **Media (Phase 6, in progress — 4/6 plans):** upload/download pipeline with
+  download-expiry recovery; live UAT traceability pending (MED-01).
+- **Multi-account:** `SessionManager` orchestration (add/remove/status/restart,
+  hot add/remove, per-account health) with hard per-account isolation.
+- **Broadcast & extended:** fan-out broadcast with per-recipient outcomes,
+  durable per-account outbox with backoff + dead-letter, presence, reactions,
+  edits, and delete-for-everyone.
 
-Wire protocol, pairing, Signal end-to-end encryption, messaging, and the
-mandatory ban-safety gate ship through Phase 5 (see the Messaging and
-Ban-Safety sections below). Media,
-multi-account orchestration, broadcast, and full presence arrive in later phases.
+The store contract test kit ships as a second package
+(`Iwasug.WhatsApp.Sdk.Testing`) for hosts verifying their own store
+implementations.
 
 ## In-memory reference store — read this
 
@@ -136,11 +159,16 @@ service required.
 WhatsApp actively detects and restricts automation that violates its ToS. This
 library documents the risks it mitigates (rate limiting, jitter, warm-up,
 cold-outreach caps, circuit breaking, pacing — Phase 5) and the risks it
-cannot (see the Ban-safety risk ledger above). There is no guarantee against
-restrictions or bans; you are responsible for how you use this software.
+cannot — see the
+[Ban-safety risk ledger](https://github.com/iwasug/WhatsApp.Sdk/blob/master/docs/risk-ledger.md).
+There is no guarantee against restrictions or bans; you are responsible for how
+you use this software.
 
 ## License & provenance
 
-MIT — see [LICENSE](LICENSE). This project is a clean-room implementation: no
-code or schemas are copied from whatsmeow (MPL-2.0). See
-[NOTICE.md](NOTICE.md) for the provenance policy.
+MIT — see
+[LICENSE](https://github.com/iwasug/WhatsApp.Sdk/blob/master/LICENSE). This
+project is a clean-room implementation: no code or schemas are copied from
+whatsmeow (MPL-2.0). See
+[NOTICE.md](https://github.com/iwasug/WhatsApp.Sdk/blob/master/NOTICE.md) for
+the provenance policy.
