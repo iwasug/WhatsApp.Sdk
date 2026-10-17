@@ -42,7 +42,7 @@ contract classes, one binding per implementation.
    `IdentityStoreContractTests`, `PreKeyStoreContractTests`,
    `RecentMessageCacheStoreContractTests`, `SignalSessionStoreContractTests`,
    `SafetyStateStoreContractTests`, `OutboxStoreContractTests`,
-   `IRecipientContactStoreContractTests` (I-prefixed as shipped) — and override
+   `RecipientContactStoreContractTests` — and override
    `CreateFactory` to return YOUR factory, e.g.
    `protected override ISignalSessionStoreFactory CreateFactory() => new MyStoreFactory();`.
    xunit runs every inherited `[Fact]` against your implementation.

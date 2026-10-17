@@ -103,7 +103,7 @@ Per-store notes, sourced from each interface's own documentation:
    // …repeat for IdentityStoreContractTests, PreKeyStoreContractTests,
    // RecentMessageCacheStoreContractTests, SafetyStateStoreContractTests,
    // CredentialStoreContractTests, OutboxStoreContractTests, and
-   // IRecipientContactStoreContractTests (the I-prefixed name is the shipped one).
+   // RecipientContactStoreContractTests.
    ```
 
 3. Subclass `ComplianceTestBase` once with an empty concrete type so the
