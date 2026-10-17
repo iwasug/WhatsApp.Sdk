@@ -54,8 +54,8 @@ jobs:
               exit 1
             }
             20 {
-              Write-Output '::error title=INTEROP INFRA::Transport, DNS, handshake or timeout failure - possibly datacenter-IP throttling. This is NOT protocol drift.'
-              exit 1
+              Write-Output '::warning title=INTEROP INFRA::Transport, DNS, handshake or timeout failure - possibly datacenter-IP throttling. This is NOT protocol drift.'
+              exit 0
             }
             default {
               Write-Output "::error title=INTEROP PROBE CONTRACT ERROR::Unexpected probe exit code $code (2 = broken argument contract; 0/10/20 are the classified outcomes)."
