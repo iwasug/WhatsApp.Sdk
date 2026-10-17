@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 18
+open_count: 19
 waived_count: 1
 fixed_count: 0
-total_count: 19
-last_updated: 2026-10-17T00:05:22.233Z
+total_count: 20
+last_updated: 2026-10-17T00:23:38.876Z
 ---
 
 # Broken Windows Ledger
@@ -34,6 +34,7 @@ last_updated: 2026-10-17T00:05:22.233Z
 | 17 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessagingLoopbackTests.cs | 873 | 09-01 (pre-existing, deferred per scope boundary): decrypt_failure_no_ack_no_event_and_pump_continues is flaky - NRE at line 873 when the test continuation outruns the peer-task assignment after ConnectAsync; isolated + rerun runs green; fix direction (TaskCompletionSource handoff) in phases/09-ship/deferred-items.md | open |  | 2026-10-16T23:09:52.888Z |  |
 | 18 | 09 | unrun-verify | .planning/phases/09-ship/09-03-PLAN.md |  | 09-03: plan verify commands carry a '-x' flag that breaks the repo's MTP runner (dotnet test ... -x -> Zero tests ran, exit 5, dotnet\\/sdk#55309 family); verifies ran without -x per 08-VERIFICATION practice - SUMMARY deviation recorded | open |  | 2026-10-17T00:05:21.089Z |  |
 | 19 | 09 | deviation | tests/Iwasug.WhatsApp.Sdk.Tests/Messaging/MessageCorrelationTests.cs | 354 | 09-03 (pre-existing, deferred per scope boundary): parallel_sends_serialize_and_settle_exactly_one_outcome_each is flaky - SdkTransportException 'unexpected nonce' surfaced via Rig.DisposeAsync/ScriptedPeer.RunAsync; isolated + rerun runs green; fix direction in phases/09-ship/deferred-items.md | open |  | 2026-10-17T00:05:22.233Z |  |
+| 20 | 09 | deviation | docs/risk-ledger.md | 38 | 09-05 [Rule 1]: relocated ledger's dangling '(see Compliance below)' cross-reference repointed at the README Compliance section - the move itself broke the pointer; all disclaimers byte-identical (mechanical block diff, single hunk) | open |  | 2026-10-17T00:23:38.876Z |  |
 
 ````json
 [
@@ -281,6 +282,19 @@ last_updated: 2026-10-17T00:05:22.233Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-10-17T00:05:22.233Z",
+    "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 20,
+    "kind": "deviation",
+    "phase": "09",
+    "file": "docs/risk-ledger.md",
+    "line": 38,
+    "description": "09-05 [Rule 1]: relocated ledger's dangling '(see Compliance below)' cross-reference repointed at the README Compliance section - the move itself broke the pointer; all disclaimers byte-identical (mechanical block diff, single hunk)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-17T00:23:38.876Z",
     "resolved_at": null,
     "milestone": null
   }
