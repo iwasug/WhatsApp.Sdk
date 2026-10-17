@@ -1,0 +1,54 @@
+# ci.yml - blocking build + test gate on every push to master and every pull request.
+#
+# INVARIANTS (both are empirically proven repo quirks - do not "simplify" them away):
+# 1. Full history: every checkout below uses the full clone depth because
+#    Nerdbank.GitVersioning derives the package version from git height; a
+#    shallow clone silently computes a wrong height.
+# 2. IN-10: the no-logo switch is BUILD-ONLY in this repo. Passing it to a test
+#    invocation exits 5 with "Zero tests ran" and a swallowed error on SDK
+#    10.0.401 (documented in tests/Iwasug.WhatsApp.Sdk.Tests/*.csproj). Never
+#    add that flag to any command in the "Full test suite" / "Isolation suite"
+#    steps.
+#
+# Result instrumentation is deliberately absent: OPS-02 does not require it and
+# the MTP-era syntax differs from the legacy runner dialect.
+
+name: ci
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json          # pins the SDK from global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props   # repo has no packages.lock.json
+
+      - name: Build
+        run: dotnet build Iwasug.WhatsApp.Sdk.sln --nologo
+
+      - name: Full test suite
+        run: dotnet test Iwasug.WhatsApp.Sdk.sln
+
+      - name: Isolation suite
+        run: dotnet test Iwasug.WhatsApp.Sdk.sln --filter "FullyQualifiedName~Isolation"
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: test-results
+          path: TestResults/**
+          if-no-files-found: ignore
